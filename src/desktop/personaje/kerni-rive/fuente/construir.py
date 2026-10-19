@@ -200,6 +200,39 @@ def zzz():
     zs = [zeta("zeta1", *rel(154, 345), 28, 15), zeta("zeta2", *rel(232, 338), 16, 10), zeta("zeta3", *rel(212, 412), 21, 12)]
     return node("zzz_g", 0, 0, [node("zzz_flota", 0, 0, zs)], extra=' opacity="0"')
 
+def ojo_neutro(lado, dx, dy):
+    """Ojo serio: una rayita horizontal (referencia: kerni_neutro_ref.jpg)."""
+    forma = rect(76, 16, 8)
+    halo = shape(f"halo_neutro_{lado}", dx, dy, forma + f'<Fill name="Halo">{solid("AA37E6F2")}<Feather strength="12" name="Suave"/></Fill>')
+    ojo = shape(f"neutro_{lado}", dx, dy, forma + fill(lineal(0, -8, 0, 8, ["FF8FF4FF", CIAN, "FF2BC8D8"])))
+    return [ojo, halo]
+
+def boca_neutro_xml(cx, cy):
+    forma = rect(86, 8, 4)
+    return [shape("boca_neutro", cx, cy, forma + fill(solid("FF4FD8EA"))),
+            shape("halo_boca_neutro", cx, cy, forma + f'<Fill name="Halo">{solid("88 37E6F2".replace(" ", ""))}<Feather strength="9" name="Suave"/></Fill>')]
+
+def ojo_aburrido(lado, dx, dy, ang):
+    """Ojo entrecerrado: medio disco con el borde de arriba plano (referencia: kerni_aburrido_ref.jpg)."""
+    forma = camino([(-34, -3), (-18, -5), (0, -5), (18, -5), (34, -3), (39, 6), (31, 19), (15, 30), (0, 34), (-15, 30), (-31, 19), (-39, 6)], cerrado=True)
+    halo = shape(f"halo_aburrido_{lado}", dx, dy, forma + f'<Fill name="Halo">{solid("AA37E6F2")}<Feather strength="14" name="Suave"/></Fill>', rot=ang * RAD)
+    ojo = shape(f"aburrido_{lado}", dx, dy, forma + fill(lineal(0, -5, 0, 34, ["FF7EF0FA", CIAN, "FF3FD6E6"])), rot=ang * RAD)
+    return [ojo, halo]
+
+def boca_aburrida_xml(cx, cy):
+    onda = camino([(-36, 3), (-24, -4), (-10, 5), (4, -4), (18, 5), (30, -2), (36, 1)])
+    return halo_trazo("boca_aburrida", cx, cy, onda, 7)
+
+def barras_casco():
+    """Las dos barras cian del casco que se ven en la cara aburrida."""
+    out = []
+    for lado, (x, y, largo, ang) in {"izq": (346, 192, 160, -8), "der": (716, 203, 172, 9)}.items():
+        forma = rect(largo, 20, 10)
+        halo = shape(f"halo_barra_{lado}", 0, 0, forma + f'<Fill name="Halo">{solid("AA37E6F2")}<Feather strength="12" name="Suave"/></Fill>')
+        barra = shape(f"barra_{lado}", 0, 0, forma + fill(lineal(0, -10, 0, 10, ["FF9AF6FF", CIAN, "FF2FC4D6"])))
+        out.append(node(f"pos_barra_{lado}", x - CASCO_ANCLA[0], y - CASCO_ANCLA[1], [barra, halo], rot=ang * RAD))
+    return node("barras_cap", 0, 0, out, extra=' opacity="0"')
+
 def pantalla():
     """Pantalla oscura con brillo de vidrio."""
     r = 172.0
@@ -217,8 +250,12 @@ def cara():
     dormidos = node("ojos_dormido", 0, 0, ojo_dormido("izq", -88, -4) + ojo_dormido("der", 72, 0), extra=' opacity="0"')
     alertas = node("ojos_alerta", 0, 0, ojo_alerta("izq", -88, -5) + ojo_alerta("der", 64, -10), extra=' opacity="0"')
     cejas = node("cejas_alerta", 0, 0, [ceja_alerta("izq", -92, -93, -16), ceja_alerta("der", 81, -91, 20)], extra=' opacity="0"')
-    ojos = node("mirada_modo", 0, 0, [node("mirada_app", 0, 0, [node("parpadeo", 0, 0, [redondos]), felices, dormidos, alertas, cejas])])
-    bocas = node("bocas", 0, 62, [node("boca_dormido_g", -15, -5, boca_dormido_xml(0, 0), extra=' opacity="0"'),
+    neutros = node("ojos_neutro", 0, 0, ojo_neutro("izq", -84, -28) + ojo_neutro("der", 80, -28), extra=' opacity="0"')
+    aburridos = node("ojos_aburrido", 0, 0, ojo_aburrido("izq", -83, -7, 3) + ojo_aburrido("der", 82, 0, -4), extra=' opacity="0"')
+    ojos = node("mirada_modo", 0, 0, [node("mirada_app", 0, 0, [node("parpadeo", 0, 0, [redondos]), felices, dormidos, alertas, cejas, neutros, aburridos])])
+    bocas = node("bocas", 0, 62, [node("boca_neutro_g", -2, 0, boca_neutro_xml(0, 0), extra=' opacity="0"'),
+                                  node("boca_aburrida_g", -16, 1, boca_aburrida_xml(0, 0), extra=' opacity="0"'),
+                                  node("boca_dormido_g", -15, -5, boca_dormido_xml(0, 0), extra=' opacity="0"'),
                                   node("boca_alerta_g", -16, 25, boca_alerta_xml(0, 0), extra=' opacity="0"'),
                                   node("boca_triste_g", 0, 0, boca_triste(0, 0), extra=' opacity="0"'),
                                   node("boca_ondulada_g", 0, 0, boca_ondulada(0, 0), extra=' opacity="0"'),
@@ -306,7 +343,7 @@ def pie(lado):
 
 CASCO_ANCLA = (580.0, 280.0)
 cinta = node("cinta", 0, 0, parte("cinta", *CASCO_ANCLA, borde=3.5), extra=' opacity="0"')
-casco = node("casco", *rel(*CASCO_ANCLA), [cinta] + parte("casco", *CASCO_ANCLA))
+casco = node("casco", *rel(*CASCO_ANCLA), [barras_casco(), cinta] + parte("casco", *CASCO_ANCLA))
 oreja = node("oreja", *rel(825.0, 555.0), parte("oreja", 825.0, 555.0))
 carcasa_clave = "carcasa/r343"
 carcasa = node("carcasa", *rel(560.0, 590.0), parte("carcasa", 560.0, 590.0))
@@ -325,7 +362,7 @@ VM, VMI = "0:40", "0:41"
 P_NUM = {"mirar_x": "0:50", "mirar_y": "0:51"}
 P_MODO = "0:53"
 ENUM = "0:70"
-MODOS = ["idle", "sonriente", "asustado", "research", "dormido", "alerta"]
+MODOS = ["idle", "sonriente", "asustado", "research", "dormido", "alerta", "neutro", "aburrido"]
 MODO_ID = {m: f"0:{71 + i}" for i, m in enumerate(MODOS)}
 TRIG = {"saludar": "0:52"}
 vm = (f'<ViewModel defaultInstanceId="{VMI}" name="Kerni" id="{VM}">'
@@ -392,6 +429,8 @@ DEF = {  # valor base de cada propiedad de modo
     (IDS["ojos_dormido"], OP): 0.0, (IDS["boca_dormido_g"], OP): 0.0, (IDS["dormido_frente"], OP): 0.0, (IDS["zzz_g"], OP): 0.0,
     (IDS["ojos_alerta"], OP): 0.0, (IDS["cejas_alerta"], OP): 0.0, (IDS["signo_g"], OP): 0.0, (IDS["boca_alerta_g"], OP): 0.0,
     (IDS["izq_dedo"], OP): 0.0, (IDS["der_alerta"], OP): 0.0,
+    (IDS["ojos_neutro"], OP): 0.0, (IDS["boca_neutro_g"], OP): 0.0,
+    (IDS["ojos_aburrido"], OP): 0.0, (IDS["boca_aburrida_g"], OP): 0.0, (IDS["barras_cap"], OP): 0.0,
 }
 def modo_anim(nombre, dur, cambios, loop="loop"):
     pistas = {}
@@ -431,6 +470,19 @@ A["m_research"] = modo_anim("research", 120, {
     (IDS["izq_colgando"], OP): 0.0, (IDS["izq_lupa"], OP): 1.0,
     (IDS["mirada_modo"], X): ciclo([-16, -10, -16, -22], 120), (IDS["mirada_modo"], Y): 8.0,
     (IDS["pose_modo"], ROT): -6 * RAD, (IDS["pose_modo"], X): -10.0,
+})
+
+# ---- caras por carga de la PC: neutro (30-69 %) y aburrido (< 30 %). El idle es la cara de >= 70 %.
+A["m_neutro"] = modo_anim("neutro", 240, {
+    (IDS["ojos_redondos"], OP): 0.0, (IDS["ojos_neutro"], OP): 1.0,
+    (IDS["boca_sonrisa_g"], OP): 0.0, (IDS["boca_neutro_g"], OP): 1.0,
+})
+A["m_aburrido"] = modo_anim("aburrido", 300, {
+    (IDS["ojos_redondos"], OP): 0.0, (IDS["ojos_aburrido"], OP): 1.0,
+    (IDS["boca_sonrisa_g"], OP): 0.0, (IDS["boca_aburrida_g"], OP): 1.0,
+    (IDS["barras_cap"], OP): ciclo([1.0, 0.65], 300),   # las barras "respiran" despacio
+    (IDS["luces_cian"], OP): 0.5,
+    (IDS["pose_modo"], Y): ciclo([3, 6], 300),           # un poco caído
 })
 
 A["m_dormido"] = modo_anim("dormido", 240, {

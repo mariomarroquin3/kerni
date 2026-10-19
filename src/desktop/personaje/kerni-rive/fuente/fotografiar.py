@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 AQUI = Path(__file__).parent
-MODOS = ["idle", "sonriente", "asustado", "research", "dormido", "alerta"]
+MODOS = ["idle", "sonriente", "asustado", "research", "dormido", "alerta", "neutro", "aburrido"]
 ELEGIDOS = sys.argv[1:] or MODOS
 RIVE = str(Path.home() / ".rive" / "bin" / "rive.exe")
 
@@ -27,7 +27,7 @@ for m in ELEGIDOS:
     fondo.alpha_composite(im)
     fotos.append(fondo.convert("RGB").resize((480, 480)))
 
-cols = 3
+cols = 4
 filas = (len(fotos) + cols - 1) // cols
 hoja = Image.new("RGB", (480 * cols, 480 * filas), (246, 248, 252))
 for i, im in enumerate(fotos):

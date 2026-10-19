@@ -6,17 +6,19 @@ Rig nativo de Kerni en Rive, construido igual que el de Bitoo (`bitoo/strategy/p
 
 | Archivo | Qué es |
 |---|---|
-| `kerni.riv` | El archivo que carga la app (55 KB). Copia en `src/desktop/web/assets/kerni.riv` |
+| `kerni.riv` | El archivo que carga la app (61 KB). Copia en `src/desktop/web/assets/kerni.riv` |
 | `fuente/` | Todo lo necesario para regenerarlo (ver abajo) |
 | `fuente/kerni_*_ref.jpg` | Las tres imágenes de referencia: saludo, sonriente, research |
 
 ## Qué hace hoy
 
-Respira y parpadea siempre. Tiene seis **modos** (que cruzan entre sí en 0.35 s) y un saludo:
+Respira y parpadea siempre. Tiene ocho **modos** (que cruzan entre sí en 0.35 s) y un saludo:
 
 | Modo | Cara | Cuerpo | Cuándo lo usa la app |
 |---|---|---|---|
-| `idle` | ojos redondos, sonrisa pequeña | brazos abajo, luces cian | Todo tranquilo |
+| `idle` | ojos redondos, sonrisa pequeña | brazos abajo, luces cian | CPU al **70 % o más** (la cara de siempre) |
+| `neutro` | ojos y boca como rayitas | brazos abajo | CPU de **30 % a 69 %** |
+| `aburrido` | ojos entrecerrados, boca ondulada, dos barras cian en el casco que respiran | brazos abajo, un poco caído | CPU **por debajo de 30 %** (PC sin hacer nada) |
 | `sonriente` | ojos felices `^ ^`, boca abierta | pulgares arriba con ambas manos, rebota | Reacción de 4 s tras una acción exitosa (limpieza, cierre de proceso) |
 | `asustado` | ojos grandes, boca ondulada, gota de sudor | se encoge y tiembla, brazos hacia afuera, luces rojas | Modo pánico (CPU sostenida ≥ 95 %) |
 | `research` | ojos redondos mirando abajo-izquierda, boca triste | inclinado, sostiene la lupa con haz de luz | Esperando al modelo, o el vigilante de RAM encontró un sospechoso |
@@ -24,7 +26,9 @@ Respira y parpadea siempre. Tiene seis **modos** (que cruzan entre sí en 0.35 s
 | `alerta` | ojos altos, cejas preocupadas, signo "!" parpadeando, boca en arco | dedo índice arriba y la otra mano abierta | Kerni propuso algo por iniciativa propia (vigilante de RAM, disco lleno, propuesta del modelo) y espera tu respuesta |
 | *(saludo)* | ojos felices, boca abierta | levanta el brazo izquierdo y agita la mano abierta, 2.4 s | Al abrir la app y al hacer clic sobre Kerni (o tecla 1) |
 
-Prioridad en la app (`modoKerni` en `web/estado.js`): `asustado` > `alerta` > `research` > `sonriente` > `dormido` > `idle`.
+Prioridad en la app (`modoKerni` en `web/estado.js`): `asustado` > `alerta` > `research` > `sonriente` > `dormido` > cara de la carga (`idle` / `neutro` / `aburrido`).
+
+La carga es la CPU promediada en las últimas 5 lecturas (10 s) y con histéresis de 4 puntos, para que una CPU que ronda 30 % o 70 % no haga parpadear la cara. `idle`, `neutro`, `aburrido` y `dormido` son los modos de **reposo**: ahí Kerni y el panel se vuelven un poco transparentes (como Bitoo) hasta que le movés el puntero o le escribís.
 
 ## Contrato con la app
 
@@ -32,7 +36,7 @@ Artboard `Kerni` (1024×1024), máquina de estados `kerni`, view model `Kerni`.
 
 | Dato | Tipo | Valores |
 |---|---|---|
-| `modo` | lista | `idle` · `sonriente` · `asustado` · `research` · `dormido` · `alerta` |
+| `modo` | lista | `idle` · `sonriente` · `asustado` · `research` · `dormido` · `alerta` · `neutro` · `aburrido` |
 | `saludar` | disparador | saluda y vuelve al modo actual |
 | `mirar_x`, `mirar_y` | número | −100 a 100: hacia dónde miran los ojos (0 = al frente) |
 
@@ -69,7 +73,7 @@ kerni (raíz, en los pies)
 └── pie_izq, pie_der          quedan plantados cuando el cuerpo rebota
 ```
 
-Las imágenes de referencia son siete: saludo, sonriente, research, dormido, alerta e idle (`base`), más un segundo saludo que no se usa (es el mismo diseño). Cada variante de brazo es una pose completa dibujada en las imágenes y se cambia con opacidad (el cruce de 0.35 s la suaviza). El brazo izquierdo colgando es el de la imagen `base` (idle).
+Las caras `neutro` y `aburrido` se dibujan nativas a partir de `kerni_neutro_ref.jpg` y `kerni_aburrido_ref.jpg` (el cuerpo es el del idle). Las imágenes de referencia son nueve: saludo, sonriente, research, dormido, alerta e idle (`base`), más un segundo saludo que no se usa (es el mismo diseño). Cada variante de brazo es una pose completa dibujada en las imágenes y se cambia con opacidad (el cruce de 0.35 s la suaviza). El brazo izquierdo colgando es el de la imagen `base` (idle).
 
 Reglas para no romperlo:
 
