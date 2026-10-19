@@ -125,3 +125,31 @@ test('la transparencia en reposo está en el CSS y la activa solo el atributo da
   assert.match(css, /body\[data-reposo='1'\] #mascota \{ opacity: 0\.6/);
   assert.match(main, /dataset\.reposo/);
 });
+
+test('la cara por carga sale de la BATERÍA, no de la CPU', () => {
+  assert.match(main, /nivelCarga\.actualizar\(m\.bateria\.porcentaje\)/);
+  assert.doesNotMatch(main, /nivelCarga\.actualizar\(m\.cpu\)/);
+  const rust = leer('src-tauri', 'src', 'sistema.rs');
+  assert.match(rust, /pub bateria: Option<Bateria>/);
+  assert.match(rust, /GetSystemPowerStatus/);
+});
+
+test('el saludo cubre todas las propiedades que tocan los modos (si no, se apilan las caras)', () => {
+  // Regresión: el saludo solo apagaba las caras viejas y el modo nuevo (aburrido, neutro...) quedaba debajo.
+  const escena = leer('personaje', 'kerni-rive', 'fuente', 'scene.rml');
+  const animaciones = {};
+  for (const [, nombre, cuerpo] of escena.matchAll(/<LinearAnimation[^>]*name="(\w+)"[^>]*>([\s\S]*?)<\/LinearAnimation>/g)) {
+    const claves = new Set();
+    for (const [, objeto, props] of cuerpo.matchAll(/<KeyedObject objectId="([^"]+)">([\s\S]*?)<\/KeyedObject>/g)) {
+      for (const [, k] of props.matchAll(/propertyKey="(\d+)"/g)) claves.add(`${objeto}:${k}`);
+    }
+    animaciones[nombre] = claves;
+  }
+  const saludo = animaciones.saludo;
+  assert.ok(saludo && saludo.size > 20, 'el saludo debería tener muchas propiedades con claves');
+  for (const modo of ['idle', 'sonriente', 'asustado', 'research', 'dormido', 'alerta', 'neutro', 'aburrido']) {
+    assert.ok(animaciones[modo], `no encuentro la animación del modo ${modo} en scene.rml (¿corriste construir.py?)`);
+    const faltan = [...animaciones[modo]].filter((c) => !saludo.has(c));
+    assert.deepEqual(faltan, [], `el modo ${modo} toca propiedades que el saludo no cubre: ${faltan.join(', ')}`);
+  }
+});

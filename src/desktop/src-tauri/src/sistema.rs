@@ -50,13 +50,74 @@ pub struct Disco {
     pub total_gb: f64,
 }
 
-/// Misma forma que `SnapshotSchema` del backend (más `protegido`, que el backend ignora).
+/// Batería de la PC. `None` si no tiene (un equipo de escritorio) o Windows no sabe el nivel.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Bateria {
+    pub porcentaje: u8,
+    /// Cargándose ahora mismo.
+    pub cargando: bool,
+    /// Conectada a la corriente (puede estar al 100 % sin "cargar").
+    pub enchufada: bool,
+}
+
+/// Misma forma que `SnapshotSchema` del backend (más `protegido` y `bateria`, que el backend ignora).
 #[derive(Serialize)]
 pub struct Metricas {
     pub cpu: f32,
     pub ram: Ram,
     pub disco: Disco,
     pub procesos: Vec<Proceso>,
+    pub bateria: Option<Bateria>,
+}
+
+#[cfg(windows)]
+#[repr(C)]
+struct SystemPowerStatus {
+    ac_line_status: u8,
+    battery_flag: u8,
+    battery_life_percent: u8,
+    system_status_flag: u8,
+    battery_life_time: u32,
+    battery_full_life_time: u32,
+}
+
+#[cfg(windows)]
+#[link(name = "kernel32")]
+extern "system" {
+    fn GetSystemPowerStatus(estado: *mut SystemPowerStatus) -> i32;
+}
+
+/// Interpreta el estado de energía de Windows. Separada de la llamada al sistema para poder probarla.
+/// `flag`: 128 = sin batería, 8 = cargando, 255 = desconocido. `porcentaje`: 255 = desconocido.
+pub fn interpretar_bateria(ac: u8, flag: u8, porcentaje: u8) -> Option<Bateria> {
+    if flag == 255 || flag & 128 != 0 || porcentaje > 100 {
+        return None;
+    }
+    Some(Bateria { porcentaje, cargando: flag & 8 != 0, enchufada: ac == 1 })
+}
+
+#[cfg(windows)]
+pub fn leer_bateria() -> Option<Bateria> {
+    let mut e = SystemPowerStatus {
+        ac_line_status: 0,
+        battery_flag: 0,
+        battery_life_percent: 0,
+        system_status_flag: 0,
+        battery_life_time: 0,
+        battery_full_life_time: 0,
+    };
+    // SAFETY: `e` es una estructura válida y con el mismo diseño que SYSTEM_POWER_STATUS de Win32.
+    let ok = unsafe { GetSystemPowerStatus(&mut e) };
+    if ok == 0 {
+        return None;
+    }
+    interpretar_bateria(e.ac_line_status, e.battery_flag, e.battery_life_percent)
+}
+
+#[cfg(not(windows))]
+pub fn leer_bateria() -> Option<Bateria> {
+    None
 }
 
 #[derive(Serialize)]
@@ -144,6 +205,7 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
         ram: Ram { usada_mb: sys.used_memory() as f64 / MB, total_mb: (sys.total_memory() as f64 / MB).max(1.0) },
         disco: Disco { libre_gb: libre, total_gb: total },
         procesos: elegidos,
+        bateria: leer_bateria(),
     }
 }
 
@@ -258,6 +320,30 @@ mod tests {
             assert_ne!(p.pid, 0);
             assert!((0.0..=100.0).contains(&p.cpu), "cpu fuera de rango en {}", p.nombre);
             assert_eq!(p.protegido, es_protegido(&p.nombre), "protegido mal marcado en {}", p.nombre);
+        }
+    }
+
+    #[test]
+    fn interpreta_el_estado_de_energia_de_windows() {
+        // 97 % y enchufada, sin cargar: el caso de la captura del usuario.
+        assert_eq!(interpretar_bateria(1, 1, 97), Some(Bateria { porcentaje: 97, cargando: false, enchufada: true }));
+        // con la batería baja y cargándose (flag 8 = cargando; 1 = alta, 2 = baja, 4 = crítica)
+        assert_eq!(interpretar_bateria(1, 8 | 2, 20), Some(Bateria { porcentaje: 20, cargando: true, enchufada: true }));
+        // con batería y sin corriente
+        assert_eq!(interpretar_bateria(0, 2, 25), Some(Bateria { porcentaje: 25, cargando: false, enchufada: false }));
+        // sin batería (equipo de escritorio), desconocida o un porcentaje imposible: no hay dato
+        assert_eq!(interpretar_bateria(1, 128, 255), None);
+        assert_eq!(interpretar_bateria(1, 255, 255), None);
+        assert_eq!(interpretar_bateria(0, 1, 255), None);
+    }
+
+    #[test]
+    fn la_bateria_real_es_coherente_o_no_existe() {
+        if let Some(b) = leer_bateria() {
+            assert!(b.porcentaje <= 100);
+            if b.cargando {
+                assert!(b.enchufada, "no se puede cargar sin estar enchufada");
+            }
         }
     }
 

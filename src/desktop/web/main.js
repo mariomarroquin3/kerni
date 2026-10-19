@@ -24,8 +24,12 @@ function demo(comando, args) {
     tick += 1;
     const panico = new URLSearchParams(location.search).has('panico');
     const cpu = panico ? 98 : 25 + 30 * Math.abs(Math.sin(tick / 5));
+    // En la demo del navegador la batería se cambia con ?bateria=25 (o ?bateria=ninguna para un equipo de escritorio).
+    const pedida = new URLSearchParams(location.search).get('bateria');
+    const bateria = pedida === 'ninguna' ? null : { porcentaje: Number(pedida ?? 97), cargando: false, enchufada: false };
     return {
       cpu,
+      bateria,
       ram: { usadaMb: 9800, totalMb: 16000 },
       disco: { libreGb: 120, totalGb: 476 },
       procesos: [
@@ -42,6 +46,8 @@ function demo(comando, args) {
 
 const detector = crearDetectorPanico();
 const personaje = createCharacter($('mascota'));
+// Solo en desarrollo (tauri dev / vite): deja que scripts/probar-tauri.mjs maneje al personaje. No existe en el build final.
+if (import.meta.env?.DEV) window.__kerni = { personaje };
 
 // ---------- Modo del personaje (Rive) ----------
 let enPanico = false;
@@ -52,9 +58,8 @@ let ultimaInteraccion = Date.now();
 // Sin interacción durante este tiempo, Kerni se duerme (3 min; `?sueno=5` lo baja a 5 s para ver la demo).
 const SUENO_MS = Number(new URLSearchParams(location.search).get('sueno') ?? 180) * 1000;
 const ACTIVO_MS = 4000;      // tras tocar a Kerni, sigue opaco este tiempo antes de volver a la transparencia
-const nivelCarga = crearNivelCarga();
-let carga = 'alta';          // nivel de carga de CPU suavizado: decide la cara en reposo
-let primeraLectura = true;   // la primera lectura de CPU siempre es 0 (no hay con qué comparar): se descarta
+const nivelCarga = crearNivelCarga({ muestras: 1 }); // la batería cambia despacio: solo hace falta la histéresis
+let carga = 'alta';          // nivel de la BATERÍA (70 % o más / 30-69 % / menos): decide la cara en reposo
 
 function actualizarModo() {
   const ahora = Date.now();
@@ -158,8 +163,8 @@ async function actualizar() {
     const panico = detector.actualizar(m.cpu);
     document.body.dataset.animo = calcularAnimo(m, panico);
     enPanico = panico;
-    if (primeraLectura) primeraLectura = false;
-    else carga = nivelCarga.actualizar(m.cpu);
+    // Sin batería (un equipo de escritorio) no hay nivel que mostrar: queda la cara de siempre.
+    carga = m.bateria ? nivelCarga.actualizar(m.bateria.porcentaje) : 'alta';
     actualizarModo();
     pintar(m);
     pintarPanico(m, panico);

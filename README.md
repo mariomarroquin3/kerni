@@ -7,7 +7,7 @@ Basado en la propuesta *CyberPet AI* ([`docs/`](docs)) y construido con el mismo
 ## Qué hace hoy (hito 1: Salud + Pánico)
 
 - **Se ve cómo está tu PC**: barras de CPU, RAM y disco, y una mascota que cambia de ánimo (feliz, normal, cansado, pánico).
-- **Personaje animado en Rive** con ocho modos. Su cara sigue la carga de CPU (70 % o más: sonriente; 30-69 %: seria; menos de 30 %: aburrida) y reacciona: alegre, asustado, investigando, alerta y dormido (tras 3 minutos sin interacción).
+- **Personaje animado en Rive** con ocho modos. Su cara sigue la carga de la **batería** (70 % o más: sonriente; 30-69 %: seria; menos de 30 %: aburrida) y reacciona: alegre, asustado, investigando, alerta y dormido (tras 3 minutos sin interacción).
 - **Discreto**: en reposo se vuelve un poco transparente, y un botón oculta o muestra las métricas (se recuerda la preferencia).
 - **Modo pánico**: si la CPU pasa de 95% de forma sostenida, Kerni se pone en alerta roja y te muestra qué procesos la están usando, con un botón para cerrarlos.
 - **Alimentar a Kerni**: limpia los archivos temporales de más de 24 horas.

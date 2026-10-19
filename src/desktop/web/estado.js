@@ -61,23 +61,24 @@ export function snapshotParaBackend(m) {
   };
 }
 
-// ---------- Carga de la PC -> cara de Kerni ----------
+// ---------- Carga de la BATERÍA -> cara de Kerni ----------
+// (La "carga" de la que habla la regla es la de la batería, no la del procesador.)
 export const UMBRAL_CARGA_ALTA = 70;   // 70 % o más: la cara sonriente normal (idle)
 export const UMBRAL_CARGA_MEDIA = 30;  // de 30 % a 69 %: cara seria (neutro); menos de 30 %: aburrido
 const HISTERESIS_CARGA = 4;            // puntos que hay que pasarse del umbral para cambiar de cara
-const MUESTRAS_CARGA = 5;              // lecturas que se promedian (una cada 2 s = 10 s)
+const MUESTRAS_CARGA = 5;              // lecturas que se promedian por defecto
 
-/** Nivel de una carga de CPU (0-100) sin suavizar: 'alta' | 'media' | 'baja'. */
-export function nivelDeCarga(cpu) {
-  if (cpu >= UMBRAL_CARGA_ALTA) return 'alta';
-  if (cpu >= UMBRAL_CARGA_MEDIA) return 'media';
+/** Nivel de una carga (porcentaje 0-100) sin suavizar: 'alta' | 'media' | 'baja'. */
+export function nivelDeCarga(porcentaje) {
+  if (porcentaje >= UMBRAL_CARGA_ALTA) return 'alta';
+  if (porcentaje >= UMBRAL_CARGA_MEDIA) return 'media';
   return 'baja';
 }
 
 /**
- * Decide la cara según la carga de CPU, pero sin parpadear: promedia las últimas lecturas y solo
- * cambia de nivel cuando el promedio se aleja del umbral más que la histéresis. Así una CPU que
- * ronda 30 % o 70 % no hace saltar a Kerni entre dos caras cada dos segundos.
+ * Decide el nivel sin parpadear: promedia las últimas lecturas y solo cambia cuando el promedio se
+ * aleja del umbral más que la histéresis. Así un porcentaje que ronda 30 % o 70 % no hace saltar a
+ * Kerni entre dos caras en cada lectura.
  */
 export function crearNivelCarga({ muestras = MUESTRAS_CARGA, histeresis = HISTERESIS_CARGA } = {}) {
   const ventana = [];

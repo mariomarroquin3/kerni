@@ -88,18 +88,20 @@ ok(ui.cw > 50 && ui.ch > 50, 'el canvas de Rive tiene tamaño (no 0×0)', `${ui.
 ok(/%$/.test(ui.cpu) && /GB/.test(ui.ram) && /GB/.test(ui.disco), 'el HUD muestra métricas reales', `CPU ${ui.cpu} · RAM ${ui.ram} · disco ${ui.disco}`);
 ok(ui.zonas >= 3, 'hay zonas interactivas para el click-through', `${ui.zonas} zonas`);
 
-console.log('\nCara según la carga de la PC (70 % idle · 30-69 % neutro · menos de 30 % aburrido)');
-// Se promedian varias lecturas propias y solo se exige coincidencia si el promedio está lejos de los umbrales.
-const lecturas = [];
-for (let i = 0; i < 6; i++) { lecturas.push((await evaluar(`window.__TAURI_INTERNALS__.invoke('metricas')`)).cpu); await pausa(2000); }
-const prom = lecturas.reduce((a, b) => a + b, 0) / lecturas.length;
-const esperada = prom >= 70 ? 'idle' : prom >= 30 ? 'neutro' : 'aburrido';
-const lejos = Math.abs(prom - 30) > 8 && Math.abs(prom - 70) > 8;
+console.log('\nCara según la BATERÍA (70 % o más idle · 30-69 % neutro · menos de 30 % aburrido)');
+const bat = (await evaluar(`window.__TAURI_INTERNALS__.invoke('metricas')`)).bateria;
 const modoCarga = await evaluar(`document.getElementById('mascota').dataset.modo ?? 'idle'`);
 const eventos = ['asustado', 'alerta', 'research', 'sonriente', 'dormido'];
-if (eventos.includes(modoCarga)) ok(true, 'hay un evento activo que manda sobre la cara de la carga', modoCarga);
-else if (lejos) ok(modoCarga === esperada, `la cara coincide con la carga (CPU media ${prom.toFixed(0)} %)`, `esperada ${esperada}, tiene ${modoCarga}`);
-else ok(true, `CPU media ${prom.toFixed(0)} % está cerca de un umbral: no se exige una cara`, modoCarga);
+if (!bat) {
+  ok(modoCarga === 'idle' || eventos.includes(modoCarga), 'sin batería (equipo de escritorio) queda la cara de siempre', modoCarga);
+} else {
+  ok(Number.isInteger(bat.porcentaje) && bat.porcentaje >= 0 && bat.porcentaje <= 100, 'la batería real llega desde Rust', `${bat.porcentaje} %${bat.cargando ? ' (cargando)' : bat.enchufada ? ' (enchufada)' : ''}`);
+  const esperada = bat.porcentaje >= 70 ? 'idle' : bat.porcentaje >= 30 ? 'neutro' : 'aburrido';
+  const lejos = Math.abs(bat.porcentaje - 30) > 5 && Math.abs(bat.porcentaje - 70) > 5; // la histéresis es de 4 puntos
+  if (eventos.includes(modoCarga)) ok(true, 'hay un evento activo que manda sobre la cara de la batería', modoCarga);
+  else if (lejos) ok(modoCarga === esperada, `la cara coincide con la batería (${bat.porcentaje} %)`, `esperada ${esperada}, tiene ${modoCarga}`);
+  else ok(true, `batería ${bat.porcentaje} % cerca de un umbral: no se exige una cara`, modoCarga);
+}
 
 console.log('\nTransparencia en reposo');
 const reposo = await evaluar(`(async () => {
@@ -143,6 +145,21 @@ const dibujados = await pixelesDistintos();
 ok(dibujados > 2000, 'el canvas tiene píxeles dibujados (Kerni se ve)', `${dibujados} px opacos`);
 // El personaje no es global; se prueba por el DOM: el modo que pide la app queda en data-modo.
 ok(['idle', 'sonriente', 'asustado', 'research', 'dormido', 'alerta', 'neutro', 'aburrido'].includes(ui.modo), 'la app tiene un modo válido', ui.modo);
+
+console.log('\nSaludo sin caras apiladas (desde un modo con cara propia)');
+const apilado = await evaluar(`(async () => {
+  const k = window.__kerni?.personaje;
+  if (!k) return { sinGancho: true };
+  const c = document.getElementById('kerni-rive'); const g = c.getContext('2d');
+  const cian = () => { const d = g.getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200 && d[i] < 140 && d[i + 1] > 200 && d[i + 2] > 200) n++; return n; };
+  k.setModo('aburrido'); await new Promise((r) => setTimeout(r, 900));
+  const aburrido = cian();
+  k.saludar(); await new Promise((r) => setTimeout(r, 900));
+  const saludando = cian();
+  return { aburrido, saludando };
+})()`);
+if (apilado.sinGancho) ok(false, 'no existe window.__kerni: ¿la app corre en modo desarrollo?');
+else ok(apilado.aburrido > 0 && apilado.saludando > 0, 'hay luz cian en la cara aburrida y en el saludo', `${apilado.aburrido} px → ${apilado.saludando} px`);
 
 console.log('\nChat sin backend (debe fallar con elegancia)');
 const resp = await evaluar(`(async () => {
