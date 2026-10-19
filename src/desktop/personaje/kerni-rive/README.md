@@ -16,9 +16,9 @@ Respira y parpadea siempre. Tiene ocho **modos** (que cruzan entre sí en 0.35 s
 
 | Modo | Cara | Cuerpo | Cuándo lo usa la app |
 |---|---|---|---|
-| `idle` | ojos redondos, sonrisa pequeña | brazos abajo, luces cian | CPU al **70 % o más** (la cara de siempre) |
-| `neutro` | ojos y boca como rayitas | brazos abajo | CPU de **30 % a 69 %** |
-| `aburrido` | ojos entrecerrados, boca ondulada, dos barras cian en el casco que respiran | brazos abajo, un poco caído | CPU **por debajo de 30 %** (PC sin hacer nada) |
+| `idle` | ojos redondos, sonrisa pequeña | brazos abajo, luces cian | Batería al **70 % o más** (la cara de siempre; también un equipo sin batería) |
+| `neutro` | ojos y boca como rayitas | brazos abajo | Batería de **30 % a 69 %** |
+| `aburrido` | ojos entrecerrados, boca ondulada, dos barras cian en el casco que respiran | brazos abajo, un poco caído | Batería **por debajo de 30 %** |
 | `sonriente` | ojos felices `^ ^`, boca abierta | pulgares arriba con ambas manos, rebota | Reacción de 4 s tras una acción exitosa (limpieza, cierre de proceso) |
 | `asustado` | ojos grandes, boca ondulada, gota de sudor | se encoge y tiembla, brazos hacia afuera, luces rojas | Modo pánico (CPU sostenida ≥ 95 %) |
 | `research` | ojos redondos mirando abajo-izquierda, boca triste | inclinado, sostiene la lupa con haz de luz | Esperando al modelo, o el vigilante de RAM encontró un sospechoso |
@@ -28,7 +28,7 @@ Respira y parpadea siempre. Tiene ocho **modos** (que cruzan entre sí en 0.35 s
 
 Prioridad en la app (`modoKerni` en `web/estado.js`): `asustado` > `alerta` > `research` > `sonriente` > `dormido` > cara de la carga (`idle` / `neutro` / `aburrido`).
 
-La carga es la CPU promediada en las últimas 5 lecturas (10 s) y con histéresis de 4 puntos, para que una CPU que ronda 30 % o 70 % no haga parpadear la cara. `idle`, `neutro`, `aburrido` y `dormido` son los modos de **reposo**: ahí Kerni y el panel se vuelven un poco transparentes (como Bitoo) hasta que le movés el puntero o le escribís.
+La carga es la **batería** (Windows `GetSystemPowerStatus`, leída en Rust cada 2 s). Tiene histéresis de 4 puntos, para que una batería que ronda 30 % o 70 % no haga parpadear la cara. En un equipo sin batería queda `idle`. `idle`, `neutro`, `aburrido` y `dormido` son los modos de **reposo**: ahí Kerni y el panel se vuelven un poco transparentes (como Bitoo) hasta que le movés el puntero o le escribís.
 
 ## Contrato con la app
 
@@ -77,6 +77,9 @@ Las caras `neutro` y `aburrido` se dibujan nativas a partir de `kerni_neutro_ref
 
 Reglas para no romperlo:
 
+- **El saludo toma el control de todas las propiedades de modo** (`DEF` en `construir.py`) con sus valores base y solo cambia las del saludo. Si no, la cara del modo (ojos entrecerrados, barras del casco, zZ, pulgares…) se dibuja encima de la del saludo. `test/integracion.test.js` lo comprueba leyendo `scene.rml`: toda propiedad que toque un modo debe estar cubierta por el saludo. Si agregás un modo o una propiedad nueva, el test te avisa.
+- Los cruces entre modos duran 200 ms: más largos dejan ver las dos caras a medias.
+
 - `construir.py` toca **todas** las propiedades de modo en cada animación de modo (`DEF`), para que el cruce siempre vuelva a los valores base.
 - Capas separadas por propiedad, así no se pisan: `Respirar` (escala del cuerpo), `Parpadeo`, `Modo` (pose), `Saludo` (un disparo).
 - `mirada_app` (datos de la app) y `mirada_modo` (animación) son nodos distintos para no pelear por la misma propiedad.
@@ -91,6 +94,7 @@ cd src/desktop/personaje/kerni-rive/fuente
 python segmentar.py     # solo si cambiaron las imágenes: regiones -> piezas.json
 python construir.py     # piezas.json -> scene.rml
 python fotografiar.py   # una captura de cada modo -> build/hoja_modos.png
+python fotografiar_saludo.py   # el saludo disparado desde cada modo -> build/hoja_saludo.png (no debe haber caras apiladas)
 rive . --verify         # comprueba la escena
 rive inspect . --summary
 rive . --screenshot=build/x.png --advance=40     # un cuadro

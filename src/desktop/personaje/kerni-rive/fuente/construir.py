@@ -515,7 +515,11 @@ D = 144
 SUAVE = (0.45, 0, 0.55, 1)
 def k(fr, v, e=SUAVE): return kf(fr, v, e)
 A["reposo"] = anim("reposo", 1, {}, loop="oneShot")
+# El saludo toma el control de TODAS las propiedades de modo (caras, bocas, brazos, luces...) con sus
+# valores base y solo cambia las del saludo. Si no, lo que dejó el modo (por ejemplo los ojos
+# entrecerrados del `aburrido` o los pulgares del `sonriente`) se dibuja encima de la cara del saludo.
 A["saludo"] = anim("saludo", D, {
+    **{clave: [kf(0, valor)] for clave, valor in DEF.items()},
     (IDS["izq_colgando"], OP): [k(0, 1), k(10, 0), k(130, 0), k(D, 1)],
     (IDS["izq_saludo"], OP): [k(0, 0), k(10, 1), k(130, 1), k(D, 0)],
     (IDS["mano_saludo"], ROT): [k(0, 0), k(24, 0), k(36, 18 * RAD), k(50, -16 * RAD), k(64, 15 * RAD), k(78, -13 * RAD), k(92, 10 * RAD), k(106, -6 * RAD), k(120, 0), k(D, 0)],
@@ -541,7 +545,8 @@ def dispara(t):
 
 def capa_modos():
     est = {m: nid() for m in MODOS}
-    any_ = "".join(f'<StateTransition stateToId="{est[m]}" duration="350">{cond_modo(m)}</StateTransition>' for m in MODOS)
+    # 200 ms: el cruce mezcla las dos caras, y a mitad de camino se ven las dos a medias; mejor corto.
+    any_ = "".join(f'<StateTransition stateToId="{est[m]}" duration="200">{cond_modo(m)}</StateTransition>' for m in MODOS)
     estados = "".join(f'<AnimationState x="{200 + 220 * i}" y="0" animationId="{A["m_" + m][0]}" id="{est[m]}"/>' for i, m in enumerate(MODOS))
     return (f'<StateMachineLayer name="Modo" id="{nid()}"><AnyState x="0" y="-150">{any_}</AnyState><ExitState x="900" y="-150"/>'
             f'<EntryState x="0" y="0"><StateTransition stateToId="{est["idle"]}"/></EntryState>{estados}</StateMachineLayer>')
@@ -556,7 +561,7 @@ def capa(nombre, aid, foco=False):
 def capa_saludo():
     s_rep, s_sal = nid(), nid()
     return (f'<StateMachineLayer name="Saludo" id="{nid()}">'
-            f'<AnyState x="0" y="-150" id="{nid()}"><StateTransition stateToId="{s_sal}">{cond_trigger("saludar")}</StateTransition></AnyState>'
+            f'<AnyState x="0" y="-150" id="{nid()}"><StateTransition stateToId="{s_sal}" duration="150">{cond_trigger("saludar")}</StateTransition></AnyState>'
             f'<ExitState x="600" y="-150" id="{nid()}"/><EntryState x="0" y="0" id="{nid()}"><StateTransition stateToId="{s_rep}"/></EntryState>'
             f'<AnimationState x="200" y="0" animationId="{A["reposo"][0]}" id="{s_rep}"><FocusActionTarget targetId="{fondo_id}"/></AnimationState>'
             f'<AnimationState x="400" y="0" animationId="{A["saludo"][0]}" id="{s_sal}">'
