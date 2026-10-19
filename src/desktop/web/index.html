@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kerni</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body data-animo="normal">
+    <main id="app">
+      <div id="globo" class="zona" hidden></div>
+
+      <div id="tarjetas">
+        <section id="panico" class="tarjeta zona" hidden>
+          <h2>¡Modo pánico!</h2>
+          <p>La CPU lleva rato al tope. Estos son los que más consumen:</p>
+          <ul id="panico-lista"></ul>
+        </section>
+        <section id="confirmar" class="tarjeta zona" hidden>
+          <p id="confirmar-texto"></p>
+          <p id="confirmar-motivo" class="motivo"></p>
+          <div class="botones">
+            <button id="aprobar" type="button">Aprobar</button>
+            <button id="rechazar" type="button" class="secundario">No</button>
+          </div>
+        </section>
+      </div>
+
+      <div id="mascota" class="zona" data-tauri-drag-region="deep">
+        <canvas id="kerni-rive" width="440" height="440"></canvas>
+        <svg id="kerni" viewBox="0 0 120 120" role="img" aria-label="Kerni">
+          <ellipse class="sombra" cx="60" cy="112" rx="30" ry="6" />
+          <path class="cuerpo" d="M60 12c26 0 44 18 44 44 0 28-18 50-44 50S16 84 16 56c0-26 18-44 44-44z" />
+          <path class="antena" d="M60 12V4" />
+          <circle class="antena-bola" cx="60" cy="4" r="4" />
+          <g class="ojos">
+            <ellipse class="ojo" cx="44" cy="54" rx="7" ry="9" />
+            <ellipse class="ojo" cx="76" cy="54" rx="7" ry="9" />
+            <circle class="brillo" cx="46" cy="50" r="2.4" />
+            <circle class="brillo" cx="78" cy="50" r="2.4" />
+          </g>
+          <path class="boca" d="M46 76q14 12 28 0" />
+          <g class="sudor"><path d="M96 34q5 8 0 12q-5-4 0-12z" /></g>
+        </svg>
+      </div>
+
+      <section id="hud" class="zona" aria-label="Salud del equipo">
+        <div class="medidor"><span>CPU</span><div class="barra"><i id="barra-cpu"></i></div><b id="txt-cpu">–</b></div>
+        <div class="medidor"><span>RAM</span><div class="barra"><i id="barra-ram"></i></div><b id="txt-ram">–</b></div>
+        <div class="medidor"><span>Disco</span><div class="barra"><i id="barra-disco"></i></div><b id="txt-disco">–</b></div>
+        <button id="limpiar" type="button" class="secundario">Alimentar a Kerni (limpiar temporales)</button>
+      </section>
+
+      <form id="chat" class="zona" autocomplete="off">
+        <input id="mensaje" type="text" maxlength="1000" placeholder="Preguntale a Kerni…" />
+        <button type="submit">Enviar</button>
+      </form>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

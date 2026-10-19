@@ -1,0 +1,103 @@
+:root {
+  --fondo: rgba(18, 24, 38, 0.92);
+  --texto: #eef2ff;
+  --suave: #9aa6c4;
+  --acento: #5eead4;
+  --peligro: #f87171;
+  --aviso: #fbbf24;
+  --cuerpo: #5eead4;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; color: var(--texto); user-select: none; }
+
+#app { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 8px; }
+
+.zona { pointer-events: auto; }
+
+/* ---- Globo y tarjetas ---- */
+#globo, .tarjeta, #hud, #chat {
+  background: var(--fondo);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+#globo { max-height: 150px; overflow-y: auto; user-select: text; }
+#tarjetas { display: flex; flex-direction: column; gap: 8px; }
+.tarjeta p { margin: 0 0 6px; }
+.tarjeta h2 { margin: 0 0 4px; font-size: 14px; color: var(--peligro); }
+.motivo { color: var(--suave); font-size: 12px; }
+#panico { border-color: var(--peligro); }
+#panico ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#panico li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#panico li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+button {
+  font: inherit; font-size: 12px; cursor: pointer; border: 0; border-radius: 8px;
+  padding: 6px 10px; background: var(--acento); color: #06201c; font-weight: 600;
+}
+button.secundario { background: rgba(255, 255, 255, 0.1); color: var(--texto); }
+button:disabled { opacity: 0.5; cursor: default; }
+.botones { display: flex; gap: 8px; }
+
+/* ---- HUD ---- */
+#hud { display: flex; flex-direction: column; gap: 5px; }
+.medidor { display: grid; grid-template-columns: 38px 1fr 64px; align-items: center; gap: 6px; font-size: 11px; }
+.medidor span { color: var(--suave); }
+.medidor b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.barra { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.barra i { display: block; height: 100%; width: 0; background: var(--acento); transition: width 0.4s, background 0.4s; }
+.barra i.alto { background: var(--aviso); }
+.barra i.critico { background: var(--peligro); }
+
+/* ---- Chat ---- */
+#chat { display: flex; gap: 6px; }
+#mensaje {
+  flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--texto);
+  background: rgba(255, 255, 255, 0.08); border: 0; border-radius: 8px; padding: 6px 8px; outline: none; user-select: text;
+}
+
+/* ---- Mascota ---- */
+#mascota { align-self: center; width: 120px; height: 120px; cursor: grab; position: relative; }
+#kerni-rive { display: none; width: 100%; height: 100%; }
+/* Con el rig de Rive cargado, el SVG provisional se esconde y la mascota crece. */
+#mascota.rive-listo { width: 210px; height: 210px; }
+#mascota.rive-listo #kerni-rive { display: block; }
+#mascota.rive-listo #kerni { display: none; }
+#kerni { width: 100%; height: 100%; overflow: visible; }
+#kerni .sombra { fill: rgba(0, 0, 0, 0.25); }
+#kerni .cuerpo { fill: var(--cuerpo); transition: fill 0.5s; }
+#kerni .antena { stroke: var(--cuerpo); stroke-width: 3; fill: none; stroke-linecap: round; transition: stroke 0.5s; }
+#kerni .antena-bola { fill: var(--aviso); }
+#kerni .ojo { fill: #0b1220; transform-box: fill-box; transform-origin: center; animation: parpadeo 4s infinite; }
+#kerni .brillo { fill: #fff; }
+#kerni .boca { fill: none; stroke: #0b1220; stroke-width: 3.5; stroke-linecap: round; transition: d 0.3s; }
+#kerni .sudor { fill: #7dd3fc; opacity: 0; }
+#kerni { animation: respirar 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+
+body[data-animo='feliz'] { --cuerpo: #5eead4; }
+body[data-animo='normal'] { --cuerpo: #7dd3fc; }
+body[data-animo='cansado'] { --cuerpo: #fcd34d; }
+body[data-animo='cansado'] #kerni .boca { d: path('M46 82q14 -8 28 0'); }
+body[data-animo='cansado'] #kerni .ojo { ry: 5; }
+body[data-animo='cansado'] #kerni .sudor { opacity: 1; }
+body[data-animo='panico'] { --cuerpo: #f87171; }
+body[data-animo='panico'] #kerni { animation: temblor 0.25s linear infinite; }
+body[data-animo='panico'] #kerni .boca { d: path('M48 82q12 -14 24 0'); }
+body[data-animo='panico'] #kerni .ojo { ry: 11; rx: 8; }
+body[data-animo='panico'] #kerni .sudor { opacity: 1; }
+body[data-animo='panico'] #kerni .antena-bola { fill: var(--peligro); animation: alerta 0.5s infinite alternate; }
+
+@keyframes respirar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03, 0.97); } }
+@keyframes parpadeo { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes temblor { 0% { transform: translate(-1.5px, 0); } 50% { transform: translate(1.5px, 1px); } 100% { transform: translate(-1.5px, 0); } }
+@keyframes alerta { from { opacity: 1; } to { opacity: 0.2; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #kerni, #kerni .ojo, #kerni .antena-bola { animation: none !important; }
+}
+
+[hidden] { display: none !important; }
