@@ -1,0 +1,12 @@
+node_modules/
+dist/
+target/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+src/desktop/src-tauri/gen/
+src/desktop/personaje/kerni-rive/fuente/build/
+__pycache__/

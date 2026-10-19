@@ -1,0 +1,8 @@
+* text=auto
+# Windows batch files must keep CRLF line endings or labels and goto can break.
+*.bat text eol=crlf
+*.riv binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
