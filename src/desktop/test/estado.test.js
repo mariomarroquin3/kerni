@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearDetectorPanico, calcularAnimo, sospechosos, snapshotParaBackend, modoKerni } from '../web/estado.js';
+import { crearDetectorPanico, calcularAnimo, sospechosos, snapshotParaBackend, modoKerni, nivelDeCarga, crearNivelCarga, MODOS_REPOSO } from '../web/estado.js';
 
 const sano = { cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 200, totalGb: 476 }, procesos: [] };
 
@@ -56,4 +56,62 @@ test('el modo de Kerni respeta la prioridad: susto, alerta, análisis, alegría,
   assert.equal(modoKerni({ reaccion: true, analizando: true }), 'research');
   assert.equal(modoKerni({ analizando: true, alerta: true }), 'alerta');
   assert.equal(modoKerni({ alerta: true, panico: true, dormido: true }), 'asustado');
+});
+
+test('los umbrales de carga: 70 % o más alta, de 30 a 69 % media, menos de 30 % baja', () => {
+  assert.equal(nivelDeCarga(100), 'alta');
+  assert.equal(nivelDeCarga(70), 'alta');
+  assert.equal(nivelDeCarga(69.9), 'media');
+  assert.equal(nivelDeCarga(30), 'media');
+  assert.equal(nivelDeCarga(29.9), 'baja');
+  assert.equal(nivelDeCarga(0), 'baja');
+});
+
+test('la cara sale de la carga: alta = idle (sonriente normal), media = neutro, baja = aburrido', () => {
+  assert.equal(modoKerni({ carga: 'alta' }), 'idle');
+  assert.equal(modoKerni({ carga: 'media' }), 'neutro');
+  assert.equal(modoKerni({ carga: 'baja' }), 'aburrido');
+  assert.equal(modoKerni({}), 'idle'); // sin dato de carga, la cara de siempre
+});
+
+test('los eventos mandan sobre la cara de la carga', () => {
+  for (const carga of ['alta', 'media', 'baja']) {
+    assert.equal(modoKerni({ carga, panico: true }), 'asustado');
+    assert.equal(modoKerni({ carga, alerta: true }), 'alerta');
+    assert.equal(modoKerni({ carga, analizando: true }), 'research');
+    assert.equal(modoKerni({ carga, reaccion: true }), 'sonriente');
+    assert.equal(modoKerni({ carga, dormido: true }), 'dormido');
+  }
+});
+
+test('el nivel de carga promedia las lecturas: un pico suelto no cambia la cara', () => {
+  const n = crearNivelCarga();
+  for (let i = 0; i < 5; i++) n.actualizar(10);
+  assert.equal(n.nivel, 'baja');
+  assert.equal(n.actualizar(100), 'baja'); // promedio 28: sigue aburrido
+});
+
+test('una CPU que ronda un umbral no hace parpadear la cara (histéresis)', () => {
+  const n = crearNivelCarga({ muestras: 1 });
+  assert.equal(n.actualizar(25), 'baja');
+  assert.equal(n.actualizar(31), 'baja');   // cruzó 30 pero no por 4 puntos
+  assert.equal(n.actualizar(29), 'baja');
+  assert.equal(n.actualizar(34), 'media');  // ahora sí
+  assert.equal(n.actualizar(28), 'media');  // vuelve a 28 y todavía no baja (necesita < 26)
+  assert.equal(n.actualizar(25), 'baja');
+  assert.equal(n.actualizar(72), 'alta');
+  assert.equal(n.actualizar(68), 'alta');   // sigue alta hasta bajar de 66
+  assert.equal(n.actualizar(65), 'media');
+});
+
+test('una carga sostenida alta lleva a la cara sonriente normal en unos segundos', () => {
+  const n = crearNivelCarga();
+  const caras = [10, 10, 10, 85, 85, 85, 85, 85].map((c) => n.actualizar(c));
+  assert.equal(caras[0], 'baja');
+  assert.equal(caras.at(-1), 'alta');
+});
+
+test('los modos de reposo (donde Kerni se vuelve transparente) son las caras de carga y dormido', () => {
+  assert.deepEqual([...MODOS_REPOSO].sort(), ['aburrido', 'dormido', 'idle', 'neutro']);
+  for (const m of ['asustado', 'alerta', 'research', 'sonriente']) assert.ok(!MODOS_REPOSO.includes(m), `${m} no es reposo`);
 });

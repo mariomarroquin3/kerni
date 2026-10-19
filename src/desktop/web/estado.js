@@ -61,18 +61,63 @@ export function snapshotParaBackend(m) {
   };
 }
 
+// ---------- Carga de la PC -> cara de Kerni ----------
+export const UMBRAL_CARGA_ALTA = 70;   // 70 % o más: la cara sonriente normal (idle)
+export const UMBRAL_CARGA_MEDIA = 30;  // de 30 % a 69 %: cara seria (neutro); menos de 30 %: aburrido
+const HISTERESIS_CARGA = 4;            // puntos que hay que pasarse del umbral para cambiar de cara
+const MUESTRAS_CARGA = 5;              // lecturas que se promedian (una cada 2 s = 10 s)
+
+/** Nivel de una carga de CPU (0-100) sin suavizar: 'alta' | 'media' | 'baja'. */
+export function nivelDeCarga(cpu) {
+  if (cpu >= UMBRAL_CARGA_ALTA) return 'alta';
+  if (cpu >= UMBRAL_CARGA_MEDIA) return 'media';
+  return 'baja';
+}
+
 /**
- * Qué modo del rig de Rive toca. Prioridad: el susto manda, luego la alerta (Kerni
- * propuso algo y espera), "pensando", una reacción corta de alegría, el sueño; si no,
- * en reposo.
- * @param {{ panico?: boolean, alerta?: boolean, analizando?: boolean, reaccion?: boolean, dormido?: boolean }} e
- * @returns {'asustado'|'alerta'|'research'|'sonriente'|'dormido'|'idle'}
+ * Decide la cara según la carga de CPU, pero sin parpadear: promedia las últimas lecturas y solo
+ * cambia de nivel cuando el promedio se aleja del umbral más que la histéresis. Así una CPU que
+ * ronda 30 % o 70 % no hace saltar a Kerni entre dos caras cada dos segundos.
  */
-export function modoKerni({ panico = false, alerta = false, analizando = false, reaccion = false, dormido = false } = {}) {
+export function crearNivelCarga({ muestras = MUESTRAS_CARGA, histeresis = HISTERESIS_CARGA } = {}) {
+  const ventana = [];
+  let nivel = null;
+  const sigue = {
+    baja: (p) => p < UMBRAL_CARGA_MEDIA + histeresis,
+    media: (p) => p >= UMBRAL_CARGA_MEDIA - histeresis && p < UMBRAL_CARGA_ALTA + histeresis,
+    alta: (p) => p >= UMBRAL_CARGA_ALTA - histeresis,
+  };
+  return {
+    actualizar(cpu) {
+      ventana.push(cpu);
+      if (ventana.length > muestras) ventana.shift();
+      const promedio = ventana.reduce((a, b) => a + b, 0) / ventana.length;
+      if (nivel === null || !sigue[nivel](promedio)) nivel = nivelDeCarga(promedio);
+      return nivel;
+    },
+    get nivel() {
+      return nivel;
+    },
+  };
+}
+
+const CARA_POR_CARGA = { alta: 'idle', media: 'neutro', baja: 'aburrido' };
+
+/**
+ * Qué modo del rig de Rive toca. Prioridad: el susto manda, luego la alerta (Kerni propuso algo
+ * y espera), "pensando", una reacción corta de alegría, el sueño; si no, la cara que toca por
+ * la carga de la PC (idle = sonriente normal con 70 % o más, neutro con 30-69 %, aburrido con menos).
+ * @param {{ panico?: boolean, alerta?: boolean, analizando?: boolean, reaccion?: boolean, dormido?: boolean, carga?: 'alta'|'media'|'baja' }} e
+ * @returns {'asustado'|'alerta'|'research'|'sonriente'|'dormido'|'idle'|'neutro'|'aburrido'}
+ */
+export function modoKerni({ panico = false, alerta = false, analizando = false, reaccion = false, dormido = false, carga = 'alta' } = {}) {
   if (panico) return 'asustado';
   if (alerta) return 'alerta';
   if (analizando) return 'research';
   if (reaccion) return 'sonriente';
   if (dormido) return 'dormido';
-  return 'idle';
+  return CARA_POR_CARGA[carga] ?? 'idle';
 }
+
+/** Modos de "reposo": nadie le habla ni pasa nada. En ellos Kerni se vuelve un poco transparente. */
+export const MODOS_REPOSO = ['idle', 'neutro', 'aburrido', 'dormido'];

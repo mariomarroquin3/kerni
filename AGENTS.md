@@ -32,6 +32,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/desktop/src-tauri/src/sistema.rs` | **Único** código que toca el sistema: métricas, cerrar proceso, limpiar temporales |
 | `src/desktop/web/estado.js` | Lógica pura del ánimo y del modo pánico (testeable sin DOM) |
 | `src/desktop/web/reglas.js` | Vigilante de RAM por reglas (proceso grande, fuga), sin modelo |
+| `src/desktop/web/estado.js` (carga) | `nivelDeCarga` y `crearNivelCarga`: umbrales 70 / 30 con promedio e histéresis; `modoKerni` elige la cara por carga |
 | `src/desktop/web/intenciones.js` | Respuestas fijas del chat (hoy: porcentaje de disco), sin modelo. Conservador: solo pedidos cortos de "ver" un dato; lo que pide causa o consejo va al modelo |
 | `src/desktop/web/character.js` | Controla el rig de Rive (`setModo`, `saludar`, `mirar`); si no carga queda el SVG provisional |
 | `src/desktop/personaje/kerni-rive/` | Rig de Kerni en Rive: `kerni.riv`, README con el contrato y `fuente/` para regenerarlo |

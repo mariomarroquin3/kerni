@@ -8,3 +8,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-19 | Personaje de Kerni en Rive (4 modos + saludo) | [2026-10-19-rive-kerni.md](2026-10-19-rive-kerni.md) |
 | 2026-10-19 | Sprites nuevos, integración con Tauri y lanzador | [2026-10-19-integracion-tauri.md](2026-10-19-integracion-tauri.md) |
 | 2026-10-19 | Integración con Gemini y OpenRouter | [2026-10-19-gemini-openrouter.md](2026-10-19-gemini-openrouter.md) |
+| 2026-10-19 | Caras por carga, transparencia en reposo y ocultar métricas | [2026-10-19-umbrales-de-carga.md](2026-10-19-umbrales-de-carga.md) |

@@ -89,6 +89,7 @@ test('todos los modos que puede pedir la app existen en el rig', () => {
   const posibles = new Set([
     modoKerni({}), modoKerni({ panico: true }), modoKerni({ alerta: true }), modoKerni({ analizando: true }),
     modoKerni({ reaccion: true }), modoKerni({ dormido: true }),
+    modoKerni({ carga: 'alta' }), modoKerni({ carga: 'media' }), modoKerni({ carga: 'baja' }),
   ]);
   for (const m of posibles) assert.ok(modosRig.includes(m), `la app pide el modo "${m}" y el rig no lo tiene`);
   const character = leer('web', 'character.js');
@@ -99,11 +100,28 @@ test('todos los modos que puede pedir la app existen en el rig', () => {
 
 test('el rig compilado trae los nombres que usa character.js', () => {
   const riv = readFileSync(join(AQUI, '..', 'web', 'assets', 'kerni.riv')).toString('latin1');
-  for (const nombre of ['kerni', 'Kerni', 'modo', 'saludar', 'mirar_x', 'mirar_y', 'idle', 'sonriente', 'asustado', 'research', 'dormido', 'alerta']) {
+  for (const nombre of ['kerni', 'Kerni', 'modo', 'saludar', 'mirar_x', 'mirar_y', 'idle', 'sonriente', 'asustado', 'research', 'dormido', 'alerta', 'neutro', 'aburrido']) {
     assert.ok(riv.includes(nombre), `el .riv no contiene "${nombre}"`);
   }
 });
 
 test('lo que dice el modelo se pinta con textContent, nunca con innerHTML', () => {
   assert.doesNotMatch(main, /innerHTML|outerHTML|insertAdjacentHTML/);
+});
+
+test('ocultar métricas: el botón y el contenedor existen y la preferencia se guarda de forma segura', () => {
+  assert.match(html, /id="metricas"/);
+  assert.match(html, /id="alternar-metricas"/);
+  // el botón de limpiar sigue visible aunque se oculten las barras
+  assert.ok(html.indexOf('id="limpiar"') > html.indexOf('id="metricas"'));
+  assert.doesNotMatch(html.match(/<div id="metricas">[\s\S]*?<\/div>\s*<div class="hud-pie">/)?.[0] ?? '', /id="limpiar"/);
+  // localStorage puede fallar (ventana privada, bloqueado): siempre dentro de try/catch
+  assert.match(main, /try \{ return localStorage\.getItem/);
+  assert.match(main, /try \{ localStorage\.setItem/);
+});
+
+test('la transparencia en reposo está en el CSS y la activa solo el atributo data-reposo', () => {
+  const css = leer('web', 'style.css');
+  assert.match(css, /body\[data-reposo='1'\] #mascota \{ opacity: 0\.6/);
+  assert.match(main, /dataset\.reposo/);
 });

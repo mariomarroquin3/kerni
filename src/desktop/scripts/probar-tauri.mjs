@@ -88,6 +88,50 @@ ok(ui.cw > 50 && ui.ch > 50, 'el canvas de Rive tiene tamaño (no 0×0)', `${ui.
 ok(/%$/.test(ui.cpu) && /GB/.test(ui.ram) && /GB/.test(ui.disco), 'el HUD muestra métricas reales', `CPU ${ui.cpu} · RAM ${ui.ram} · disco ${ui.disco}`);
 ok(ui.zonas >= 3, 'hay zonas interactivas para el click-through', `${ui.zonas} zonas`);
 
+console.log('\nCara según la carga de la PC (70 % idle · 30-69 % neutro · menos de 30 % aburrido)');
+// Se promedian varias lecturas propias y solo se exige coincidencia si el promedio está lejos de los umbrales.
+const lecturas = [];
+for (let i = 0; i < 6; i++) { lecturas.push((await evaluar(`window.__TAURI_INTERNALS__.invoke('metricas')`)).cpu); await pausa(2000); }
+const prom = lecturas.reduce((a, b) => a + b, 0) / lecturas.length;
+const esperada = prom >= 70 ? 'idle' : prom >= 30 ? 'neutro' : 'aburrido';
+const lejos = Math.abs(prom - 30) > 8 && Math.abs(prom - 70) > 8;
+const modoCarga = await evaluar(`document.getElementById('mascota').dataset.modo ?? 'idle'`);
+const eventos = ['asustado', 'alerta', 'research', 'sonriente', 'dormido'];
+if (eventos.includes(modoCarga)) ok(true, 'hay un evento activo que manda sobre la cara de la carga', modoCarga);
+else if (lejos) ok(modoCarga === esperada, `la cara coincide con la carga (CPU media ${prom.toFixed(0)} %)`, `esperada ${esperada}, tiene ${modoCarga}`);
+else ok(true, `CPU media ${prom.toFixed(0)} % está cerca de un umbral: no se exige una cara`, modoCarga);
+
+console.log('\nTransparencia en reposo');
+const reposo = await evaluar(`(async () => {
+  const esperar = async (cond, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (cond()) return true; await new Promise((r) => setTimeout(r, 250)); } return cond(); };
+  const mascota = document.getElementById('mascota');
+  const llego = await esperar(() => document.body.dataset.reposo === '1', 15000);
+  await new Promise((r) => setTimeout(r, 1200)); // deja terminar la transición de 0.8 s
+  const opacidadReposo = Number(getComputedStyle(mascota).opacity);
+  // una interacción de verdad (movimiento del puntero) lo vuelve opaco al instante
+  document.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
+  const activo = document.body.dataset.reposo;
+  await new Promise((r) => setTimeout(r, 1200));
+  const opacidadActivo = Number(getComputedStyle(mascota).opacity);
+  return { llego, opacidadReposo, activo, opacidadActivo };
+})()`);
+ok(reposo.llego, 'tras unos segundos sin usarlo, Kerni entra en reposo (data-reposo=1)');
+ok(reposo.opacidadReposo > 0 && reposo.opacidadReposo < 0.9, 'en reposo se ve un poco transparente', `opacidad ${reposo.opacidadReposo}`);
+ok(reposo.activo === '0' && reposo.opacidadActivo === 1, 'al moverle el puntero vuelve a ser opaco', `opacidad ${reposo.opacidadActivo}`);
+
+console.log('\nOcultar y mostrar métricas');
+const metricas = await evaluar(`(() => {
+  const m = document.getElementById('metricas'), b = document.getElementById('alternar-metricas'), l = document.getElementById('limpiar');
+  const estado = () => ({ oculto: m.hidden, texto: b.textContent, limpiarVisible: l.offsetParent !== null, guardado: localStorage.getItem('kerni.metricasOcultas') });
+  const antes = estado(); b.click(); const oculto = estado(); b.click(); const vuelto = estado();
+  return { antes, oculto, vuelto };
+})()`);
+ok(metricas.antes.oculto === false, 'las métricas arrancan visibles');
+ok(metricas.oculto.oculto === true && /Mostrar/.test(metricas.oculto.texto), 'el botón las oculta y cambia su texto', metricas.oculto.texto);
+ok(metricas.oculto.limpiarVisible, 'con las métricas ocultas el botón de limpiar sigue ahí');
+ok(metricas.oculto.guardado === '1' && metricas.vuelto.guardado === '0', 'la preferencia se guarda en el WebView');
+ok(metricas.vuelto.oculto === false && metricas.vuelto.texto === 'Ocultar', 'el botón las vuelve a mostrar');
+
 console.log('\nRive: cambio de modo');
 const pixelesDistintos = async () => evaluar(`(() => {
   const c = document.getElementById('kerni-rive'); const g = c.getContext('2d');
@@ -98,7 +142,7 @@ const pixelesDistintos = async () => evaluar(`(() => {
 const dibujados = await pixelesDistintos();
 ok(dibujados > 2000, 'el canvas tiene píxeles dibujados (Kerni se ve)', `${dibujados} px opacos`);
 // El personaje no es global; se prueba por el DOM: el modo que pide la app queda en data-modo.
-ok(['idle', 'sonriente', 'asustado', 'research', 'dormido', 'alerta'].includes(ui.modo), 'la app tiene un modo válido', ui.modo);
+ok(['idle', 'sonriente', 'asustado', 'research', 'dormido', 'alerta', 'neutro', 'aburrido'].includes(ui.modo), 'la app tiene un modo válido', ui.modo);
 
 console.log('\nChat sin backend (debe fallar con elegancia)');
 const resp = await evaluar(`(async () => {

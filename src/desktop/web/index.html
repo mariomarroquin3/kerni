@@ -45,10 +45,15 @@
       </div>
 
       <section id="hud" class="zona" aria-label="Salud del equipo">
-        <div class="medidor"><span>CPU</span><div class="barra"><i id="barra-cpu"></i></div><b id="txt-cpu">–</b></div>
-        <div class="medidor"><span>RAM</span><div class="barra"><i id="barra-ram"></i></div><b id="txt-ram">–</b></div>
-        <div class="medidor"><span>Disco</span><div class="barra"><i id="barra-disco"></i></div><b id="txt-disco">–</b></div>
-        <button id="limpiar" type="button" class="secundario">Alimentar a Kerni (limpiar temporales)</button>
+        <div id="metricas">
+          <div class="medidor"><span>CPU</span><div class="barra"><i id="barra-cpu"></i></div><b id="txt-cpu">–</b></div>
+          <div class="medidor"><span>RAM</span><div class="barra"><i id="barra-ram"></i></div><b id="txt-ram">–</b></div>
+          <div class="medidor"><span>Disco</span><div class="barra"><i id="barra-disco"></i></div><b id="txt-disco">–</b></div>
+        </div>
+        <div class="hud-pie">
+          <button id="limpiar" type="button" class="secundario">Alimentar a Kerni (limpiar temporales)</button>
+          <button id="alternar-metricas" type="button" class="secundario" aria-pressed="false" title="Ocultar las métricas">Ocultar</button>
+        </div>
       </section>
 
       <form id="chat" class="zona" autocomplete="off">

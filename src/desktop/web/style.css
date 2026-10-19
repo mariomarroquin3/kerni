@@ -53,6 +53,15 @@ button:disabled { opacity: 0.5; cursor: default; }
 .barra i.alto { background: var(--aviso); }
 .barra i.critico { background: var(--peligro); }
 
+.hud-pie { display: flex; gap: 6px; }
+.hud-pie #limpiar { flex: 1; min-width: 0; }
+#metricas { display: flex; flex-direction: column; gap: 5px; }
+
+/* ---- Reposo: Kerni se vuelve un poco transparente cuando nadie lo usa (como Bitoo) ---- */
+#mascota, #hud { transition: opacity 0.8s ease, filter 0.8s ease; }
+body[data-reposo='1'] #mascota { opacity: 0.6; filter: saturate(0.7); }
+body[data-reposo='1'] #hud { opacity: 0.55; }
+
 /* ---- Chat ---- */
 #chat { display: flex; gap: 6px; }
 #mensaje {

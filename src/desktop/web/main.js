@@ -1,4 +1,4 @@
-import { calcularAnimo, crearDetectorPanico, modoKerni, snapshotParaBackend, sospechosos } from './estado.js';
+import { calcularAnimo, crearDetectorPanico, crearNivelCarga, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
 import { crearVigilanteRam } from './reglas.js';
 import { responderLocal } from './intenciones.js';
@@ -51,21 +51,37 @@ let reaccionHasta = 0;      // acción exitosa: Kerni se alegra un momento
 let ultimaInteraccion = Date.now();
 // Sin interacción durante este tiempo, Kerni se duerme (3 min; `?sueno=5` lo baja a 5 s para ver la demo).
 const SUENO_MS = Number(new URLSearchParams(location.search).get('sueno') ?? 180) * 1000;
+const ACTIVO_MS = 4000;      // tras tocar a Kerni, sigue opaco este tiempo antes de volver a la transparencia
+const nivelCarga = crearNivelCarga();
+let carga = 'alta';          // nivel de carga de CPU suavizado: decide la cara en reposo
+let primeraLectura = true;   // la primera lectura de CPU siempre es 0 (no hay con qué comparar): se descarta
 
 function actualizarModo() {
   const ahora = Date.now();
   const dormido = ahora - ultimaInteraccion > SUENO_MS;
   const antes = personaje.modo();
-  const nuevo = modoKerni({ panico: enPanico, alerta: alertaActiva, analizando: pensando, reaccion: ahora < reaccionHasta, dormido });
+  const nuevo = modoKerni({ panico: enPanico, alerta: alertaActiva, analizando: pensando, reaccion: ahora < reaccionHasta, dormido, carga });
   personaje.setModo(nuevo);
+  pintarReposo();
   // Si se despierta (alguien lo tocó), saluda; un susto no es para saludar.
   if (antes === 'dormido' && nuevo !== 'dormido' && nuevo !== 'asustado') personaje.saludar();
 }
-/** Cualquier cosa que haga la persona sobre Kerni lo despierta. */
+/** En reposo (nadie lo usa y no tiene nada que decir) Kerni se ve un poco transparente. */
+function pintarReposo() {
+  const activo = Date.now() - ultimaInteraccion < ACTIVO_MS;
+  const ocupado = pendiente !== null || !$('globo').hidden;
+  document.body.dataset.reposo = MODOS_REPOSO.includes(personaje.modo()) && !activo && !ocupado ? '1' : '0';
+}
+
+/** Cualquier cosa que haga la persona sobre Kerni lo despierta y lo vuelve opaco un rato. */
+let timerReposo;
 function interaccion() {
   const dormia = personaje.modo() === 'dormido';
   ultimaInteraccion = Date.now();
   if (dormia) actualizarModo();
+  pintarReposo();
+  clearTimeout(timerReposo);
+  timerReposo = setTimeout(pintarReposo, ACTIVO_MS + 100);
 }
 for (const ev of ['pointerdown', 'pointermove', 'keydown']) document.addEventListener(ev, interaccion, { passive: true });
 function reaccionar(ms = 4000) {
@@ -85,7 +101,8 @@ function decir(texto, ms = 12000) {
   globo.textContent = texto; // textContent: lo que dice el modelo nunca se interpreta como HTML
   globo.hidden = false;
   clearTimeout(timerGlobo);
-  timerGlobo = setTimeout(() => { globo.hidden = true; }, ms);
+  timerGlobo = setTimeout(() => { globo.hidden = true; pintarReposo(); }, ms);
+  pintarReposo();
 }
 
 // ---------- Métricas ----------
@@ -141,6 +158,8 @@ async function actualizar() {
     const panico = detector.actualizar(m.cpu);
     document.body.dataset.animo = calcularAnimo(m, panico);
     enPanico = panico;
+    if (primeraLectura) primeraLectura = false;
+    else carga = nivelCarga.actualizar(m.cpu);
     actualizarModo();
     pintar(m);
     pintarPanico(m, panico);
@@ -260,6 +279,22 @@ $('chat').addEventListener('submit', async (e) => {
     input.focus();
   }
 });
+
+// ---------- Ocultar / mostrar las métricas ----------
+const CLAVE_METRICAS = 'kerni.metricasOcultas';
+function leerPref(clave) { try { return localStorage.getItem(clave); } catch { return null; } }
+function guardarPref(clave, valor) { try { localStorage.setItem(clave, valor); } catch { /* sin almacenamiento: no pasa nada */ } }
+
+function mostrarMetricas(visible) {
+  $('metricas').hidden = !visible;
+  const boton = $('alternar-metricas');
+  boton.textContent = visible ? 'Ocultar' : 'Mostrar métricas';
+  boton.title = visible ? 'Ocultar las métricas' : 'Mostrar las métricas';
+  boton.setAttribute('aria-pressed', String(!visible));
+  guardarPref(CLAVE_METRICAS, visible ? '0' : '1');
+}
+$('alternar-metricas').addEventListener('click', () => mostrarMetricas($('metricas').hidden));
+mostrarMetricas(leerPref(CLAVE_METRICAS) !== '1');
 
 // ---------- Ventana: zonas con clic y menú ----------
 async function avisarZonas() {
