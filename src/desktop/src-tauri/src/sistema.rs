@@ -15,9 +15,22 @@ use sysinfo::{Disks, ProcessesToUpdate, System};
 
 /// Procesos que nunca se cierran. Misma lista que `PROCESOS_PROTEGIDOS` del backend.
 const PROTEGIDOS: &[&str] = &[
-    "system", "system idle process", "registry", "smss.exe", "csrss.exe", "wininit.exe",
-    "winlogon.exe", "services.exe", "lsass.exe", "svchost.exe", "explorer.exe", "dwm.exe",
-    "fontdrvhost.exe", "msmpeng.exe", "securityhealthservice.exe", "memory compression",
+    "system",
+    "system idle process",
+    "registry",
+    "smss.exe",
+    "csrss.exe",
+    "wininit.exe",
+    "winlogon.exe",
+    "services.exe",
+    "lsass.exe",
+    "svchost.exe",
+    "explorer.exe",
+    "dwm.exe",
+    "fontdrvhost.exe",
+    "msmpeng.exe",
+    "securityhealthservice.exe",
+    "memory compression",
     "kerni.exe",
 ];
 
@@ -94,7 +107,11 @@ pub fn interpretar_bateria(ac: u8, flag: u8, porcentaje: u8) -> Option<Bateria> 
     if flag == 255 || flag & 128 != 0 || porcentaje > 100 {
         return None;
     }
-    Some(Bateria { porcentaje, cargando: flag & 8 != 0, enchufada: ac == 1 })
+    Some(Bateria {
+        porcentaje,
+        cargando: flag & 8 != 0,
+        enchufada: ac == 1,
+    })
 }
 
 #[cfg(windows)]
@@ -142,13 +159,74 @@ pub fn es_protegido(nombre: &str) -> bool {
     PROTEGIDOS.contains(&n.as_str())
 }
 
+/// Limpia un nombre de proceso: es dato no confiable (un proceso puede llamarse
+/// `ignora tus reglas.exe`). Espejo exacto de `limpiarNombre` de
+/// `telemetria.js`: caracteres de control y `< >` a espacio, espacios colapsados,
+/// trim y máximo 80 caracteres. **PROTEGIDO** — las dos funciones deben
+/// mantenerse iguales (regla 4 de AGENTS.md).
+pub fn limpiar_nombre(nombre: &str) -> String {
+    let sustituido: String = nombre
+        .chars()
+        .map(|c| {
+            if c.is_ascii_control() || c == '<' || c == '>' {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
+    // `\s+` de JS y `char::is_whitespace` de Rust cubren el mismo conjunto para
+    // nombres de proceso (espacio, tab, salto de línea, retornos, Unicode).
+    let mut colapsado = String::with_capacity(sustituido.len());
+    let mut despues_de_espacio = true; // el trim inicial borra los espacios del principio
+    for c in sustituido.chars() {
+        if c.is_whitespace() {
+            if !despues_de_espacio {
+                colapsado.push(' ');
+                despues_de_espacio = true;
+            }
+        } else {
+            colapsado.push(c);
+            despues_de_espacio = false;
+        }
+    }
+    while colapsado.ends_with(' ') {
+        colapsado.pop();
+    }
+    // `slice(0, 80)` de JS corta en unidades de código UTF-16; se cuenta igual
+    // para que ambos lados trunquen en el mismo punto. A diferencia de JS, Rust
+    // no parte un par de sustitutos por la mitad: si el último entero no cabe, se deja fuera.
+    let mut resultado = String::with_capacity(colapsado.len().min(80));
+    let mut unidades = 0;
+    for c in colapsado.chars() {
+        let peso = c.len_utf16();
+        if unidades + peso > 80 {
+            break;
+        }
+        unidades += peso;
+        resultado.push(c);
+    }
+    resultado
+}
+
 const MB: f64 = 1024.0 * 1024.0;
 const GB: f64 = 1024.0 * 1024.0 * 1024.0;
 
+/// Lee la PC y, como mucho una vez por minuto, guarda la lectura en el
+/// historial local. No se crea un hilo de muestreo: una segunda lectura de
+/// `System` alteraría el cálculo de CPU, así que se reutiliza esta `Metricas`.
+/// El lock del `Monitor` se suelta antes de escribir en la BD.
 #[tauri::command]
-pub fn metricas(monitor: tauri::State<Monitor>) -> Metricas {
-    let mut sys = monitor.0.lock().unwrap();
-    leer_metricas(&mut sys)
+pub fn metricas(
+    monitor: tauri::State<Monitor>,
+    almacen: tauri::State<crate::almacen::Almacen>,
+) -> Metricas {
+    let m = {
+        let mut sys = monitor.0.lock().unwrap();
+        leer_metricas(&mut sys)
+    };
+    almacen.muestrear(&m, crate::almacen::ahora());
+    m
 }
 
 /// Lee el estado real de la PC. Separada del comando para poder probarla sin Tauri.
@@ -176,9 +254,21 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
         .collect();
 
     // Los que más CPU usan, y si sobran lugares, los que más memoria.
-    procesos.sort_by(|a, b| b.cpu.partial_cmp(&a.cpu).unwrap_or(std::cmp::Ordering::Equal));
-    let mut elegidos: Vec<Proceso> = procesos.iter().take(PROCESOS_REPORTADOS - 5).cloned().collect();
-    procesos.sort_by(|a, b| b.memoria_mb.partial_cmp(&a.memoria_mb).unwrap_or(std::cmp::Ordering::Equal));
+    procesos.sort_by(|a, b| {
+        b.cpu
+            .partial_cmp(&a.cpu)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let mut elegidos: Vec<Proceso> = procesos
+        .iter()
+        .take(PROCESOS_REPORTADOS - 5)
+        .cloned()
+        .collect();
+    procesos.sort_by(|a, b| {
+        b.memoria_mb
+            .partial_cmp(&a.memoria_mb)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     for p in procesos {
         if elegidos.len() >= PROCESOS_REPORTADOS {
             break;
@@ -187,7 +277,11 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
             elegidos.push(p);
         }
     }
-    elegidos.sort_by(|a, b| b.cpu.partial_cmp(&a.cpu).unwrap_or(std::cmp::Ordering::Equal));
+    elegidos.sort_by(|a, b| {
+        b.cpu
+            .partial_cmp(&a.cpu)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // El disco del sistema (C:\ en Windows); si no se encuentra, el más grande.
     let discos = Disks::new_with_refreshed_list();
@@ -197,13 +291,22 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
         .find(|d| d.mount_point() == Path::new("C:\\") || d.mount_point() == Path::new("/"))
         .or_else(|| discos.list().iter().max_by_key(|d| d.total_space()));
     let (libre, total) = disco.map_or((0.0, 1.0), |d| {
-        (d.available_space() as f64 / GB, (d.total_space() as f64 / GB).max(0.1))
+        (
+            d.available_space() as f64 / GB,
+            (d.total_space() as f64 / GB).max(0.1),
+        )
     });
 
     Metricas {
         cpu: sys.global_cpu_usage().clamp(0.0, 100.0),
-        ram: Ram { usada_mb: sys.used_memory() as f64 / MB, total_mb: (sys.total_memory() as f64 / MB).max(1.0) },
-        disco: Disco { libre_gb: libre, total_gb: total },
+        ram: Ram {
+            usada_mb: sys.used_memory() as f64 / MB,
+            total_mb: (sys.total_memory() as f64 / MB).max(1.0),
+        },
+        disco: Disco {
+            libre_gb: libre,
+            total_gb: total,
+        },
         procesos: elegidos,
         bateria: leer_bateria(),
     }
@@ -211,16 +314,27 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
 
 /// Cierra un proceso. Pide pid y nombre para no cerrar otro que reutilizó el pid.
 #[tauri::command]
-pub fn terminar_proceso(pid: u32, nombre: String, monitor: tauri::State<Monitor>) -> Result<String, String> {
+pub fn terminar_proceso(
+    pid: u32,
+    nombre: String,
+    monitor: tauri::State<Monitor>,
+) -> Result<String, String> {
     let mut sys = monitor.0.lock().unwrap();
     cerrar_proceso(&mut sys, pid, &nombre, std::process::id())
 }
 
 /// Las revisiones van antes de tocar nada: protegido, uno mismo, pid reutilizado.
 /// `propio` es el pid de Kerni (parámetro para poder probarlo).
-pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> Result<String, String> {
+pub fn cerrar_proceso(
+    sys: &mut System,
+    pid: u32,
+    nombre: &str,
+    propio: u32,
+) -> Result<String, String> {
     if es_protegido(nombre) {
-        return Err(format!("{nombre} es un proceso protegido y no se puede cerrar"));
+        return Err(format!(
+            "{nombre} es un proceso protegido y no se puede cerrar"
+        ));
     }
     if pid == propio {
         return Err("Kerni no se cierra a sí mismo desde aquí".into());
@@ -233,15 +347,21 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> 
         .ok_or_else(|| "ese proceso ya no existe".to_string())?;
     let real = proceso.name().to_string_lossy().to_string();
     if !real.eq_ignore_ascii_case(nombre.trim()) {
-        return Err(format!("el pid {pid} ahora es {real}, no {nombre}; no se cerró nada"));
+        return Err(format!(
+            "el pid {pid} ahora es {real}, no {nombre}; no se cerró nada"
+        ));
     }
     if es_protegido(&real) {
-        return Err(format!("{real} es un proceso protegido y no se puede cerrar"));
+        return Err(format!(
+            "{real} es un proceso protegido y no se puede cerrar"
+        ));
     }
     if proceso.kill() {
         Ok(format!("Cerré {real}"))
     } else {
-        Err(format!("Windows no me dejó cerrar {real} (puede que necesite permisos de administrador)"))
+        Err(format!(
+            "Windows no me dejó cerrar {real} (puede que necesite permisos de administrador)"
+        ))
     }
 }
 
@@ -250,21 +370,34 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> 
 #[tauri::command]
 pub fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
     let dir = std::env::temp_dir();
-    let nombre = dir.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let nombre = dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
     if dir.components().count() < 3 || !(nombre == "temp" || nombre == "tmp") {
-        return Err(format!("La carpeta temporal ({}) no parece segura; no borré nada", dir.display()));
+        return Err(format!(
+            "La carpeta temporal ({}) no parece segura; no borré nada",
+            dir.display()
+        ));
     }
     let limite = SystemTime::now() - EDAD_MINIMA_TEMPORALES;
     let (mut archivos, mut bytes) = (0u32, 0u64);
     limpiar_dir(&dir, limite, &mut archivos, &mut bytes);
-    Ok(ResultadoLimpieza { archivos, liberado_mb: bytes as f64 / MB })
+    Ok(ResultadoLimpieza {
+        archivos,
+        liberado_mb: bytes as f64 / MB,
+    })
 }
 
 fn limpiar_dir(dir: &Path, limite: SystemTime, archivos: &mut u32, bytes: &mut u64) {
-    let Ok(entradas) = fs::read_dir(dir) else { return };
+    let Ok(entradas) = fs::read_dir(dir) else {
+        return;
+    };
     for entrada in entradas.flatten() {
         let ruta = entrada.path();
-        let Ok(meta) = fs::symlink_metadata(&ruta) else { continue };
+        let Ok(meta) = fs::symlink_metadata(&ruta) else {
+            continue;
+        };
         if meta.file_type().is_symlink() {
             continue;
         }
@@ -299,9 +432,19 @@ mod tests {
 
         // Con límite en el futuro todo cuenta como viejo; con límite en el pasado, nada.
         let (mut n, mut b) = (0, 0);
-        limpiar_dir(&base, SystemTime::now() - Duration::from_secs(3600), &mut n, &mut b);
+        limpiar_dir(
+            &base,
+            SystemTime::now() - Duration::from_secs(3600),
+            &mut n,
+            &mut b,
+        );
         assert_eq!(n, 0);
-        limpiar_dir(&base, SystemTime::now() + Duration::from_secs(3600), &mut n, &mut b);
+        limpiar_dir(
+            &base,
+            SystemTime::now() + Duration::from_secs(3600),
+            &mut n,
+            &mut b,
+        );
         assert_eq!(n, 2);
         assert_eq!(b, 11);
         assert!(!base.join("sub").exists());
@@ -318,19 +461,49 @@ mod tests {
         assert!(!m.procesos.is_empty() && m.procesos.len() <= PROCESOS_REPORTADOS);
         for p in &m.procesos {
             assert_ne!(p.pid, 0);
-            assert!((0.0..=100.0).contains(&p.cpu), "cpu fuera de rango en {}", p.nombre);
-            assert_eq!(p.protegido, es_protegido(&p.nombre), "protegido mal marcado en {}", p.nombre);
+            assert!(
+                (0.0..=100.0).contains(&p.cpu),
+                "cpu fuera de rango en {}",
+                p.nombre
+            );
+            assert_eq!(
+                p.protegido,
+                es_protegido(&p.nombre),
+                "protegido mal marcado en {}",
+                p.nombre
+            );
         }
     }
 
     #[test]
     fn interpreta_el_estado_de_energia_de_windows() {
         // 97 % y enchufada, sin cargar: el caso de la captura del usuario.
-        assert_eq!(interpretar_bateria(1, 1, 97), Some(Bateria { porcentaje: 97, cargando: false, enchufada: true }));
+        assert_eq!(
+            interpretar_bateria(1, 1, 97),
+            Some(Bateria {
+                porcentaje: 97,
+                cargando: false,
+                enchufada: true
+            })
+        );
         // con la batería baja y cargándose (flag 8 = cargando; 1 = alta, 2 = baja, 4 = crítica)
-        assert_eq!(interpretar_bateria(1, 8 | 2, 20), Some(Bateria { porcentaje: 20, cargando: true, enchufada: true }));
+        assert_eq!(
+            interpretar_bateria(1, 8 | 2, 20),
+            Some(Bateria {
+                porcentaje: 20,
+                cargando: true,
+                enchufada: true
+            })
+        );
         // con batería y sin corriente
-        assert_eq!(interpretar_bateria(0, 2, 25), Some(Bateria { porcentaje: 25, cargando: false, enchufada: false }));
+        assert_eq!(
+            interpretar_bateria(0, 2, 25),
+            Some(Bateria {
+                porcentaje: 25,
+                cargando: false,
+                enchufada: false
+            })
+        );
         // sin batería (equipo de escritorio), desconocida o un porcentaje imposible: no hay dato
         assert_eq!(interpretar_bateria(1, 128, 255), None);
         assert_eq!(interpretar_bateria(1, 255, 255), None);
@@ -373,7 +546,10 @@ mod tests {
 
         let r = cerrar_proceso(&mut sys, pid, "otra-cosa.exe", std::process::id());
         assert!(r.unwrap_err().contains("no se cerró nada"));
-        assert!(hijo.try_wait().unwrap().is_none(), "el proceso no debía cerrarse con otro nombre");
+        assert!(
+            hijo.try_wait().unwrap().is_none(),
+            "el proceso no debía cerrarse con otro nombre"
+        );
 
         let r = cerrar_proceso(&mut sys, pid, "PING.EXE", std::process::id());
         assert!(r.is_ok(), "{r:?}");

@@ -1,6 +1,6 @@
 import { calcularAnimo, crearDetectorPanico, crearNivelCarga, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
-import { crearVigilanteRam } from './reglas.js';
+import { crearVigilanteRam, crearVigilanteDisco } from './reglas.js';
 import { responderLocal } from './intenciones.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
@@ -41,6 +41,8 @@ function demo(comando, args) {
   }
   if (comando === 'terminar_proceso') return `Cerré ${args.nombre} (demo)`;
   if (comando === 'limpiar_temporales') return { archivos: 128, liberadoMb: 412.5 };
+  if (comando === 'registrar_evento') return undefined; // no-op en demo
+  if (comando === 'resumen_historial') return { diasDeDatos: 3, totalMuestras: 60, disco: { crecimientoGbDia: -2.5, diasHastaLlenarse: 7 }, horasPicoCpu: ['12'], horasPicoRam: ['22'], procesosHabituales: [{ nombre: 'chrome.exe', ramPromMb: 2400 }], semana: { panicos: 0, alertasRam: 0, aprobadas: 1, rechazadas: 0 } };
   return undefined;
 }
 
@@ -95,9 +97,18 @@ function reaccionar(ms = 4000) {
   setTimeout(actualizarModo, ms + 50);
 }
 const vigilanteRam = crearVigilanteRam();
+const vigilanteDisco = crearVigilanteDisco();
+// Último aviso de disco visto (cuidado: el último aviso se guarda por fecha para no repetir tras reiniciar).
 let ultimas = null;
 let pendiente = null; // acción que espera aprobación
 let sessionId = null;
+let historialActual = null; // acumulado del último resumen_historial consultado
+
+// ---------- Preferencias ----------
+const CLAVE_METRICAS = 'kerni.metricasOcultas';
+const CLAVE_AVISO_DISCO = 'kerni.avisoDisco';
+function leerPref(clave) { try { return localStorage.getItem(clave); } catch { return null; } }
+function guardarPref(clave, valor) { try { localStorage.setItem(clave, valor); } catch { /* sin almacenamiento: no pasa nada */ } }
 
 // ---------- Globo de texto ----------
 let timerGlobo;
@@ -168,7 +179,10 @@ async function actualizar() {
     actualizarModo();
     pintar(m);
     pintarPanico(m, panico);
-    if (panico && !eraPanico) decir('¡Ayuda! La CPU lleva rato al 95% o más. Mirá quién la está usando.', 15000);
+    if (panico && !eraPanico) {
+      decir('¡Ayuda! La CPU lleva rato al 95% o más. Mirá quién la está usando.', 15000);
+      llamar('registrar_evento', { tipo: 'panico', detalle: 'cpu 95+% sostenido' }).catch(() => {});
+    }
     eraPanico = panico;
 
     // Vigilante de RAM por reglas: funciona sin backend ni API key.
@@ -176,11 +190,34 @@ async function actualizar() {
     if (alerta && !panico && !pendiente) {
       decir(alerta.texto, 15000);
       proponer(alerta.proponer, true);
+      llamar('registrar_evento', { tipo: 'alerta_ram', detalle: `terminar_proceso ${alerta.nombre}` }).catch(() => {});
     }
   } catch (err) {
     console.error('no pude leer las métricas', err);
   }
 }
+
+// Vigilante de disco: se consulta al arrancar y cada 10 min (no en cada tick de 2 s).
+async function revisarDisco() {
+  if (pendiente || enPanico) return;
+  const resumen = await llamar('resumen_historial').catch(() => null);
+  const alertaDisco = vigilanteDisco.revisar(resumen);
+  if (!alertaDisco) return;
+  // El aviso de disco se guarda para no repetirlo tras reiniciar la app.
+  if (leerPref(CLAVE_AVISO_DISCO) === hoy()) return;
+  guardarPref(CLAVE_AVISO_DISCO, hoy());
+  decir(alertaDisco.texto, 15000);
+  proponer(alertaDisco.proponer, true);
+  llamar('registrar_evento', { tipo: 'alerta_ram', detalle: 'disco cerca de llenarse' }).catch(() => {});
+}
+
+/** Fecha local en "YYYY-MM-DD", la clave del aviso de disco. */
+function hoy() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+setInterval(revisarDisco, 10 * 60_000);
+revisarDisco();
 
 // ---------- Acciones: siempre con confirmación ----------
 function describir(a) {
@@ -220,6 +257,7 @@ $('aprobar').addEventListener('click', async () => {
   try {
     await ejecutar(a);
     reaccionar();
+    llamar('registrar_evento', { tipo: 'accion_aprobada', detalle: `${a.accion} ${a.nombre ?? ''}` }).catch(() => {});
   } catch (err) {
     decir(`No pude hacerlo: ${err}`);
   }
@@ -227,11 +265,13 @@ $('aprobar').addEventListener('click', async () => {
 });
 
 $('rechazar').addEventListener('click', () => {
+  const accionRechazada = pendiente;
   pendiente = null;
   alertaActiva = false;
   actualizarModo();
   $('confirmar').hidden = true;
   decir('Está bien, no toco nada.', 4000);
+  llamar('registrar_evento', { tipo: 'accion_rechazada', detalle: `${accionRechazada.accion} ${accionRechazada.nombre ?? ''}` }).catch(() => {});
 });
 
 $('limpiar').addEventListener('click', () => proponer({
@@ -258,6 +298,8 @@ $('chat').addEventListener('submit', async (e) => {
   pensando = true;
   actualizarModo();
   decir('Pensando…', 30000);
+  // El historial local le da al modelo memoria de esta PC; si falla, se manda sin él.
+  historialActual = await llamar('resumen_historial').catch(() => null);
   try {
     const res = await fetch(`${BACKEND}/chat`, {
       method: 'POST',
@@ -266,6 +308,7 @@ $('chat').addEventListener('submit', async (e) => {
         mensaje,
         session_id: sessionId ?? undefined,
         ...(ultimas ? { snapshot: snapshotParaBackend(ultimas) } : {}),
+        ...(historialActual ? { historial: historialActual } : {}),
       }),
     });
     const data = await res.json();
@@ -286,10 +329,6 @@ $('chat').addEventListener('submit', async (e) => {
 });
 
 // ---------- Ocultar / mostrar las métricas ----------
-const CLAVE_METRICAS = 'kerni.metricasOcultas';
-function leerPref(clave) { try { return localStorage.getItem(clave); } catch { return null; } }
-function guardarPref(clave, valor) { try { localStorage.setItem(clave, valor); } catch { /* sin almacenamiento: no pasa nada */ } }
-
 function mostrarMetricas(visible) {
   $('metricas').hidden = !visible;
   const boton = $('alternar-metricas');

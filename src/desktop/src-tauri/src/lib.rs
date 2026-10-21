@@ -7,6 +7,7 @@
 //! - Ícono en la bandeja y menú con clic derecho para ocultar o cerrar.
 //! - Los comandos que tocan el sistema viven en `sistema.rs`.
 
+mod almacen;
 mod sistema;
 
 use std::sync::Mutex;
@@ -87,7 +88,11 @@ fn sobre_zona(ventana: &WebviewWindow, zonas: &[Zona]) -> Option<bool> {
     let escala = ventana.scale_factor().ok()?;
     let x = (cursor.x - origen.x as f64) / escala;
     let y = (cursor.y - origen.y as f64) / escala;
-    Some(zonas.iter().any(|z| x >= z.x && x <= z.x + z.ancho && y >= z.y && y <= z.y + z.alto))
+    Some(
+        zonas
+            .iter()
+            .any(|z| x >= z.x && x <= z.x + z.ancho && y >= z.y && y <= z.y + z.alto),
+    )
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -101,19 +106,38 @@ pub fn run() {
             sistema::metricas,
             sistema::terminar_proceso,
             sistema::limpiar_temporales,
+            almacen::registrar_evento,
+            almacen::resumen_historial,
         ])
         .on_menu_event(|app, evento| al_elegir(app, evento.id().as_ref()))
         .setup(|app| {
+            // El historial local (SQLite). Si la BD no se puede abrir, Kerni
+            // sigue igual: el almacén queda desactivado y nada de esto hace panic.
+            let almacen = match app.path().app_data_dir() {
+                Ok(dir) => almacen::Almacen::abrir(&dir.join("kerni.db")),
+                Err(err) => {
+                    eprintln!(
+                        "almacén: no sé dónde van los datos de la app: {err}; sigo sin historial"
+                    );
+                    almacen::Almacen::desactivado()
+                }
+            };
+            app.manage(almacen);
+
             // La ventana no tiene bordes ni aparece en la barra de tareas:
             // la bandeja es la salida segura.
             let menu = crear_menu(app, "Mostrar u ocultar")?;
-            let mut bandeja = TrayIconBuilder::with_id("kerni").tooltip("Kerni").menu(&menu);
+            let mut bandeja = TrayIconBuilder::with_id("kerni")
+                .tooltip("Kerni")
+                .menu(&menu);
             if let Some(icono) = app.default_window_icon() {
                 bandeja = bandeja.icon(icono.clone());
             }
             bandeja.build(app)?;
 
-            let ventana = app.get_webview_window("kerni").expect("falta la ventana kerni");
+            let ventana = app
+                .get_webview_window("kerni")
+                .expect("falta la ventana kerni");
             a_la_esquina(&ventana)?;
             ventana.show()?;
 
@@ -124,10 +148,16 @@ pub fn run() {
                 let mut ignorando: Option<bool> = None;
                 loop {
                     std::thread::sleep(Duration::from_millis(66));
-                    let Some(ventana) = handle.get_webview_window("kerni") else { break };
+                    let Some(ventana) = handle.get_webview_window("kerni") else {
+                        break;
+                    };
                     let zonas = handle.state::<Zonas>().0.lock().unwrap().clone();
                     // Sin zonas todavía (el front no cargó): la ventana recibe clics.
-                    let dentro = if zonas.is_empty() { Some(true) } else { sobre_zona(&ventana, &zonas) };
+                    let dentro = if zonas.is_empty() {
+                        Some(true)
+                    } else {
+                        sobre_zona(&ventana, &zonas)
+                    };
                     let Some(dentro) = dentro else { continue };
                     if ignorando != Some(!dentro) {
                         let _ = ventana.set_ignore_cursor_events(!dentro);

@@ -8,8 +8,40 @@ export const LECTURAS_SOSTENIDAS = 3;      // seguidas sobre el umbral (6 s) ant
 export const VENTANA_CRECIMIENTO = 15;     // lecturas (30 s) para detectar fugas
 export const CRECIMIENTO_MB = 300;         // crecimiento en esa ventana que parece fuga
 export const ENFRIAMIENTO_MS = 5 * 60_000; // no repetir el aviso del mismo proceso
+export const DISCO_ETA_UMBRAL_DIAS = 14;   // si quedan menos de este número de días, avisa
+export const DISCO_ENFRIAMIENTO_MS = 24 * 60 * 60_000; // no repetir el aviso tras reiniciar
 
 const gb = (mb) => (mb / 1024).toFixed(1);
+
+/**
+ * Vigilante de disco por reglas: revisa el resumen histórico que mandó el backend
+ * y sugiere limpiar temporales cuando queda poco tiempo (voseo salvadoreño).
+ * Lógica pura para probar con node --test.
+ */
+export function crearVigilanteDisco({ ahora = () => Date.now() } = {}) {
+  const avisado = new Map(); // clave: fecha "YYYY-MM-DD" del último aviso
+
+  /**
+   * @param {object | null} h resumen de `resumen_historial`, campo `disco`
+   * @returns {null | { texto, proponer: object }}
+   */
+  function revisar(h) {
+    const d = h?.disco;
+    if (!d || d.diasHastaLlenarse == null || d.diasHastaLlenarse >= DISCO_ETA_UMBRAL_DIAS) return null;
+    const dias = Math.round(d.diasHastaLlenarse);
+    const gbDia = Math.abs(d.crecimientoGbDia).toFixed(1);
+    const fecha = String(ahora()).slice(0, 10);
+    if (ahora() - (avisado.get(fecha) ?? -Infinity) < DISCO_ENFRIAMIENTO_MS) return null;
+    avisado.set(fecha, ahora());
+    const texto = `Tu disco viene bajando ~${gbDia} GB por día; a este ritmo se llena en unos ${dias} días.`;
+    return {
+      texto,
+      proponer: { accion: 'limpiar_temporales', motivo: `El disco viene bajando ~${gbDia} GB por día.` },
+    };
+  }
+
+  return { revisar };
+}
 
 export function crearVigilanteRam({ ahora = () => Date.now() } = {}) {
   const racha = new Map();      // pid -> lecturas seguidas sobre el umbral

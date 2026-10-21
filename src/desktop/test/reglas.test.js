@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearVigilanteRam } from '../web/reglas.js';
+import { crearVigilanteRam, crearVigilanteDisco } from '../web/reglas.js';
 
 const lectura = (procesos, usadaMb = 14000) => ({
   cpu: 20, ram: { usadaMb, totalMb: 16000 }, disco: { libreGb: 100, totalGb: 476 }, procesos,
@@ -53,4 +53,39 @@ test('un proceso que sube y baja no es fuga', () => {
   let a = null;
   for (let i = 0; i < 15; i++) a = v.revisar(lectura([p(2, 'normal.exe', 300 + (i % 2) * 400)], 8000));
   assert.equal(a, null);
+});
+
+// ---------- Vigilante de disco ----------
+
+const resumen = (diasHastaLlenarse, crecimientoGbDia) => ({
+  diasDeDatos: 3, totalMuestras: 60,
+  disco: { crecimientoGbDia, diasHastaLlenarse },
+  horasPicoCpu: [], horasPicoRam: [],
+  procesosHabituales: [],
+  semana: { panicos: 0, alertasRam: 0, aprobadas: 0, rechazadas: 0 },
+});
+
+test('devuelve null cuando falta el campo disco o no hay cuenta regresiva', () => {
+  const v = crearVigilanteDisco();
+  assert.equal(v.revisar(null), null);
+  assert.equal(v.revisar({}), null);
+  assert.equal(v.revisar({ disco: {} }), null);
+  assert.equal(v.revisar(resumen(999, -1)), null); // más de 14 días, no avisa
+});
+
+test('avisa cuando quedan menos de 14 días y devuelve la propuesta de limpiar temporales', () => {
+  const v = crearVigilanteDisco();
+  const a = v.revisar(resumen(7, -2.5));
+  assert.ok(a);
+  assert.match(a.texto, /bajando ~2.5 GB/);
+  assert.equal(a.proponer.accion, 'limpiar_temporales');
+});
+
+test('no repite el aviso en el mismo día (enfriamiento de 24 h)', () => {
+  let t = 0;
+  const v = crearVigilanteDisco({ ahora: () => t });
+  assert.ok(v.revisar(resumen(5, -3)));
+  assert.equal(v.revisar(resumen(5, -3)), null); // mismo día, aún no pasó el enfriamiento
+  t = 25 * 60 * 60_000; // 25 horas después
+  assert.ok(v.revisar(resumen(5, -3))); // nuevo día, vuelve a avisar
 });

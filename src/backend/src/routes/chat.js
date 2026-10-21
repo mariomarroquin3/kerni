@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { SnapshotSchema } from '../telemetria.js';
+import { SnapshotSchema, HistorialSchema } from '../telemetria.js';
 
 /**
  * Chat por texto con la foto del sistema.
@@ -29,6 +29,12 @@ export async function chatRoutes(app, { agent, limitador, now = () => Date.now()
       if (!parsed.success) return reply.code(400).send({ error: 'la lectura del sistema no es válida' });
       snapshot = parsed.data;
     }
+    // El historial es opcional y se ignora si es inválido o enorme: el chat sigue funcionando sin él.
+    let historial = null;
+    if (req.body?.historial !== undefined) {
+      const parsed = HistorialSchema.safeParse(req.body.historial);
+      if (parsed.success && parsed.data.totalMuestras > 0) historial = parsed.data;
+    }
 
     // Una sola persona usa la app: la clave del límite es la sesión local.
     if (limitador && !limitador.permitir('local')) return reply.code(429).send({ error: 'Muchos mensajes seguidos; esperá un momento.' });
@@ -44,7 +50,7 @@ export async function chatRoutes(app, { agent, limitador, now = () => Date.now()
 
     sesion.ocupada = true;
     try {
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot });
+      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, historial });
       return { session_id: sessionId, respuesta, acciones, traza };
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo }, 'falló el turno');
