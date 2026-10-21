@@ -110,13 +110,14 @@ export function createMemoria({ db, logger = console, now = () => Date.now() }) 
       const t = now();
       if (t - (ultimaSalud.get(deviceId) ?? 0) < MIN_ENTRE_LECTURAS_MS) return false;
       ultimaSalud.set(deviceId, t);
+      const pct = (n, d) => Math.min(100, Math.max(0, d > 0 ? (n / d) * 100 : 0)); // la tabla rechaza fuera de 0-100
       const top = [...snapshot.procesos].sort((a, b) => b.memoriaMb - a.memoriaMb)[0];
       return seguro('guardar salud', async () => {
         await db.insert('kerni_salud', [{
           device_id: deviceId,
-          cpu: snapshot.cpu,
-          ram_pct: (snapshot.ram.usadaMb / snapshot.ram.totalMb) * 100,
-          disco_pct: ((snapshot.disco.totalGb - snapshot.disco.libreGb) / snapshot.disco.totalGb) * 100,
+          cpu: Math.min(100, Math.max(0, snapshot.cpu)),
+          ram_pct: pct(snapshot.ram.usadaMb, snapshot.ram.totalMb),
+          disco_pct: pct(snapshot.disco.totalGb - snapshot.disco.libreGb, snapshot.disco.totalGb),
           proceso_top: top ? limpiarNombre(top.nombre) : null,
           proceso_mb: top?.memoriaMb ?? null,
         }]);

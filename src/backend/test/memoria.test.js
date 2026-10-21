@@ -150,6 +150,13 @@ describe('memoria', () => {
     expect(r).toMatch(/chrome\.exe/);
   });
 
+  it('recorta porcentajes fuera de 0-100 para que la tabla no rechace la lectura', async () => {
+    const db = fakeDb();
+    const m = createMemoria({ db, logger: callado });
+    await m.registrarSalud(DEVICE, { ...SNAPSHOT, ram: { usadaMb: 17000, totalMb: 16000 }, cpu: 100 });
+    expect(db.t.kerni_salud[0].ram_pct).toBe(100);
+  });
+
   it('olvidarTodo borra recuerdos, conversación y salud', async () => {
     const db = fakeDb();
     const m = createMemoria({ db, logger: callado });
@@ -208,6 +215,12 @@ describe('chat con memoria', () => {
   it('sin memoria conectada el modelo no ve la herramienta y el chat sigue igual', async () => {
     const { app, anthropic } = appConMemoria({ respuestas: [texto('ok')], memoriaActiva: false });
     expect((await chat(app, { mensaje: 'hola', device_id: DEVICE })).statusCode).toBe(200);
+    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion']);
+  });
+
+  it('sin device_id el modelo no ve la herramienta de recordar (no habría dónde guardar)', async () => {
+    const { app, anthropic } = appConMemoria({ respuestas: [texto('ok')] });
+    await chat(app, { mensaje: 'hola' });
     expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion']);
   });
 

@@ -62,7 +62,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, conocimiento,
         deviceId ? memoria.contexto(deviceId) : '',
         conocimiento?.habilitado ? conocimiento.contexto(mensaje) : '',
       ]);
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos, conocimiento: saber });
+      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos, conocimiento: saber, puedeRecordar: Boolean(deviceId) });
       // Sin esperar: guardar el turno no debe demorar la respuesta ni romperla si Supabase falla.
       if (deviceId) memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta);
       return { session_id: sessionId, respuesta, acciones, traza };

@@ -13,8 +13,9 @@ const REINTENTOS = 3;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function createEmbeddings({ apiKey, baseUrl, model, dimensions = DIMENSIONES, fetch: fetchFn = globalThis.fetch, sleep = dormir, nombre = 'embeddings' }) {
-  /** @param {string[]} textos @returns {Promise<number[][]>} un vector por texto, en el mismo orden */
-  async function embed(textos) {
+  /** `reintentos` y `timeoutMs` se acortan en el chat, donde esperar los embeddings demora la respuesta.
+   * @param {string[]} textos @returns {Promise<number[][]>} un vector por texto, en el mismo orden */
+  async function embed(textos, { reintentos = REINTENTOS, timeoutMs = TIMEOUT_MS } = {}) {
     if (!textos.length) return [];
     for (let intento = 0; ; intento++) {
       let res;
@@ -23,14 +24,14 @@ export function createEmbeddings({ apiKey, baseUrl, model, dimensions = DIMENSIO
           method: 'POST',
           headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({ model, input: textos, dimensions }),
-          signal: AbortSignal.timeout(TIMEOUT_MS),
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch {
-        if (intento < REINTENTOS - 1) { await sleep(1000 * 2 ** intento); continue; }
+        if (intento < reintentos - 1) { await sleep(1000 * 2 ** intento); continue; }
         throw Object.assign(new Error('No pude calcular los embeddings (sin red o tardó demasiado).'), { codigo: 'sin_red' });
       }
       if (res.status === 429 || res.status >= 500) {
-        if (intento < REINTENTOS - 1) { await sleep(2000 * 2 ** intento); continue; }
+        if (intento < reintentos - 1) { await sleep(2000 * 2 ** intento); continue; }
         throw Object.assign(new Error(res.status === 429 ? 'Se agotó el cupo de embeddings; probá más tarde.' : 'El servicio de embeddings no responde.'), { codigo: res.status === 429 ? 'sin_cupo' : 'sin_red' });
       }
       if (res.status === 401 || res.status === 403) throw Object.assign(new Error('La llave de embeddings no es válida.'), { codigo: 'llave_invalida' });

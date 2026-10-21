@@ -5,6 +5,8 @@ export const K_POR_DEFECTO = 4;
 export const SIMILITUD_MINIMA = 0.55;
 export const MIN_PREGUNTA = 12;   // "hola", "gracias"… no merecen gastar un embedding
 const LOTE = 16;
+// En el chat el RAG es un extra: no vale la pena hacer esperar a la persona (sin reintentos y con poco tiempo).
+const ESPERA_CHAT = { reintentos: 1, timeoutMs: 4000 };
 
 const vector = (v) => `[${v.join(',')}]`;
 
@@ -19,7 +21,7 @@ export function createConocimiento({ db, embeddings, logger = console }) {
     const q = String(pregunta ?? '').trim();
     if (q.length < MIN_PREGUNTA) return [];
     try {
-      const [emb] = await embeddings.embed([q.slice(0, 1000)]);
+      const [emb] = await embeddings.embed([q.slice(0, 1000)], ESPERA_CHAT);
       return await db.rpc('kerni_buscar_conocimiento', { consulta: vector(emb), k, minimo });
     } catch (err) {
       logger.error?.({ err: err.message, codigo: err.codigo }, 'conocimiento: falló la búsqueda');

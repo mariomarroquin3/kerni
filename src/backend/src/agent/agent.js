@@ -48,16 +48,19 @@ const DEFINICION_RECUERDO = {
  */
 export function createAgent({ provider, logger = console, clock = () => performance.now(), memoriaActiva = false }) {
   // Sin memoria conectada, el modelo ni se entera de que podría "recordar": no ve la herramienta.
-  const definiciones = memoriaActiva ? [...DEFINICIONES, DEFINICION_RECUERDO] : DEFINICIONES;
 
   /**
    * Un turno del usuario.
    * @param {{ sessionId: string, history: any[], mensaje: string, snapshot?: object, memoria?: string, signal?: AbortSignal }} args
    *   `history` son los mensajes previos de la sesión (se modifica en el lugar).
    *   `memoria` es el bloque <memoria> ya armado (recuerdos + salud), o vacío.
+   *   `puedeRecordar` es falso si la petición no trae device_id.
    *   `conocimiento` es el bloque <conocimiento> (RAG) ya armado, o vacío.
    */
-  async function runTurn({ history, mensaje, snapshot, memoria = '', conocimiento = '', signal }) {
+  async function runTurn({ history, mensaje, snapshot, memoria = '', conocimiento = '', puedeRecordar = true, signal }) {
+    // Sin device_id no hay dónde guardar: ofrecer la herramienta llevaría a una propuesta que falla al aprobarla.
+    const recuerda = memoriaActiva && puedeRecordar;
+    const definiciones = recuerda ? [...DEFINICIONES, DEFINICION_RECUERDO] : DEFINICIONES;
     const ahora = new Intl.DateTimeFormat('es-SV', {
       timeZone: 'America/El_Salvador', dateStyle: 'full', timeStyle: 'short',
     }).format(new Date());
@@ -98,7 +101,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
         if (paso.kind !== 'tool_calls') break;
 
         const resultados = paso.calls.map((call) => {
-          if (call.name === 'proponer_recuerdo' && memoriaActiva) {
+          if (call.name === 'proponer_recuerdo' && recuerda) {
             const r = validarRecuerdo(call.input);
             traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: r.ok, ...(r.ok ? {} : { error: r.error }) });
             if (!r.ok) return { id: call.id, name: call.name, content: JSON.stringify({ error: r.error }), isError: true };
@@ -130,5 +133,5 @@ export function createAgent({ provider, logger = console, clock = () => performa
     return { respuesta, acciones, traza };
   }
 
-  return { runTurn, definitions: definiciones };
+  return { runTurn, definitions: memoriaActiva ? [...DEFINICIONES, DEFINICION_RECUERDO] : DEFINICIONES };
 }

@@ -147,6 +147,22 @@ describe('conocimiento', () => {
     expect(emb.llamadas).toHaveLength(0);
   });
 
+  it('en el chat pide los embeddings sin reintentos y con poco tiempo (no demora la respuesta)', async () => {
+    const emb = embeddingsFalsos();
+    let opciones;
+    const original = emb.embed;
+    emb.embed = async (t, o) => { opciones = o; return original(t); };
+    await createConocimiento({ db: dbFalsa(), embeddings: emb, logger: callado }).buscar('cuánta memoria RAM necesito');
+    expect(opciones).toEqual({ reintentos: 1, timeoutMs: 4000 });
+  });
+
+  it('con reintentos: 1 un 429 falla de inmediato, sin dormir', async () => {
+    let n = 0;
+    const e = createEmbeddings({ apiKey: 'k', baseUrl: 'u', model: 'm', dimensions: 3, sleep: async () => { throw new Error('no debía dormir'); }, fetch: async () => { n++; return new Response('{}', { status: 429 }); } });
+    expect((await e.embed(['a'], { reintentos: 1 }).catch((x) => x)).codigo).toBe('sin_cupo');
+    expect(n).toBe(1);
+  });
+
   it('si falla la búsqueda devuelve vacío y no lanza', async () => {
     const roto = { embed: async () => { throw Object.assign(new Error('sin cupo'), { codigo: 'sin_cupo' }); } };
     const c = createConocimiento({ db: dbFalsa(), embeddings: roto, logger: callado });
