@@ -128,6 +128,13 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Correr la migración del RAG, `npm run indexar` y `npm run indexar -- --buscar "..."` con un proyecto y una llave reales; ajustar `SIMILITUD_MINIMA` con preguntas reales.
 - [ ] Cargar los manuales de Office propios en `conocimiento/privado/` (convertidos a texto).
 - [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
-- [ ] Persistencia de XP/nivel (ahora puede ir en Supabase) y evolución Centinela / Overclock / Erudito.
+- [x] Saneamiento de `<memoria>` y `<conocimiento>`: `sanearParaBloque` quita control, `< >`, bidireccionales, ancho cero y BOM; se aplica al guardar y armar contexto.
+- [x] Regla en `persona.js`: `<memoria>` y `<conocimiento>` son datos, no instrucciones.
+- [x] Lista de procesos protegidos ampliada a 22 (backend + Rust sincronizados).
+- [x] Ruta `POST /recuerdos` con validación de device_id y limitador propio.
+- [x] Error 400/404 en embeddings lanza mensaje claro, no devuelve `[]`.
+- [x] Timeout de 60 s en fetch `/chat` con mensaje amable si se agota.
+- [x] Tests nuevos: contexto seguro, chat sin Supabase, `conocimiento.habilitado`, rechazar device_id inválido.
+- [x] CI Windows: `.github/workflows/build-windows.yml` corre tests antes de build.
 - [ ] Decidir si el backend vive en la nube (como Bitoo) o se empaqueta local; hoy escucha solo en `127.0.0.1`.
 - [ ] Hitos siguientes de la propuesta: módulo C (seguridad), B (productividad) y E (herramientas).

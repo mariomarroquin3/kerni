@@ -10,3 +10,5 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-19 | Integración con Gemini y OpenRouter | [2026-10-19-gemini-openrouter.md](2026-10-19-gemini-openrouter.md) |
 | 2026-10-19 | Caras por carga, transparencia en reposo y ocultar métricas | [2026-10-19-umbrales-de-carga.md](2026-10-19-umbrales-de-carga.md) |
 | 2026-10-21 | Memoria en Supabase y manejo de contexto | [2026-10-21-supabase-memory.md](2026-10-21-supabase-memory.md) |
+| 2026-10-21 | Memoria + RAG: Supabase, embeddings y recuerdos por device_id | [2026-10-21-memoria-rag.md](2026-10-21-memoria-rag.md) |
+| 2026-10-21 | Memoria sólida — saneo, seguridad y tests | [2026-10-21-memoria-solida.md](2026-10-21-memoria-solida.md) |
