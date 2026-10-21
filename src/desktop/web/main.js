@@ -279,6 +279,8 @@ $('chat').addEventListener('submit', async (e) => {
   actualizarModo();
   decir('Pensando…', 30000);
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
     const res = await fetch(`${BACKEND}/chat`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -288,7 +290,9 @@ $('chat').addEventListener('submit', async (e) => {
         ...(deviceId ? { device_id: deviceId } : {}),
         ...(ultimas ? { snapshot: snapshotParaBackend(ultimas) } : {}),
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? `error ${res.status}`);
     sessionId = data.session_id;
@@ -299,7 +303,11 @@ $('chat').addEventListener('submit', async (e) => {
     if (propuesta) proponer(propuesta, true);
     else if (recuerdo) proponer({ accion: 'recordar', clave: recuerdo.clave, valor: recuerdo.valor }, false);
   } catch (err) {
-    decir(err instanceof TypeError ? 'No logro hablar con mi cerebro (¿está encendido el backend?).' : String(err.message ?? err));
+    if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+      decir('Tardó mucho en responder. Probá de nuevo en un momento.');
+    } else {
+      decir(err instanceof TypeError ? 'No logro hablar con mi cerebro (¿está encendido el backend?).' : String(err.message ?? err));
+    }
   } finally {
     pensando = false;
     actualizarModo();
