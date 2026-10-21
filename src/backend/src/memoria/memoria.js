@@ -1,5 +1,5 @@
 import { limpiarNombre } from '../telemetria.js';
-import { limpiarTexto, MAX_HECHOS } from './recuerdos.js';
+import { limpiarTexto, MAX_HECHOS, validarRecuerdo, sanearParaBloque } from './recuerdos.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const esUuid = (v) => typeof v === 'string' && UUID.test(v);
@@ -59,8 +59,8 @@ export function createMemoria({ db, logger = console, now = () => Date.now() }) 
       const [lista, salud] = await Promise.all([hechos(deviceId), resumenSalud(deviceId)]);
       if (!lista.length && !salud) return '';
       const lineas = [
-        ...lista.map((h) => `- ${limpiarNombre(h.clave)}: ${limpiarTexto(h.valor)}`),
-        ...(salud ? [`Historial de salud: ${salud}`] : []),
+        ...lista.map((h) => `- ${limpiarNombre(h.clave)}: ${sanearParaBloque(h.valor)}`),
+        ...(salud ? [`Historial de salud: ${sanearParaBloque(salud)}`] : []),
       ];
       return `<memoria>\n${lineas.join('\n')}\n</memoria>`;
     },
@@ -72,12 +72,19 @@ export function createMemoria({ db, logger = console, now = () => Date.now() }) 
         if (existentes.length >= MAX_HECHOS && !existentes.some((h) => h.clave === clave)) {
           return { ok: false, error: `ya hay ${MAX_HECHOS} recuerdos; borrá alguno antes de guardar otro` };
         }
-        await db.upsert('kerni_hechos', [{ device_id: deviceId, clave, valor, origen, actualizado: new Date(now()).toISOString() }], 'device_id,clave');
+        // Sanear al guardar para que nunca entre markup o bidireccionales en la tabla.
+        const valorLimpio = sanearParaBloque(valor);
+        await db.upsert('kerni_hechos', [{ device_id: deviceId, clave, valor: valorLimpio, origen, actualizado: new Date(now()).toISOString() }], 'device_id,clave');
         return { ok: true };
       } catch (err) {
         logger.error?.({ err: err.message, codigo: err.codigo }, 'memoria: falló guardar hecho');
         return { ok: false, error: 'No pude guardarlo en la memoria ahora mismo.' };
       }
+    },
+
+    /** Alias para el endpoint POST /recuerdos: guarda un recuerdo ya aprobado en pantalla. */
+    async aprobarRecuerdo(deviceId, clave, valor) {
+      return this.guardarHecho(deviceId, clave, valor, 'kerni');
     },
 
     borrarHecho: (deviceId, clave) =>
@@ -140,6 +147,7 @@ export function createMemoriaNula() {
     resumenSalud: async () => '',
     contexto: async () => '',
     guardarHecho: async () => no,
+    aprobarRecuerdo: async () => no,
     borrarHecho: async () => false,
     olvidarTodo: async () => false,
     guardarTurno: async () => undefined,

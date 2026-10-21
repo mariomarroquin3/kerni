@@ -1,4 +1,4 @@
-import { limpiarTexto } from '../memoria/recuerdos.js';
+import { limpiarTexto, sanearParaBloque } from '../memoria/recuerdos.js';
 import { fragmentar, huella } from './fragmentos.js';
 
 export const K_POR_DEFECTO = 4;
@@ -34,7 +34,7 @@ export function createConocimiento({ db, embeddings, logger = console }) {
     const encontrados = await buscar(pregunta);
     if (!encontrados.length) return '';
     const items = encontrados.map((f, i) =>
-      `[${i + 1}] (${limpiarTexto(f.fuente, 80)}${f.titulo ? ` › ${limpiarTexto(f.titulo, 80)}` : ''})\n${limpiarTexto(f.contenido, 1200)}`);
+      `[${i + 1}] (${sanearParaBloque(f.fuente, 80)}${f.titulo ? ` › ${sanearParaBloque(f.titulo, 80)}` : ''})\n${sanearParaBloque(f.contenido, 1200)}`);
     return `<conocimiento>\n${items.join('\n\n')}\n</conocimiento>`;
   }
 
@@ -57,9 +57,9 @@ export function createConocimiento({ db, embeddings, logger = console }) {
       total.iguales += fragmentos.length - nuevos.length;
       for (let i = 0; i < nuevos.length; i += LOTE) {
         const lote = nuevos.slice(i, i + LOTE);
-        const vectores = await embeddings.embed(lote.map((f) => (f.titulo ? `${f.titulo}\n${f.contenido}` : f.contenido)));
+        const vectores = await embeddings.embed(lote.map((f) => (f.titulo ? `${sanearParaBloque(f.titulo)}\n${sanearParaBloque(f.contenido)}` : sanearParaBloque(f.contenido))));
         await db.upsert('kerni_conocimiento', lote.map((f, j) => ({
-          fuente: doc.fuente, titulo: f.titulo, contenido: f.contenido, hash: f.hash, embedding: vector(vectores[j]),
+          fuente: sanearParaBloque(doc.fuente), titulo: sanearParaBloque(f.titulo), contenido: sanearParaBloque(f.contenido), hash: f.hash, embedding: vector(vectores[j]),
         })), 'hash');
         total.nuevos += lote.length;
       }

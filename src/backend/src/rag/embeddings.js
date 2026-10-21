@@ -35,6 +35,11 @@ export function createEmbeddings({ apiKey, baseUrl, model, dimensions = DIMENSIO
         throw Object.assign(new Error(res.status === 429 ? 'Se agotó el cupo de embeddings; probá más tarde.' : 'El servicio de embeddings no responde.'), { codigo: res.status === 429 ? 'sin_cupo' : 'sin_red' });
       }
       if (res.status === 401 || res.status === 403) throw Object.assign(new Error('La llave de embeddings no es válida.'), { codigo: 'llave_invalida' });
+      if (res.status === 400 || res.status === 404) {
+        let detalle = '';
+        try { detalle = String((await res.json())?.message ?? '').slice(0, 200); } catch { /* sin cuerpo */ }
+        throw Object.assign(new Error(`Embeddings: error ${res.status}${detalle ? ` - ${detalle}` : ''}`), { codigo: 'embeddings_error', status: res.status });
+      }
       if (!res.ok) throw Object.assign(new Error(`Los embeddings respondieron ${res.status}`), { codigo: 'embeddings_error', status: res.status });
 
       const json = await res.json();

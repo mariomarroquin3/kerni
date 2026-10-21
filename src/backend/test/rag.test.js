@@ -180,6 +180,15 @@ describe('conocimiento', () => {
   });
 });
 
+describe('conocimiento.habilitado', () => {
+  it('es true solo con embeddings y db', () => {
+    const c1 = createConocimiento({ db: dbFalsa(), embeddings: embeddingsFalsos(), logger: callado });
+    expect(c1.habilitado).toBe(true);
+    const c2 = createConocimientoNulo();
+    expect(c2.habilitado).toBe(false);
+  });
+});
+
 describe('chat con conocimiento', () => {
   it('mete los fragmentos relacionados en el contexto, y sin RAG el chat sigue igual', async () => {
     const db = dbFalsa(); const emb = embeddingsFalsos();

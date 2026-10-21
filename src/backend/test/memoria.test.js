@@ -261,4 +261,49 @@ describe('rutas /memoria', () => {
     expect((await appConMemoria().app.inject({ url: '/health' })).json().memoria).toBe(true);
     expect((await appConMemoria({ memoriaActiva: false }).app.inject({ url: '/health' })).json().memoria).toBe(false);
   });
+
+  it('el chat responde 200 si memoria.contexto lanza un error', async () => {
+    const roto = {
+      select: async () => { throw new Error('supabase caído'); },
+      insert: async () => { throw new Error('supabase caído'); },
+      upsert: async () => { throw new Error('supabase caído'); },
+      delete: async () => { throw new Error('supabase caído'); },
+    };
+    const { app } = appConMemoria({ respuestas: [texto('ok')], db: roto });
+    const res = await app.inject({ method: 'POST', url: '/chat', payload: { mensaje: 'hola', device_id: DEVICE } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().respuesta).toMatch(/ok/);
+  });
+
+  it('chat sin Supabase configurado funciona igual', async () => {
+    const { app, anthropic } = appConMemoria({ respuestas: [texto('todo bien')], memoriaActiva: false });
+    const res = await app.inject({ method: 'POST', url: '/chat', payload: { mensaje: 'hola', device_id: DEVICE } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().respuesta).toMatch(/todo bien/);
+    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion']);
+  });
+
+  it('aprobarRecuerdo devuelve ok:false si falla el insert', async () => {
+    const roto = {
+      insert: async () => { throw new Error('bd caída'); },
+      upsert: async () => { throw new Error('bd caída'); },
+    };
+    const m = createMemoria({ db: roto, logger: callado });
+    const r = await m.aprobarRecuerdo(DEVICE, 'nombre', 'Mario');
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe('rutas /recuerdos y DELETE /memoria', () => {
+  const llamar = (app, method, url, payload) => app.inject({ method, url, payload });
+
+  it('/recuerdos rechaza device_id inválido', async () => {
+    const { app } = appConMemoria();
+    expect((await llamar(app, 'POST', '/recuerdos', { device_id: 'nope', clave: 'x', valor: 'y' })).statusCode).toBe(400);
+  });
+
+  it('DELETE /memoria rechaza device_id inválido', async () => {
+    const { app } = appConMemoria();
+    expect((await llamar(app, 'DELETE', '/memoria?device_id=nope')).statusCode).toBe(400);
+  });
 });

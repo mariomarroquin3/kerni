@@ -25,6 +25,7 @@ export const PROCESOS_PROTEGIDOS = new Set([
   'system', 'system idle process', 'registry', 'smss.exe', 'csrss.exe', 'wininit.exe', 'winlogon.exe',
   'services.exe', 'lsass.exe', 'svchost.exe', 'explorer.exe', 'dwm.exe', 'fontdrvhost.exe',
   'msmpeng.exe', 'securityhealthservice.exe', 'memory compression', 'kerni.exe',
+  'audiodg.exe', 'spoolsv.exe', 'sihost.exe', 'taskhostw.exe', 'msedgewebview2.exe',
 ]);
 
 export const esProtegido = (nombre) => PROCESOS_PROTEGIDOS.has(String(nombre).trim().toLowerCase());
@@ -33,6 +34,8 @@ export const esProtegido = (nombre) => PROCESOS_PROTEGIDOS.has(String(nombre).tr
 export function limpiarNombre(nombre) {
   return String(nombre)
     .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
+    // Caracteres bidireccionales, de ancho cero y BOM
+    .replace(/[\u200B-\u200F\u2028-\u202E\u2066-\u2069\uFEFF]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80);
