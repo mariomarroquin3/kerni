@@ -19,6 +19,7 @@ const PROTEGIDOS: &[&str] = &[
     "winlogon.exe", "services.exe", "lsass.exe", "svchost.exe", "explorer.exe", "dwm.exe",
     "fontdrvhost.exe", "msmpeng.exe", "securityhealthservice.exe", "memory compression",
     "kerni.exe",
+    "audiodg.exe", "spoolsv.exe", "sihost.exe", "taskhostw.exe", "msedgewebview2.exe",
 ];
 
 /// Cuántos procesos se reportan (los que más CPU y más memoria usan).
@@ -286,6 +287,8 @@ mod tests {
     #[test]
     fn reconoce_procesos_protegidos() {
         assert!(es_protegido("lsass.exe"));
+        assert!(es_protegido("msedgewebview2.exe"));
+        assert!(es_protegido("audiodg.exe"));
         assert!(es_protegido("  SVCHOST.EXE "));
         assert!(!es_protegido("chrome.exe"));
     }
