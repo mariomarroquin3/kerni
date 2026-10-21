@@ -28,5 +28,11 @@ export function loadConfig(env = process.env) {
       model: env.OPENROUTER_MODEL || '',
       baseUrl: env.OPENROUTER_BASE_URL || '',
     },
+
+    // Memoria en Supabase (opcional). Sin estas dos variables Kerni funciona igual, pero no recuerda nada.
+    supabase: {
+      url: env.SUPABASE_URL || '',
+      key: env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY || '',
+    },
   };
 }

@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import { chatRoutes } from './routes/chat.js';
+import { memoriaRoutes } from './routes/memoria.js';
+import { createMemoriaNula } from './memoria/memoria.js';
 import { createLimitador, combinarLimitadores } from './guardrails/limitador.js';
 
 export const DEFAULT_ORIGINS = [
@@ -13,7 +15,7 @@ export const DEFAULT_ORIGINS = [
  * Construye la app con dependencias inyectadas, para poder probarla
  * con un proveedor de LLM falso.
  */
-export function buildApp({ config, agent, provider, now, logger = false }) {
+export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), now, logger = false }) {
   const app = Fastify({ logger });
 
   // CORS para la app de escritorio: el WebView de Tauri tiene su propio origen.
@@ -24,7 +26,7 @@ export function buildApp({ config, agent, provider, now, logger = false }) {
     reply.header('access-control-allow-origin', origin);
     reply.header('vary', 'origin');
     if (req.method === 'OPTIONS') {
-      reply.header('access-control-allow-methods', 'GET, POST, OPTIONS');
+      reply.header('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
       reply.header('access-control-allow-headers', 'content-type');
       reply.header('access-control-max-age', '600');
       return reply.code(204).send();
@@ -36,7 +38,12 @@ export function buildApp({ config, agent, provider, now, logger = false }) {
     createLimitador({ max: config.turnosPorDia ?? 300, ventanaMs: 24 * 60 * 60_000, ...(now ? { now } : {}) }),
   );
 
-  app.get('/health', async () => ({ ok: true, ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}) }));
-  app.register(chatRoutes, { agent, limitador, ...(now ? { now } : {}) });
+  app.get('/health', async () => ({
+    ok: true,
+    memoria: memoria.habilitada,
+    ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
+  }));
+  app.register(chatRoutes, { agent, limitador, memoria, provider, ...(now ? { now } : {}) });
+  app.register(memoriaRoutes, { memoria });
   return app;
 }

@@ -10,6 +10,7 @@
     "start": "node --env-file-if-exists=.env src/server.js",
     "test": "vitest run",
     "probar-llm": "node --env-file-if-exists=.env scripts/probar-llm.js",
+    "probar-memoria": "node --env-file-if-exists=.env scripts/probar-memoria.js",
     "test:watch": "vitest"
   },
   "dependencies": {

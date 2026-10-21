@@ -134,6 +134,19 @@ test('la cara por carga sale de la BATERÍA, no de la CPU', () => {
   assert.match(rust, /GetSystemPowerStatus/);
 });
 
+test('la memoria: el front manda un device_id al chat y solo guarda recuerdos tras aprobarlos', () => {
+  assert.match(main, /device_id: deviceId/);
+  assert.match(main, /localStorage\.setItem\(clave, id\)/);
+  // el recuerdo se propone en la tarjeta; el POST a /memoria/hechos vive solo en ejecutar() (clic en Aprobar)
+  assert.equal([...main.matchAll(/\/memoria\/hechos/g)].length, 1);
+  assert.match(main, /async function ejecutar\(a\) \{\s*if \(a\.accion === 'recordar'\)/);
+  // la salud solo se manda desde la app real, nunca con los datos de demostración
+  assert.match(main, /if \(enTauri && deviceId\) \{\s*setInterval/);
+  const env = readFileSync(join(AQUI, '..', '..', 'backend', '.env.example'), 'utf8');
+  assert.match(env, /^SUPABASE_URL=/m);
+  assert.match(env, /^SUPABASE_SECRET_KEY=/m);
+});
+
 test('el saludo cubre todas las propiedades que tocan los modos (si no, se apilan las caras)', () => {
   // Regresión: el saludo solo apagaba las caras viejas y el modo nuevo (aburrido, neutro...) quedaba debajo.
   const escena = leer('personaje', 'kerni-rive', 'fuente', 'scene.rml');

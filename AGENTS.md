@@ -26,6 +26,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/llm/anthropic.js` | Proveedor Anthropic (interfaz `step`, igual que Bitoo) |
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
+| `src/backend/src/memoria/` | Memoria en **Supabase** (opcional): `supabase.js` (cliente REST), `memoria.js` (recuerdos, turnos, salud), `recuerdos.js` (validación; nada de secretos). Esquema en `supabase/migrations/`. Sin llaves de Supabase queda una memoria nula y Kerni funciona igual |
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
@@ -44,6 +45,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 cd src/backend && npm ci && npm test        # obligatorio antes de cada commit; no necesita llaves
 cd src/backend && cp .env.example .env      # poné UNA llave: ANTHROPIC_API_KEY, GEMINI_API_KEY u OPENROUTER_API_KEY
 cd src/backend && npm run probar-llm        # prueba tu llave contra la API real (npm run probar-llm -- gemini)
+cd src/backend && npm run probar-memoria    # prueba Supabase real (después de correr la migración y poner SUPABASE_URL / SUPABASE_SECRET_KEY)
 cd src/backend && npm run dev               # backend en 127.0.0.1:8788
 cd src/desktop && npm ci && npm test        # lógica del front
 cd src/desktop/src-tauri && cargo test      # núcleo Rust
@@ -70,6 +72,14 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - El historial de una sesión queda en el formato del proveedor activo (Anthropic ≠ OpenAI): una sesión no cambia de proveedor a la mitad.
 - Los errores de la API llegan a la persona con un mensaje claro (llave inválida, cupo diario agotado, sin red, sin créditos). Nunca se muestra la llave ni el cuerpo crudo del error.
 - `npm run probar-llm` es la prueba contra la API real; los tests usan respuestas simuladas y un servidor HTTP local que imita a Gemini y OpenRouter (`test/http-real.test.js`).
+
+## Memoria (Supabase)
+
+- Solo el backend habla con Supabase, con la llave **secreta** en `.env`. Las tablas tienen RLS sin políticas y sin permisos para `anon`/`authenticated`: las llaves públicas no leen nada. Todo va por `device_id` (UUID de la app, en `localStorage`).
+- Lo que recuerda: **hechos** (`proponer_recuerdo`, aprobados en pantalla como cualquier acción), **turnos del chat** en texto plano (sirven para cualquier proveedor; una sesión nueva retoma los últimos 6 mensajes) y **salud resumida** (una lectura cada 10 min; se borra a los 30 días).
+- Lo guardado entra al prompt como dato entre `<memoria>`. Los recuerdos con pinta de contraseña, llave o ruta con usuario se rechazan; máximo 50.
+- Si Supabase cae, el chat sigue. `/health` informa `memoria: true|false`.
+- Rutas: `GET /memoria`, `POST /memoria/hechos`, `DELETE /memoria/hechos/:clave`, `DELETE /memoria` (olvida todo), `POST /memoria/salud`.
 
 ## Probar la app real de Tauri
 
@@ -102,6 +112,9 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Probar a mano el arrastre de la ventana (`data-tauri-drag-region="deep"`): el clic sobre Kerni ya no lo hace saludar porque el arrastre lo captura.
 - [ ] Modo pánico: **congelar** procesos no esenciales (suspender) en vez de solo cerrar. Requiere `NtSuspendProcess`.
 - [ ] Limpiar caché y Prefetch (Prefetch exige administrador; decidir si se pide elevación).
-- [ ] Persistencia local de XP/nivel (SQLite) y evolución Centinela / Overclock / Erudito.
+- [x] Memoria en Supabase (recuerdos aprobados, chat retomable, salud resumida), probada con un Supabase falso.
+- [ ] Correr la migración en un proyecto real de Supabase y `npm run probar-memoria`.
+- [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
+- [ ] Persistencia de XP/nivel (ahora puede ir en Supabase) y evolución Centinela / Overclock / Erudito.
 - [ ] Decidir si el backend vive en la nube (como Bitoo) o se empaqueta local; hoy escucha solo en `127.0.0.1`.
 - [ ] Hitos siguientes de la propuesta: módulo C (seguridad), B (productividad) y E (herramientas).

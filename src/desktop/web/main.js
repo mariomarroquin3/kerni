@@ -99,6 +99,17 @@ let ultimas = null;
 let pendiente = null; // acción que espera aprobación
 let sessionId = null;
 
+// Identidad anónima de esta PC para la memoria (un UUID al azar; no es un dato personal).
+function idDeEstaPc() {
+  const clave = 'kerni.deviceId';
+  try {
+    let id = localStorage.getItem(clave);
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem(clave, id); }
+    return id;
+  } catch { return null; }
+}
+const deviceId = idDeEstaPc();
+
 // ---------- Globo de texto ----------
 let timerGlobo;
 function decir(texto, ms = 12000) {
@@ -184,6 +195,7 @@ async function actualizar() {
 
 // ---------- Acciones: siempre con confirmación ----------
 function describir(a) {
+  if (a.accion === 'recordar') return `¿Querés que recuerde esto? "${a.valor}"`;
   return a.accion === 'terminar_proceso'
     ? `¿Cerrar ${a.nombre} (pid ${a.pid})? Si tiene trabajo sin guardar, se pierde.`
     : '¿Borrar los archivos temporales con más de 24 horas?';
@@ -200,7 +212,15 @@ function proponer(accion, porKerni = false) {
 }
 
 async function ejecutar(a) {
-  if (a.accion === 'terminar_proceso') {
+  if (a.accion === 'recordar') {
+    const res = await fetch(`${BACKEND}/memoria/hechos`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, clave: a.clave, valor: a.valor }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `error ${res.status}`);
+    decir('Anotado, me lo acuerdo.');
+  } else if (a.accion === 'terminar_proceso') {
     const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre });
     decir(msg);
   } else if (a.accion === 'limpiar_temporales') {
@@ -265,6 +285,7 @@ $('chat').addEventListener('submit', async (e) => {
       body: JSON.stringify({
         mensaje,
         session_id: sessionId ?? undefined,
+        ...(deviceId ? { device_id: deviceId } : {}),
         ...(ultimas ? { snapshot: snapshotParaBackend(ultimas) } : {}),
       }),
     });
@@ -274,7 +295,9 @@ $('chat').addEventListener('submit', async (e) => {
     decir(data.respuesta, 20000);
     // Solo la última propuesta espera aprobación; la persona decide, no el modelo.
     const propuesta = data.acciones.filter((a) => a.tipo === 'proponer_accion').at(-1);
+    const recuerdo = data.acciones.find((a) => a.tipo === 'proponer_recuerdo');
     if (propuesta) proponer(propuesta, true);
+    else if (recuerdo) proponer({ accion: 'recordar', clave: recuerdo.clave, valor: recuerdo.valor }, false);
   } catch (err) {
     decir(err instanceof TypeError ? 'No logro hablar con mi cerebro (¿está encendido el backend?).' : String(err.message ?? err));
   } finally {
@@ -321,5 +344,17 @@ $('mascota').addEventListener('contextmenu', (e) => {
 setInterval(avisarZonas, 250);
 actualizar();
 setInterval(actualizar, CADA_MS);
+
+// Historial de salud para la memoria: una lectura resumida cada 10 min, solo con datos reales (no la demo).
+if (enTauri && deviceId) {
+  setInterval(() => {
+    if (!ultimas) return;
+    fetch(`${BACKEND}/memoria/salud`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, snapshot: snapshotParaBackend(ultimas) }),
+    }).catch(() => { /* sin backend o sin memoria: no pasa nada */ });
+  }, 10 * 60_000);
+}
 decir('¡Hola! Soy Kerni. Estoy cuidando tu compu.', 6000);
 setTimeout(() => personaje.saludar(), 600);
