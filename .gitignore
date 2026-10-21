@@ -10,3 +10,6 @@ coverage/
 src/desktop/src-tauri/gen/
 src/desktop/personaje/kerni-rive/fuente/build/
 __pycache__/
+
+# Manuales propios para el RAG (pueden tener derechos de autor): no se suben
+conocimiento/privado/

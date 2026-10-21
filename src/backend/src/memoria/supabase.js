@@ -46,6 +46,8 @@ export function createSupabase({ url, key, fetch: fetchFn = globalThis.fetch, ti
     insert: (tabla, filas) => pedir(tabla, { metodo: 'POST', cuerpo: filas, prefer: 'return=minimal' }),
     upsert: (tabla, filas, conflicto) =>
       pedir(tabla, { metodo: 'POST', query: { on_conflict: conflicto }, cuerpo: filas, prefer: 'resolution=merge-duplicates,return=minimal' }),
+    /** Llama a una función SQL (RPC) con argumentos con nombre. */
+    rpc: (funcion, args) => pedir(`rpc/${funcion}`, { metodo: 'POST', cuerpo: args }),
     delete: (tabla, filtros) => pedir(tabla, { metodo: 'DELETE', query: filtros, prefer: 'return=minimal' }),
   };
 }

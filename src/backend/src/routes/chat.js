@@ -10,7 +10,7 @@ import { esUuid } from '../memoria/memoria.js';
 export const MAX_MENSAJE = 1000;
 export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 
-export async function chatRoutes(app, { agent, limitador, memoria, provider, now = () => Date.now() }) {
+export async function chatRoutes(app, { agent, limitador, memoria, conocimiento, provider, now = () => Date.now() }) {
   // Historial por sesión en memoria del proceso; las inactivas se descartan.
   const sesiones = new Map();
 
@@ -57,8 +57,12 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, now
 
     sesion.ocupada = true;
     try {
-      const recuerdos = deviceId ? await memoria.contexto(deviceId) : '';
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos });
+      // En paralelo: lo que recuerda de la persona (por device_id) y lo que la base de conocimiento sabe del tema.
+      const [recuerdos, saber] = await Promise.all([
+        deviceId ? memoria.contexto(deviceId) : '',
+        conocimiento?.habilitado ? conocimiento.contexto(mensaje) : '',
+      ]);
+      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos, conocimiento: saber });
       // Sin esperar: guardar el turno no debe demorar la respuesta ni romperla si Supabase falla.
       if (deviceId) memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta);
       return { session_id: sessionId, respuesta, acciones, traza };

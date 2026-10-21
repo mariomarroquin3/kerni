@@ -29,6 +29,15 @@ export function loadConfig(env = process.env) {
       baseUrl: env.OPENROUTER_BASE_URL || '',
     },
 
+    // Embeddings para el RAG: gemini | openrouter. Vacío = el de la primera llave que haya.
+    // La dimensión debe coincidir con la columna vector(768) de la migración.
+    embeddings: {
+      provider: env.EMBEDDINGS_PROVIDER || '',
+      model: env.EMBEDDINGS_MODEL || '',
+      dimensions: Number(env.EMBEDDINGS_DIMENSIONS) || 0,
+      baseUrl: env.EMBEDDINGS_BASE_URL || '',
+    },
+
     // Memoria en Supabase (opcional). Sin estas dos variables Kerni funciona igual, pero no recuerda nada.
     supabase: {
       url: env.SUPABASE_URL || '',

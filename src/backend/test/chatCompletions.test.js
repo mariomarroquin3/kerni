@@ -266,6 +266,6 @@ describe('agente completo con un proveedor compatible con OpenAI', () => {
 
   it('/health dice con qué cerebro está hablando', async () => {
     const { app } = montar([]);
-    expect((await app.inject({ method: 'GET', url: '/health' })).json()).toEqual({ ok: true, memoria: false, proveedor: 'gemini', modelo: 'm' });
+    expect((await app.inject({ method: 'GET', url: '/health' })).json()).toEqual({ ok: true, memoria: false, conocimiento: false, proveedor: 'gemini', modelo: 'm' });
   });
 });

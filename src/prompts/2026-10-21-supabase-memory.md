@@ -22,3 +22,11 @@ Review how context is handled and connect Supabase so Kerni remembers details ab
 - Front: 45 tests (new wiring test: `device_id` sent, fact saved only inside `ejecutar`, health only from Tauri).
 - **Not verified against a real Supabase project** (no URL/key was available). Run the migration, fill `.env`, then `npm run probar-memoria` in `src/backend`.
 - Not done: a UI panel to list/delete facts (the routes `GET/DELETE /memoria` exist).
+
+## Follow-up: RAG with pgvector
+Request: index content about PCs, hardware, Office manuals and good practices.
+- Migration `20261021000100_rag.sql`: `vector` extension, `kerni_conocimiento` (768 dims, HNSW cosine, RLS), `kerni_buscar_conocimiento()` callable only by `service_role`. Knowledge is global (not per `device_id`).
+- Embeddings via the OpenAI-compatible endpoints of Gemini (`gemini-embedding-001`) or OpenRouter, with retries, dimension check and no key leakage in errors.
+- Indexing is idempotent (sha256 per passage); retrieval runs on every message longer than 11 chars, in parallel with memory, and failures never break the chat. Retrieved text goes in `<conocimiento>` as reference data, never instructions.
+- Starter content written for this repo (6 short documents). Office manuals the user supplies go to `conocimiento/privado/` (git-ignored: possible copyright). PDF is not parsed: convert to text first.
+- Verification: backend 114 tests (18 new in `test/rag.test.js`), using fake embeddings and a fake pgvector. **Not run against real Supabase or a real embeddings API.**

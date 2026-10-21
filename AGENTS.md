@@ -27,6 +27,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
 | `src/backend/src/memoria/` | Memoria en **Supabase** (opcional): `supabase.js` (cliente REST), `memoria.js` (recuerdos, turnos, salud), `recuerdos.js` (validación; nada de secretos). Esquema en `supabase/migrations/`. Sin llaves de Supabase queda una memoria nula y Kerni funciona igual |
+| `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo por títulos), `conocimiento.js` (indexar idempotente y buscar). Contenido en `conocimiento/` (`privado/` ignorado por git) |
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
@@ -46,6 +47,7 @@ cd src/backend && npm ci && npm test        # obligatorio antes de cada commit; 
 cd src/backend && cp .env.example .env      # poné UNA llave: ANTHROPIC_API_KEY, GEMINI_API_KEY u OPENROUTER_API_KEY
 cd src/backend && npm run probar-llm        # prueba tu llave contra la API real (npm run probar-llm -- gemini)
 cd src/backend && npm run probar-memoria    # prueba Supabase real (después de correr la migración y poner SUPABASE_URL / SUPABASE_SECRET_KEY)
+cd src/backend && npm run indexar           # indexa conocimiento/ en Supabase (npm run indexar -- --buscar "pregunta" prueba la búsqueda)
 cd src/backend && npm run dev               # backend en 127.0.0.1:8788
 cd src/desktop && npm ci && npm test        # lógica del front
 cd src/desktop/src-tauri && cargo test      # núcleo Rust
@@ -81,6 +83,14 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Si Supabase cae, el chat sigue. `/health` informa `memoria: true|false`.
 - Rutas: `GET /memoria`, `POST /memoria/hechos`, `DELETE /memoria/hechos/:clave`, `DELETE /memoria` (olvida todo), `POST /memoria/salud`.
 
+## Conocimiento (RAG)
+
+- Migración `supabase/migrations/20261021000100_rag.sql`: extensión `vector`, tabla `kerni_conocimiento` (`vector(768)`, índice HNSW coseno, RLS sin políticas) y función `kerni_buscar_conocimiento`, ejecutable solo por `service_role`.
+- Cada mensaje de más de 11 caracteres se convierte en embedding y se buscan los 4 fragmentos más parecidos (similitud ≥ 0.55). Van al prompt entre `<conocimiento>` como **texto de referencia, no instrucciones**. Si algo falla, el chat sigue sin ellos.
+- `npm run indexar` es idempotente (huella por fragmento): solo calcula embeddings de lo nuevo y borra lo que ya no está. Solo `.md` y `.txt`; los PDF se convierten a texto antes.
+- Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
+- Cada mensaje gasta un pedido de embeddings además del de chat: con Gemini gratuito el cupo diario se agota antes.
+
 ## Probar la app real de Tauri
 
 `src/desktop/scripts/probar-tauri.mjs` se conecta por CDP al WebView de la app corriendo y comprueba comandos de Rust con datos reales, que Rive cargó y dibujó, el HUD, la respuesta de disco por reglas y que no haya errores en consola. Con `--captura ruta.png` guarda una captura de la ventana real.
@@ -114,6 +124,9 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Limpiar caché y Prefetch (Prefetch exige administrador; decidir si se pide elevación).
 - [x] Memoria en Supabase (recuerdos aprobados, chat retomable, salud resumida), probada con un Supabase falso.
 - [ ] Correr la migración en un proyecto real de Supabase y `npm run probar-memoria`.
+- [x] RAG con pgvector y contenido de arranque (hardware, Windows, Office, buenas prácticas); probado con Supabase y embeddings falsos.
+- [ ] Correr la migración del RAG, `npm run indexar` y `npm run indexar -- --buscar "..."` con un proyecto y una llave reales; ajustar `SIMILITUD_MINIMA` con preguntas reales.
+- [ ] Cargar los manuales de Office propios en `conocimiento/privado/` (convertidos a texto).
 - [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
 - [ ] Persistencia de XP/nivel (ahora puede ir en Supabase) y evolución Centinela / Overclock / Erudito.
 - [ ] Decidir si el backend vive en la nube (como Bitoo) o se empaqueta local; hoy escucha solo en `127.0.0.1`.

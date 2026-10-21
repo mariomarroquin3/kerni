@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { chatRoutes } from './routes/chat.js';
 import { memoriaRoutes } from './routes/memoria.js';
 import { createMemoriaNula } from './memoria/memoria.js';
+import { createConocimientoNulo } from './rag/conocimiento.js';
 import { createLimitador, combinarLimitadores } from './guardrails/limitador.js';
 
 export const DEFAULT_ORIGINS = [
@@ -15,7 +16,7 @@ export const DEFAULT_ORIGINS = [
  * Construye la app con dependencias inyectadas, para poder probarla
  * con un proveedor de LLM falso.
  */
-export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), now, logger = false }) {
+export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), now, logger = false }) {
   const app = Fastify({ logger });
 
   // CORS para la app de escritorio: el WebView de Tauri tiene su propio origen.
@@ -41,9 +42,10 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
   app.get('/health', async () => ({
     ok: true,
     memoria: memoria.habilitada,
+    conocimiento: conocimiento.habilitado,
     ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
   }));
-  app.register(chatRoutes, { agent, limitador, memoria, provider, ...(now ? { now } : {}) });
+  app.register(chatRoutes, { agent, limitador, memoria, conocimiento, provider, ...(now ? { now } : {}) });
   app.register(memoriaRoutes, { memoria });
   return app;
 }
