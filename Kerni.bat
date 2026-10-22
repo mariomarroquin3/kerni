@@ -10,6 +10,8 @@ cd /d "%~dp0"
 set "BACK=%~dp0src\backend"
 set "APP=%~dp0src\desktop"
 set "PUERTO=8788"
+rem Mover target fuera de OneDrive para evitar bloqueos de archivos (error 101 en indexmap/autocfg)
+if not defined CARGO_TARGET_DIR set "CARGO_TARGET_DIR=%LOCALAPPDATA%\kerni\target"
 set "INICIE_BACKEND=0"
 set "TIENE_LLAVE=0"
 set "SOLO_REVISAR=0"
