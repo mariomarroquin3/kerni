@@ -49,6 +49,20 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
   `);
   db.exec('CREATE INDEX IF NOT EXISTS idx_mensajes_device ON mensajes(device_id, id DESC)');
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS salud (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id TEXT NOT NULL,
+      cpu REAL NOT NULL,
+      ram_pct REAL NOT NULL,
+      disco_pct REAL NOT NULL,
+      proceso_top TEXT,
+      proceso_mb REAL,
+      creado TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_salud_device ON salud(device_id, creado DESC)');
+
   // Preparar statements reutilizables
   const stmtHechos = db.prepare('SELECT clave, valor, origen, actualizado FROM hechos WHERE device_id = ? ORDER BY actualizado DESC LIMIT ?');
   const stmtCountHechos = db.prepare('SELECT count(*) as c FROM hechos WHERE device_id = ?');
@@ -62,9 +76,33 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
   const stmtInsertMensaje = db.prepare('INSERT INTO mensajes (device_id, session_id, rol, contenido) VALUES (?, ?, ?, ?)');
   const stmtUltimosMensajes = db.prepare('SELECT rol, contenido FROM mensajes WHERE device_id = ? ORDER BY id DESC LIMIT ?');
 
-  // Salud: usa Supabase si está disponible, si no es no-op
+  const stmtInsertSalud = db.prepare('INSERT INTO salud (device_id, cpu, ram_pct, disco_pct, proceso_top, proceso_mb, creado) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const stmtLecturasSalud = db.prepare(`
+    SELECT cpu, ram_pct, disco_pct, proceso_top, proceso_mb
+    FROM salud
+    WHERE device_id = ? AND creado >= datetime('now', '-' || ? || ' hours')
+    ORDER BY creado DESC
+    LIMIT 300
+  `);
+  const stmtDeleteAllSalud = db.prepare('DELETE FROM salud WHERE device_id = ?');
+  const stmtDeleteSaludVieja = db.prepare("DELETE FROM salud WHERE creado < datetime('now', '-' || ? || ' days')");
+  const stmtDeleteMensajesViejos = db.prepare("DELETE FROM mensajes WHERE creado < datetime('now', '-' || ? || ' days')");
+
+  // Salud: guarda en local y opcionalmente sincroniza a Supabase si está disponible
   const ultimaSalud = new Map();
   const tieneSupabase = supabase && typeof supabase.insert === 'function';
+
+  function formatearResumenSalud(filas, horas = HORAS_RESUMEN) {
+    if (!filas || filas.length < 3) return '';
+    const prom = (k) => filas.reduce((s, f) => s + f[k], 0) / filas.length;
+    const pico = (k) => Math.max(...filas.map((f) => f[k]));
+    const conteo = new Map();
+    for (const f of filas) if (f.proceso_top) conteo.set(f.proceso_top, (conteo.get(f.proceso_top) ?? 0) + 1);
+    const [top, veces] = [...conteo].sort((a, b) => b[1] - a[1])[0] ?? [];
+    return `Últimas ${horas} h (${filas.length} lecturas): CPU promedio ${Math.round(prom('cpu'))}% (pico ${Math.round(pico('cpu'))}%), `
+      + `RAM promedio ${Math.round(prom('ram_pct'))}% (pico ${Math.round(pico('ram_pct'))}%), disco ${Math.round(pico('disco_pct'))}% usado.`
+      + (top ? ` El proceso que más veces fue el más pesado: ${limpiarNombre(top)} (${veces} de ${filas.length} lecturas).` : '');
+  }
 
   async function seguro(etiqueta, fn, vacio) {
     try {
@@ -84,23 +122,26 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
     },
 
     async resumenSalud(deviceId) {
+      // 1. Intentar con lecturas locales (más rápido y disponible offline)
+      try {
+        const filasLocales = stmtLecturasSalud.all(deviceId, HORAS_RESUMEN);
+        if (filasLocales && filasLocales.length >= 3) {
+          return formatearResumenSalud(filasLocales, HORAS_RESUMEN);
+        }
+      } catch (err) {
+        logger.error?.({ err: err.message }, 'memoria: falló leer salud local');
+      }
+
+      // 2. Fallback a Supabase si existe y en local había menos de 3 lecturas
       if (!tieneSupabase) return '';
-      return seguro('leer salud', async () => {
+      return seguro('leer salud remota', async () => {
         const desde = new Date(Date.now() - HORAS_RESUMEN * 3_600_000).toISOString();
         const filas = await supabase.select('kerni_salud', {
           columnas: 'cpu,ram_pct,disco_pct,proceso_top,proceso_mb',
           filtros: { device_id: `eq.${deviceId}`, creado: `gte.${desde}` },
           orden: 'creado.desc', limite: 300,
         });
-        if (!filas || filas.length < 3) return '';
-        const prom = (k) => filas.reduce((s, f) => s + f[k], 0) / filas.length;
-        const pico = (k) => Math.max(...filas.map((f) => f[k]));
-        const conteo = new Map();
-        for (const f of filas) if (f.proceso_top) conteo.set(f.proceso_top, (conteo.get(f.proceso_top) ?? 0) + 1);
-        const [top, veces] = [...conteo].sort((a, b) => b[1] - a[1])[0] ?? [];
-        return `Últimas ${HORAS_RESUMEN} h (${filas.length} lecturas): CPU promedio ${Math.round(prom('cpu'))}% (pico ${Math.round(pico('cpu'))}%), `
-          + `RAM promedio ${Math.round(prom('ram_pct'))}% (pico ${Math.round(pico('ram_pct'))}%), disco ${Math.round(pico('disco_pct'))}% usado.`
-          + (top ? ` El proceso que más veces fue el más pesado: ${limpiarNombre(top)} (${veces} de ${filas.length} lecturas).` : '');
+        return formatearResumenSalud(filas, HORAS_RESUMEN);
       }, '');
     },
 
@@ -147,6 +188,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
       try {
         stmtDeleteAllHechos.run(deviceId);
         stmtDeleteAllMensajes.run(deviceId);
+        stmtDeleteAllSalud.run(deviceId);
         if (tieneSupabase) {
           await seguro('olvidar salud remota', () => supabase.delete('kerni_salud', { device_id: `eq.${deviceId}` }), false);
         }
@@ -156,7 +198,6 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
 
     async guardarTurno(deviceId, sessionId, mensaje, respuesta) {
       try {
-        const ahora = new Date().toISOString();
         stmtInsertMensaje.run(deviceId, sessionId, 'user', mensaje.slice(0, 4000));
         stmtInsertMensaje.run(deviceId, sessionId, 'assistant', respuesta.slice(0, 4000));
       } catch (err) {
@@ -173,29 +214,49 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
     },
 
     async registrarSalud(deviceId, snapshot) {
-      if (!tieneSupabase) return false;
       const t = Date.now();
       if (t - (ultimaSalud.get(deviceId) ?? 0) < MIN_ENTRE_LECTURAS_MS) return false;
       ultimaSalud.set(deviceId, t);
       const pct = (n, d) => Math.min(100, Math.max(0, d > 0 ? (n / d) * 100 : 0));
       const top = [...snapshot.procesos].sort((a, b) => b.memoriaMb - a.memoriaMb)[0];
-      return seguro('guardar salud', async () => {
-        await supabase.insert('kerni_salud', [{
-          device_id: deviceId,
-          cpu: Math.min(100, Math.max(0, snapshot.cpu)),
-          ram_pct: pct(snapshot.ram.usadaMb, snapshot.ram.totalMb),
-          disco_pct: pct(snapshot.disco.totalGb - snapshot.disco.libreGb, snapshot.disco.totalGb),
-          proceso_top: top ? limpiarNombre(top.nombre) : null,
-          proceso_mb: top?.memoriaMb ?? null,
-        }]);
-        return true;
-      }, false);
+      const cpu = Math.min(100, Math.max(0, snapshot.cpu));
+      const ram_pct = pct(snapshot.ram.usadaMb, snapshot.ram.totalMb);
+      const disco_pct = pct(snapshot.disco.totalGb - snapshot.disco.libreGb, snapshot.disco.totalGb);
+      const proceso_top = top ? limpiarNombre(top.nombre) : null;
+      const proceso_mb = top?.memoriaMb ?? null;
+      const creado = new Date().toISOString();
+
+      try {
+        stmtInsertSalud.run(deviceId, cpu, ram_pct, disco_pct, proceso_top, proceso_mb, creado);
+      } catch (err) {
+        logger.error?.({ err: err.message }, 'memoria: falló registrar salud local');
+      }
+
+      if (tieneSupabase) {
+        seguro('guardar salud remota', async () => {
+          await supabase.insert('kerni_salud', [{
+            device_id: deviceId, cpu, ram_pct, disco_pct, proceso_top, proceso_mb,
+          }]);
+        }, null);
+      }
+      return true;
     },
 
     mantenimiento() {
-      if (!tieneSupabase) return;
-      seguro('limpiar salud vieja', () =>
-        supabase.delete('kerni_salud', { creado: `lt.${new Date(Date.now() - DIAS_DE_SALUD * 86_400_000).toISOString()}` }), undefined);
+      try {
+        stmtDeleteSaludVieja.run(DIAS_DE_SALUD);
+        stmtDeleteMensajesViejos.run(15);
+      } catch (err) {
+        logger.error?.({ err: err.message }, 'memoria: falló mantenimiento local');
+      }
+      if (tieneSupabase) {
+        seguro('limpiar salud vieja remota', () =>
+          supabase.delete('kerni_salud', { creado: `lt.${new Date(Date.now() - DIAS_DE_SALUD * 86_400_000).toISOString()}` }), undefined);
+      }
+    },
+
+    cerrar() {
+      try { db.close(); } catch {}
     },
   };
 }

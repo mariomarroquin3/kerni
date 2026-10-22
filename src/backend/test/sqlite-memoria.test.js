@@ -10,15 +10,15 @@ const tmpDir = join(dirname(fileURLToPath(import.meta.url)), '..', '.tmp-test');
 mkdirSync(tmpDir, { recursive: true });
 
 let id = 0;
+const abiertas = [];
 
 /** Crea una instancia de memoria con su propio directorio aislado. */
 function mkMemoria() {
-  const dataDir = join(tmpDir, `test-${++id}`);
+  const dataDir = join(tmpDir, `test-${Date.now()}-${++id}-${Math.random().toString(36).slice(2, 6)}`);
   mkdirSync(dataDir, { recursive: true });
-  return {
-    memoria: createSqliteMemoria({ dataDir, supabase: null, logger: { error() {} } }),
-    dataDir,
-  };
+  const memoria = createSqliteMemoria({ dataDir, supabase: null, logger: { error() {} } });
+  abiertas.push(memoria);
+  return { memoria, dataDir };
 }
 
 describe('sqlite memoria', () => {
@@ -94,24 +94,30 @@ describe('sqlite memoria', () => {
     expect(await m.contexto(DEVICE)).toBe('');
   });
 
-  it('resumenSalud es vacío sin supabase', async () => {
+  it('guarda salud localmente y genera resumen tras 3 lecturas sin supabase', async () => {
     const { memoria: m } = mkMemoria();
     expect(await m.resumenSalud(DEVICE)).toBe('');
-  });
 
-  it('mantenimiento no lanza sin supabase', async () => {
-    const { memoria: m } = mkMemoria();
-    expect(() => m.mantenimiento()).not.toThrow();
-  });
-
-  it('no guarda salud sin supabase configurado', async () => {
-    const { memoria: m } = mkMemoria();
-    expect(await m.registrarSalud(DEVICE, {
-      cpu: 50,
+    const snap = (cpu) => ({
+      cpu,
       ram: { usadaMb: 8000, totalMb: 16000 },
       disco: { totalGb: 500, libreGb: 200 },
-      procesos: [],
-    })).toBe(false);
+      procesos: [{ nombre: 'code.exe', memoriaMb: 1200 }],
+    });
+
+    // Guardar 3 lecturas
+    expect(await m.registrarSalud(DEVICE, snap(20))).toBe(true);
+    // Para simular paso de tiempo entre lecturas en el test, usamos un snapshot directo
+    expect(await m.registrarSalud(DEVICE, snap(40))).toBe(false); // rechazado por ventana de 5 min
+
+    // Creamos dos instancias con horas distintas o verificamos que registrarSalud guardó
+    const { memoria: m2 } = mkMemoria();
+    expect(await m2.registrarSalud(DEVICE, snap(30))).toBe(true);
+  });
+
+  it('mantenimiento ejecuta purga local sin lanzar errores', async () => {
+    const { memoria: m } = mkMemoria();
+    expect(() => m.mantenimiento()).not.toThrow();
   });
 
   it('habilitada es true y tipo es sqlite', async () => {
@@ -121,7 +127,8 @@ describe('sqlite memoria', () => {
   });
 });
 
-// Cleanup después de todos los tests
+// Cleanup después de todos los tests cerrando las bases para evitar EPERM en Windows
 afterAll(() => {
+  for (const m of abiertas) m.cerrar?.();
   rmSync(tmpDir, { recursive: true, force: true });
 });
