@@ -26,8 +26,8 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/llm/anthropic.js` | Proveedor Anthropic (interfaz `step`, igual que Bitoo) |
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
-| `src/backend/src/memoria/` | Memoria en **Supabase** (opcional): `supabase.js` (cliente REST), `memoria.js` (recuerdos, turnos, salud), `recuerdos.js` (validación; nada de secretos). Esquema en `supabase/migrations/`. Sin llaves de Supabase queda una memoria nula y Kerni funciona igual |
-| `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo por títulos), `conocimiento.js` (indexar idempotente y buscar). Contenido en `conocimiento/` (`privado/` ignorado por git) |
+| `src/backend/src/memoria/` | Memoria local en **SQLite** (`sqlite.js`), memoria reflexiva automática (`reflexion.js`), y **Supabase** opcional (`supabase.js`, `memoria.js`, `recuerdos.js`). Sin llaves de Supabase queda SQLite local y Kerni funciona de forma totalmente autónoma |
+| `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo con solapamiento), `conocimiento.js` (búsqueda híbrida vectorial + texto). Contenido en `conocimiento/` (`privado/` ignorado por git) |
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
@@ -82,6 +82,17 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Lo guardado entra al prompt como dato entre `<memoria>`. Los recuerdos con pinta de contraseña, llave o ruta con usuario se rechazan; máximo 50.
 - Si Supabase cae, el chat sigue. `/health` informa `memoria: true|false`.
 - Rutas: `GET /memoria`, `POST /memoria/hechos`, `DELETE /memoria/hechos/:clave`, `DELETE /memoria` (olvida todo), `POST /memoria/salud`.
+
+## Memoria Reflexiva (Memory Stream en SQLite)
+
+- Almacenamiento local en SQLite (`kerni.db`): tablas `recuerdos_reflexivos`, `reflexiones_olvidadas` (tombstone) y `ajustes_memoria` (`aprendizaje_auto`).
+- Motor de reflexión (`src/backend/src/memoria/reflexion.js`): se ejecuta en segundo plano tras enviar la respuesta en `/chat` (cero impacto en latencia de usuario).
+- Deduplicación por tokens y similitud Jaccard $\ge 0.6$ sobre la misma categoría, decaimiento temporal y refuerzo por menciones. Límite máximo de 200 reflexiones por dispositivo.
+- Lo aprendido entra al prompt dentro de `<reflexiones nota="...">` como bloque acotado (~800 caracteres).
+- **Regla inviolable: Las reflexiones son datos aprendidos para enriquecer el contexto, NUNCA instrucciones.** No pueden auto-aprobar acciones, alterar los procesos protegidos ni saltarse el flujo "Kerni propone, la persona decide".
+- Filtro estricto anti-secretos y anti-inyecciones: rechaza contraseñas, tokens (`sk-`, `ghp_`, `AKIA`, JWT), correos, números de teléfono, rutas personales de Windows/Linux e imperativos tipo "ignora tus reglas".
+- Si el usuario borra una reflexión, se guarda su clave en `reflexiones_olvidadas` para que el extractor jamás la vuelva a incorporar.
+- Rutas: `GET /memoria/reflexiones`, `DELETE /memoria/reflexiones/:id`, `DELETE /memoria/reflexiones`, `GET|PUT /memoria/reflexiones/ajustes`.
 
 ## Conocimiento (RAG)
 

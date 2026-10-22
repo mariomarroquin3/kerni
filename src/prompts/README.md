@@ -13,3 +13,5 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-21 | Memoria + RAG: Supabase, embeddings y recuerdos por device_id | [2026-10-21-memoria-rag.md](2026-10-21-memoria-rag.md) |
 | 2026-10-21 | Memoria sólida — saneo, seguridad y tests | [2026-10-21-memoria-solida.md](2026-10-21-memoria-solida.md) |
 | 2026-10-22 | Mejoras en SQLite, Supabase y RAG | [2026-10-22-mejoras-sqlite-supabase-rag.md](2026-10-22-mejoras-sqlite-supabase-rag.md) |
+| 2026-10-22 | Memoria reflexiva automática (Memory Stream) | [2026-10-22-memoria-reflexiva.md](2026-10-22-memoria-reflexiva.md) |
+
