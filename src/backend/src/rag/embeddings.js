@@ -3,7 +3,7 @@
  * Convierte textos en vectores del tamaño que espera la tabla (`EMBEDDINGS_DIMENSIONS`).
  */
 export const EMBEDDINGS_POR_DEFECTO = {
-  gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings', model: 'gemini-embedding-001' },
+  gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/embeddings', model: 'text-embedding-004' },
   openrouter: { baseUrl: 'https://openrouter.ai/api/v1/embeddings', model: 'openai/text-embedding-3-small' },
 };
 export const DIMENSIONES = 768;

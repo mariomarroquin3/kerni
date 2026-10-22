@@ -17,11 +17,23 @@ const vector = (v) => `[${v.join(',')}]`;
  */
 export function createConocimiento({ db, embeddings, logger = console }) {
   /** @returns {Promise<{fuente: string, titulo: string, contenido: string, similitud: number}[]>} */
-  async function buscar(pregunta, { k = K_POR_DEFECTO, minimo = SIMILITUD_MINIMA } = {}) {
+  async function buscar(pregunta, { k = K_POR_DEFECTO, minimo = SIMILITUD_MINIMA, hibrido = false } = {}) {
     const q = String(pregunta ?? '').trim();
     if (q.length < MIN_PREGUNTA) return [];
     try {
       const [emb] = await embeddings.embed([q.slice(0, 1000)], ESPERA_CHAT);
+      if (hibrido) {
+        try {
+          return await db.rpc('kerni_buscar_conocimiento_hibrido', {
+            consulta_vector: vector(emb),
+            consulta_texto: q.slice(0, 200),
+            k,
+            minimo,
+          });
+        } catch {
+          // Fallback a la función vectorial estándar si aún no se aplicó la migración híbrida
+        }
+      }
       return await db.rpc('kerni_buscar_conocimiento', { consulta: vector(emb), k, minimo });
     } catch (err) {
       logger.error?.({ err: err.message, codigo: err.codigo }, 'conocimiento: falló la búsqueda');
@@ -29,9 +41,11 @@ export function createConocimiento({ db, embeddings, logger = console }) {
     }
   }
 
+  const buscarHibrido = (pregunta, opts) => buscar(pregunta, { ...opts, hibrido: true });
+
   /** Bloque <conocimiento> para el prompt, o '' si no hay nada relevante. */
-  async function contexto(pregunta) {
-    const encontrados = await buscar(pregunta);
+  async function contexto(pregunta, opts) {
+    const encontrados = await buscar(pregunta, opts);
     if (!encontrados.length) return '';
     const items = encontrados.map((f, i) =>
       `[${i + 1}] (${sanearParaBloque(f.fuente, 80)}${f.titulo ? ` › ${sanearParaBloque(f.titulo, 80)}` : ''})\n${sanearParaBloque(f.contenido, 1200)}`);
@@ -68,10 +82,16 @@ export function createConocimiento({ db, embeddings, logger = console }) {
     return total;
   }
 
-  return { habilitado: true, buscar, contexto, indexar };
+  return { habilitado: true, buscar, buscarHibrido, contexto, indexar };
 }
 
 /** Sin embeddings o sin Supabase: la misma interfaz, sin buscar nada. */
 export function createConocimientoNulo() {
-  return { habilitado: false, buscar: async () => [], contexto: async () => '', indexar: async () => ({ nuevos: 0, iguales: 0, borrados: 0 }) };
+  return {
+    habilitado: false,
+    buscar: async () => [],
+    buscarHibrido: async () => [],
+    contexto: async () => '',
+    indexar: async () => ({ nuevos: 0, iguales: 0, borrados: 0 }),
+  };
 }

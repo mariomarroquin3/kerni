@@ -66,6 +66,16 @@ describe('fragmentar', () => {
     expect(huella('a.md', 'x')).not.toBe(huella('b.md', 'x'));
     expect(huella('a.md', 'x')).not.toBe(huella('a.md', 'y'));
   });
+
+  it('aplica solapamiento (overlap) entre fragmentos contiguos cuando se especifica', () => {
+    const p1 = 'Primera frase con detalles importantes sobre el procesador y su rendimiento. ';
+    const p2 = 'Segunda parte con recomendaciones para enfriamiento y mantenimiento preventivo. ';
+    const texto = `## Hardware\n${p1.repeat(10)}\n\n${p2.repeat(10)}`;
+    const conOverlap = fragmentar(texto, 400, 100);
+    expect(conOverlap.length).toBeGreaterThan(1);
+    expect(conOverlap[0].contenido.length).toBeLessThanOrEqual(400);
+    expect(conOverlap[1].contenido.length).toBeLessThanOrEqual(400);
+  });
 });
 
 describe('embeddings', () => {
