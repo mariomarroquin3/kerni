@@ -208,6 +208,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
   const stmtDeleteReflexion = db.prepare('DELETE FROM recuerdos_reflexivos WHERE device_id = ? AND id = ?');
   const stmtDeleteAllReflexiones = db.prepare('DELETE FROM recuerdos_reflexivos WHERE device_id = ?');
   const stmtTodasReflexiones = db.prepare('SELECT * FROM recuerdos_reflexivos WHERE device_id = ?');
+  const stmtTodasReflexionesGlobal = db.prepare('SELECT * FROM recuerdos_reflexivos');
   const stmtContarReflexiones = db.prepare('SELECT COUNT(*) as c FROM recuerdos_reflexivos WHERE device_id = ?');
 
   const stmtEstaOlvidada = db.prepare('SELECT 1 FROM reflexiones_olvidadas WHERE device_id = ? AND clave = ? LIMIT 1');
@@ -547,7 +548,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
         db.exec("DELETE FROM recuerdos_reflexivos WHERE categoria = 'episodio' AND creado < datetime('now', '-30 days')");
         // Purgar reflexiones de baja relevancia (>180 días sin mención y puntaje bajo)
         const ahoraMs = Date.now();
-        const todas = stmtTodasReflexiones.all(deviceId || '');
+        const todas = stmtTodasReflexionesGlobal.all();
         for (const r of todas) {
           const dias = (ahoraMs - new Date(r.ultima_mencion).getTime()) / 86_400_000;
           if (dias > 180 && calcularPuntaje(r, ahoraMs) < 1) {

@@ -115,9 +115,15 @@ describe('sqlite memoria', () => {
     expect(await m2.registrarSalud(DEVICE, snap(30))).toBe(true);
   });
 
-  it('mantenimiento ejecuta purga local sin lanzar errores', async () => {
-    const { memoria: m } = mkMemoria();
+  it('mantenimiento ejecuta purga local sin lanzar errores ni registrar fallos', async () => {
+    const errores = [];
+    const dataDir = join(tmpDir, `test-mantenimiento-${Date.now()}`);
+    mkdirSync(dataDir, { recursive: true });
+    const m = createSqliteMemoria({ dataDir, supabase: null, logger: { error(obj) { errores.push(obj); } } });
+    abiertas.push(m);
+
     expect(() => m.mantenimiento()).not.toThrow();
+    expect(errores).toHaveLength(0);
   });
 
   it('habilitada es true y tipo es sqlite', async () => {
