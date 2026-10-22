@@ -1,9 +1,12 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { loadConfig } from './config.js';
 import { buildApp } from './app.js';
 import { createAgent } from './agent/agent.js';
 import { crearProveedor } from './llm/proveedores.js';
 import { createSupabase } from './memoria/supabase.js';
-import { createMemoria, createMemoriaNula } from './memoria/memoria.js';
+import { createMemoriaNula } from './memoria/memoria.js';
+import { createSqliteMemoria } from './memoria/sqlite.js';
 import { crearEmbeddings } from './rag/embeddings.js';
 import { createConocimiento, createConocimientoNulo } from './rag/conocimiento.js';
 
@@ -21,17 +24,26 @@ if (!elegido) {
   process.exit(1);
 }
 
-// Memoria en Supabase: opcional. Sin URL y llave, Kerni funciona igual pero no recuerda nada.
-const memoria = config.supabase.url && config.supabase.key
-  ? createMemoria({ db: createSupabase(config.supabase) })
-  : createMemoriaNula();
+// Directorio de datos local: %APPDATA%/Kerni en Windows, ~/.local/share/Kerni en Linux/Mac
+const dataDir = process.env.KERNI_DATA_DIR
+  || (process.platform === 'win32'
+    ? join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Kerni')
+    : join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'Kerni'));
+
+// Cliente Supabase opcional (solo para salud y RAG)
+const supabaseDb = config.supabase.url && config.supabase.key
+  ? createSupabase(config.supabase)
+  : null;
+
+// Memoria local con SQLite. La salud se delega a Supabase si está configurado.
+const memoria = createSqliteMemoria({ dataDir, supabase: supabaseDb });
 
 // RAG: necesita Supabase y una llave de embeddings. Si falta algo, Kerni responde sin base de conocimiento.
 let conocimiento = createConocimientoNulo();
-if (config.supabase.url && config.supabase.key) {
+if (supabaseDb) {
   try {
     const embeddings = crearEmbeddings(config);
-    if (embeddings) conocimiento = createConocimiento({ db: createSupabase(config.supabase), embeddings });
+    if (embeddings) conocimiento = createConocimiento({ db: supabaseDb, embeddings });
   } catch (err) {
     console.error(`Conocimiento apagado: ${err.message}`);
   }
@@ -40,7 +52,7 @@ if (config.supabase.url && config.supabase.key) {
 const agent = createAgent({ provider: elegido.provider, memoriaActiva: memoria.habilitada });
 const app = buildApp({ config, agent, provider: elegido.provider, memoria, conocimiento, logger: true });
 console.log(`Cerebro: ${elegido.provider.name} (${elegido.provider.model})`);
-console.log(memoria.habilitada ? 'Memoria: Supabase conectado' : 'Memoria: apagada (falta SUPABASE_URL o SUPABASE_SECRET_KEY en .env)');
+console.log(`Memoria: SQLite local (${dataDir})${supabaseDb ? ' + salud en Supabase' : ''}`);
 console.log(conocimiento.habilitado ? 'Conocimiento (RAG): activo' : 'Conocimiento (RAG): apagado (falta Supabase o una llave de embeddings)');
 memoria.mantenimiento();
 
