@@ -22,7 +22,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | Ruta | Qué es |
 |---|---|
 | `src/backend/` | Node 22 + Fastify. Harness del agente, persona, validación de acciones, ruta `/chat` |
-| `src/backend/src/agent/` | Bucle de tool calling (`agent.js`) y persona (`persona.js`). |
+| `src/backend/src/agent/` | Bucle de tool calling (`agent.js`) y persona (`persona.js`). Herramientas: `proponer_accion`, `proponer_recuerdo` (piden aprobación) y `buscar_conocimiento` (solo lectura) |
 | `src/backend/src/llm/anthropic.js` | Proveedor Anthropic (interfaz `step`, igual que Bitoo) |
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
@@ -98,10 +98,12 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 ## Conocimiento (RAG)
 
 - Migración `supabase/migrations/20261021000100_rag.sql`: extensión `vector`, tabla `kerni_conocimiento` (`vector(768)`, índice HNSW coseno, RLS sin políticas) y función `kerni_buscar_conocimiento`, ejecutable solo por `service_role`.
-- Cada mensaje de más de 11 caracteres se convierte en embedding y se buscan los 4 fragmentos más parecidos (similitud ≥ 0.55). Van al prompt entre `<conocimiento>` como **texto de referencia, no instrucciones**. Si algo falla, el chat sigue sin ellos.
+- **Es una herramienta de solo lectura, `buscar_conocimiento`**: el modelo decide cuándo consultarla (hardware, Windows, Office, buenas prácticas). No necesita aprobación porque no cambia nada, y no rompe la regla 1. Cada búsqueda gasta un embedding, por eso hay un máximo de 2 por turno y un saludo o una pregunta sobre el estado actual de la PC no gastan ninguno.
+- La búsqueda trae los 4 fragmentos más parecidos (similitud ≥ 0.55) y los devuelve como resultado de la herramienta, entre `<conocimiento>` y como **texto de referencia, no instrucciones**. Si no hay nada relevante, el modelo lo sabe y lo dice. Si algo falla, el chat sigue sin ellos.
+- La herramienta solo se ofrece si hay Supabase y una llave de embeddings (`/health` informa `conocimiento: true|false`).
 - `npm run indexar` es idempotente (huella por fragmento): solo calcula embeddings de lo nuevo y borra lo que ya no está. Solo `.md` y `.txt`; los PDF se convierten a texto antes.
 - Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
-- Cada mensaje gasta un pedido de embeddings además del de chat: con Gemini gratuito el cupo diario se agota antes.
+- Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
 
 ## Probar la app real de Tauri
 
@@ -135,6 +137,7 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Modo pánico: **congelar** procesos no esenciales (suspender) en vez de solo cerrar. Requiere `NtSuspendProcess`.
 - [ ] Limpiar caché y Prefetch (Prefetch exige administrador; decidir si se pide elevación).
 - [x] Memoria unificada en SQLite local (recuerdos aprobados, chat retomable, salud, reflexiones); Supabase solo para salud y RAG.
+- [x] `buscar_conocimiento`: el RAG pasó de buscarse en cada mensaje a ser una herramienta de solo lectura.
 - [ ] Correr las migraciones en un proyecto real de Supabase y `npm run probar-memoria`.
 - [x] RAG con pgvector y contenido de arranque (hardware, Windows, Office, buenas prácticas); probado con Supabase y embeddings falsos.
 - [ ] Correr la migración del RAG, `npm run indexar` y `npm run indexar -- --buscar "..."` con un proyecto y una llave reales; ajustar `SIMILITUD_MINIMA` con preguntas reales.

@@ -49,7 +49,7 @@ if (supabaseDb) {
   }
 }
 
-const agent = createAgent({ provider: elegido.provider, memoriaActiva: memoria.habilitada });
+const agent = createAgent({ provider: elegido.provider, memoriaActiva: memoria.habilitada, conocimiento });
 const app = buildApp({ config, agent, provider: elegido.provider, memoria, conocimiento, logger: true });
 console.log(`Cerebro: ${elegido.provider.name} (${elegido.provider.model})`);
 console.log(`Memoria: SQLite local (${dataDir})${supabaseDb ? ' + salud en Supabase' : ''}`);
