@@ -22,11 +22,11 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | Ruta | Qué es |
 |---|---|
 | `src/backend/` | Node 22 + Fastify. Harness del agente, persona, validación de acciones, ruta `/chat` |
-| `src/backend/src/agent/` | Bucle de tool calling (`agent.js`) y persona (`persona.js`) |
+| `src/backend/src/agent/` | Bucle de tool calling (`agent.js`) y persona (`persona.js`). |
 | `src/backend/src/llm/anthropic.js` | Proveedor Anthropic (interfaz `step`, igual que Bitoo) |
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
-| `src/backend/src/memoria/` | Memoria local en **SQLite** (`sqlite.js`), memoria reflexiva automática (`reflexion.js`), y **Supabase** opcional (`supabase.js`, `memoria.js`, `recuerdos.js`). Sin llaves de Supabase queda SQLite local y Kerni funciona de forma totalmente autónoma |
+| `src/backend/src/memoria/` | Memoria local en **SQLite** (`sqlite.js`), memoria reflexiva automática (`reflexion.js`), validación de recuerdos (`recuerdos.js`) y cliente de **Supabase** opcional (`supabase.js`, solo salud y RAG). Sin llaves de Supabase Kerni funciona de forma totalmente autónoma |
 | `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo con solapamiento), `conocimiento.js` (búsqueda híbrida vectorial + texto). Contenido en `conocimiento/` (`privado/` ignorado por git) |
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
@@ -46,7 +46,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 cd src/backend && npm ci && npm test        # obligatorio antes de cada commit; no necesita llaves
 cd src/backend && cp .env.example .env      # poné UNA llave: ANTHROPIC_API_KEY, GEMINI_API_KEY u OPENROUTER_API_KEY
 cd src/backend && npm run probar-llm        # prueba tu llave contra la API real (npm run probar-llm -- gemini)
-cd src/backend && npm run probar-memoria    # prueba Supabase real (después de correr la migración y poner SUPABASE_URL / SUPABASE_SECRET_KEY)
+cd src/backend && npm run probar-memoria    # prueba la memoria SQLite y, si hay llaves, la salud en Supabase
 cd src/backend && npm run indexar           # indexa conocimiento/ en Supabase (npm run indexar -- --buscar "pregunta" prueba la búsqueda)
 cd src/backend && npm run dev               # backend en 127.0.0.1:8788
 cd src/desktop && npm ci && npm test        # lógica del front
@@ -75,12 +75,13 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Los errores de la API llegan a la persona con un mensaje claro (llave inválida, cupo diario agotado, sin red, sin créditos). Nunca se muestra la llave ni el cuerpo crudo del error.
 - `npm run probar-llm` es la prueba contra la API real; los tests usan respuestas simuladas y un servidor HTTP local que imita a Gemini y OpenRouter (`test/http-real.test.js`).
 
-## Memoria (Supabase)
+## Memoria (SQLite local)
 
-- Solo el backend habla con Supabase, con la llave **secreta** en `.env`. Las tablas tienen RLS sin políticas y sin permisos para `anon`/`authenticated`: las llaves públicas no leen nada. Todo va por `device_id` (UUID de la app, en `localStorage`).
-- Lo que recuerda: **hechos** (`proponer_recuerdo`, aprobados en pantalla como cualquier acción), **turnos del chat** en texto plano (sirven para cualquier proveedor; una sesión nueva retoma los últimos 6 mensajes) y **salud resumida** (una lectura cada 10 min; se borra a los 30 días).
+- **Una sola fuente de verdad: SQLite** (`sqlite.js`, `node:sqlite` sin dependencias; **experimental en Node 22**, imprime un aviso al arrancar). El archivo `kerni.db` vive en `%APPDATA%/Kerni` (cambiable con `KERNI_DATA_DIR`). Todo va por `device_id` (UUID de la app, en `localStorage`).
+- Lo que recuerda: **hechos** (`proponer_recuerdo`, aprobados en pantalla como cualquier acción), **turnos del chat** en texto plano (sirven para cualquier proveedor; una sesión nueva retoma los últimos 6 mensajes), **salud resumida** (una lectura cada 10 min, se borra a los 30 días) y las **reflexiones** de abajo.
+- **Supabase ya no guarda hechos ni conversaciones.** Solo recibe una copia de la salud (`kerni_salud`) y aloja la base de conocimiento del RAG. Las tablas `kerni_hechos` y `kerni_mensajes` de la migración `20261021000000_memory.sql` quedaron sin uso: se pueden borrar de tu proyecto si no tienen nada que quieras conservar.
 - Lo guardado entra al prompt como dato entre `<memoria>`. Los recuerdos con pinta de contraseña, llave o ruta con usuario se rechazan; máximo 50.
-- Si Supabase cae, el chat sigue. `/health` informa `memoria: true|false`.
+- **La memoria nunca rompe el chat**: si leer o guardar falla (disco, base bloqueada), `chat.js` sigue sin ella y lo registra. `/health` informa `memoria: true|false`.
 - Rutas: `GET /memoria`, `POST /memoria/hechos`, `DELETE /memoria/hechos/:clave`, `DELETE /memoria` (olvida todo), `POST /memoria/salud`.
 
 ## Memoria Reflexiva (Memory Stream en SQLite)
@@ -133,8 +134,8 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Probar a mano el arrastre de la ventana (`data-tauri-drag-region="deep"`): el clic sobre Kerni ya no lo hace saludar porque el arrastre lo captura.
 - [ ] Modo pánico: **congelar** procesos no esenciales (suspender) en vez de solo cerrar. Requiere `NtSuspendProcess`.
 - [ ] Limpiar caché y Prefetch (Prefetch exige administrador; decidir si se pide elevación).
-- [x] Memoria en Supabase (recuerdos aprobados, chat retomable, salud resumida), probada con un Supabase falso.
-- [ ] Correr la migración en un proyecto real de Supabase y `npm run probar-memoria`.
+- [x] Memoria unificada en SQLite local (recuerdos aprobados, chat retomable, salud, reflexiones); Supabase solo para salud y RAG.
+- [ ] Correr las migraciones en un proyecto real de Supabase y `npm run probar-memoria`.
 - [x] RAG con pgvector y contenido de arranque (hardware, Windows, Office, buenas prácticas); probado con Supabase y embeddings falsos.
 - [ ] Correr la migración del RAG, `npm run indexar` y `npm run indexar -- --buscar "..."` con un proyecto y una llave reales; ajustar `SIMILITUD_MINIMA` con preguntas reales.
 - [ ] Cargar los manuales de Office propios en `conocimiento/privado/` (convertidos a texto).

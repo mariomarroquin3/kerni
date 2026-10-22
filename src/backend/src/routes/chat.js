@@ -12,6 +12,10 @@ export const MAX_MENSAJE = 1000;
 export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 
 export async function chatRoutes(app, { agent, limitador, memoria, conocimiento, provider, now = () => Date.now() }) {
+  /** La memoria es un extra: si falla (disco, base bloqueada), el chat sigue sin ella. */
+  const seguro = async (etiqueta, fn, vacio) => {
+    try { return await fn(); } catch (err) { app.log.error({ err: err.message }, `memoria: falló ${etiqueta}`); return vacio; }
+  };
   // Historial por sesión en memoria del proceso; las inactivas se descartan.
   const sesiones = new Map();
 
@@ -54,7 +58,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, conocimiento,
       // que sirve para cualquier proveedor (el historial con herramientas no es intercambiable entre ellos).
       if (deviceId) {
         const userMessage = provider?.userMessage ?? ((t) => ({ role: 'user', content: t }));
-        for (const m of await memoria.ultimosMensajes(deviceId)) {
+        for (const m of await seguro('retomar la charla', () => memoria.ultimosMensajes(deviceId), [])) {
           history.push(m.rol === 'user' ? userMessage(m.contenido) : { role: 'assistant', content: m.contenido });
         }
       }
@@ -67,14 +71,14 @@ export async function chatRoutes(app, { agent, limitador, memoria, conocimiento,
     try {
       // En paralelo: lo que recuerda de la persona (por device_id) y lo que la base de conocimiento sabe del tema.
       const [recuerdos, saber] = await Promise.all([
-        deviceId ? memoria.contexto(deviceId) : '',
+        deviceId ? seguro('leer el contexto', () => memoria.contexto(deviceId), '') : '',
         conocimiento?.habilitado ? conocimiento.contexto(mensaje) : '',
       ]);
       const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos, conocimiento: saber, puedeRecordar: Boolean(deviceId) });
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
-        memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta);
-        motorReflexion.encolarReflexion({ deviceId, mensaje });
+        seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);
+        seguro('encolar la reflexión', () => motorReflexion.encolarReflexion({ deviceId, mensaje }), undefined);
       }
       return { session_id: sessionId, respuesta, acciones, traza };
     } catch (err) {
