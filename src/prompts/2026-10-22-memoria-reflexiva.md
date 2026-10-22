@@ -48,11 +48,19 @@ Poner en marcha el plan de memoria reflexiva automática (`plan-memoria-reflexiv
 
 ---
 
+### 4. Robustez de interfaz de proveedores y purga (`sqlite.js`, `reflexion.js`, `chatCompletions.js`)
+- En `sqlite.js`: `mantenimiento()` realizaba `stmtTodasReflexiones.all(deviceId)` en una tarea global de mantenimiento donde `deviceId` no existía en el scope; se agregó `stmtTodasReflexionesGlobal` (`SELECT * FROM recuerdos_reflexivos`) para purga global periódica sin requerir `deviceId`.
+- En `reflexion.js`: `extraerAprendizajes` llamaba a `provider.step({ messages, system })` asumiendo la interfaz de Anthropic, lo que fallaba con `chatCompletions` (Gemini/OpenRouter) al esperar `{ persona, contexto, tools, history }` y lanzar `history is not iterable`. Se estandarizó el llamado al contrato canónico `{ persona, contexto, tools, history: [userMsg], sinTools: true }` y se mapeó la respuesta a `.text` con fallback a `.content`.
+- En `chatCompletions.js` y `anthropic.js`: Se asignaron valores por defecto seguros (`persona = ''`, `contexto = ''`, `tools = []`, `history = []`) en `step()` para prevenir fallos si algún módulo omite propiedades opcionales.
+
+---
+
 ## Verificación
 
 1. **Suite de pruebas unitarias y de integración (`test/reflexion.test.js`):**
-   - 16 pruebas completas que verifican: deduplicación exacta, similitud Jaccard, contradicciones/reemplazos, borrado permanente con tombstones, filtro previo sin llamadas al LLM, validación de esquemas y rechazo de inyecciones/secretos/rutas personales, circuit breaker, endpoints REST y formato de contexto seguro.
+   - 17 pruebas completas que verifican: deduplicación exacta, similitud Jaccard, contradicciones/reemplazos, borrado permanente con tombstones, filtro previo sin llamadas al LLM, validación de esquemas y rechazo de inyecciones/secretos/rutas personales, compatibilidad de `step` con la firma canónica `{ persona, history, sinTools }`, circuit breaker, endpoints REST y formato de contexto seguro.
 2. **Suite completa del Backend:**
-   - 10 archivos de prueba, 153 tests pasados con 0 fallos (`node ./node_modules/vitest/vitest.mjs run`).
+   - 10 archivos de prueba, 154 tests pasados con 0 fallos (`node ./node_modules/vitest/vitest.mjs run`).
+   - Mantenimiento local ejecutado sin excepciones y sin registrar errores en el logger.
 3. **Suite completa del Frontend/Desktop:**
    - 45 tests pasados con 0 fallos (`npm test` en `src/desktop`).

@@ -12,7 +12,7 @@ export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, ma
 
     userMessage: (text) => ({ role: 'user', content: text }),
 
-    async step({ persona, contexto, tools, history, sinTools = false }) {
+    async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false } = {}) {
       const response = await anthropic.messages.create({
         model,
         max_tokens: maxTokens,

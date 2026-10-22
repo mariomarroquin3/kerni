@@ -126,13 +126,15 @@ export function createChatCompletionsProvider({ complete, model, maxTokens = 100
 
     userMessage: (text) => ({ role: 'user', content: text }),
 
-    async step({ persona, contexto, tools, history, sinTools = false }) {
+    async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false } = {}) {
+      const systemContent = [persona, contexto].filter(Boolean).join('\n\n');
+      const systemMessages = systemContent ? [{ role: 'system', content: systemContent }] : [];
       const json = await complete({
         model,
         max_tokens: maxTokens,
         // El system prompt no se guarda en el historial: se arma en cada paso.
-        messages: [{ role: 'system', content: `${persona}\n\n${contexto}` }, ...history],
-        ...(tools.length ? {
+        messages: [...systemMessages, ...history],
+        ...(tools?.length ? {
           tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })),
           ...(sinTools ? { tool_choice: 'none' } : {}),
         } : {}),

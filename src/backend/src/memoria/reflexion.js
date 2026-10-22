@@ -89,15 +89,23 @@ export async function extraerAprendizajes(provider, { mensaje, existentes = [], 
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
+    const userMsg = typeof provider.userMessage === 'function'
+      ? provider.userMessage(contenidoUsuario)
+      : { role: 'user', content: contenidoUsuario };
+
     const res = await provider.step({
-      messages: [{ role: 'user', content: contenidoUsuario }],
+      persona: PROMPT_EXTRACTOR,
+      contexto: '',
+      tools: [],
+      history: [userMsg],
+      sinTools: true,
+      // Compatibilidad con mocks antiguos
+      messages: [userMsg],
       system: PROMPT_EXTRACTOR,
-      maxTokens: 300,
-      temperature: 0,
     });
     clearTimeout(timer);
 
-    const texto = String(res?.content ?? '').trim();
+    const texto = String(res?.text ?? res?.content ?? '').trim();
     if (!texto) return [];
 
     const jsonMatch = texto.match(/\{[\s\S]*\}/);

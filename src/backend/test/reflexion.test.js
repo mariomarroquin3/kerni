@@ -119,6 +119,33 @@ describe('extraerAprendizajes', () => {
     });
     expect(ops).toEqual([]);
   });
+
+  it('funciona con contrato estándar de step ({ persona, history, sinTools }) retornando text', async () => {
+    let argumentosRecibidos = null;
+    const providerReal = {
+      userMessage: (t) => ({ role: 'user', content: t }),
+      step: async (args) => {
+        argumentosRecibidos = args;
+        return {
+          text: JSON.stringify({
+            operaciones: [
+              { op: 'agregar', categoria: 'preferencia', contenido: 'Prefiere no apagar la laptop de noche', importancia: 6 },
+            ],
+          }),
+        };
+      },
+    };
+
+    const ops = await extraerAprendizajes(providerReal, {
+      mensaje: 'Normalmente no apago la laptop de noche por mis descargas',
+    });
+
+    expect(argumentosRecibidos).toBeTruthy();
+    expect(Array.isArray(argumentosRecibidos.history)).toBe(true);
+    expect(argumentosRecibidos.sinTools).toBe(true);
+    expect(ops).toHaveLength(1);
+    expect(ops[0].contenido).toBe('Prefiere no apagar la laptop de noche');
+  });
 });
 
 describe('almacenamiento en SQLite con dedupe, ranking y olvido', () => {
