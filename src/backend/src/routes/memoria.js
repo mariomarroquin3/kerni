@@ -64,4 +64,54 @@ export async function memoriaRoutes(app, { memoria, limitador }) {
     if (!parsed.success) return reply.code(400).send({ error: 'la lectura del sistema no es válida' });
     return { guardada: await memoria.registrarSalud(id, parsed.data) };
   });
+
+  app.get('/memoria/reflexiones', async (req, reply) => {
+    const id = req.query?.device_id;
+    if (!idValido(id)) return reply.code(400).send({ error: 'falta un device_id válido' });
+    const limite = Math.min(100, Math.max(1, Number(req.query?.limite) || 50));
+    const categoria = req.query?.categoria ? String(req.query.categoria).trim() : null;
+    const reflexiones = typeof memoria.obtenerReflexiones === 'function'
+      ? await memoria.obtenerReflexiones(id, { limite, categoria })
+      : [];
+    return { reflexiones };
+  });
+
+  app.delete('/memoria/reflexiones/:id', async (req, reply) => {
+    const id = req.query?.device_id;
+    if (!idValido(id)) return reply.code(400).send({ error: 'falta un device_id válido' });
+    const rid = Number(req.params?.id);
+    if (!Number.isInteger(rid) || rid <= 0) return reply.code(400).send({ error: 'id de reflexión inválido' });
+    const borrado = typeof memoria.borrarReflexion === 'function'
+      ? await memoria.borrarReflexion(id, rid)
+      : false;
+    return borrado ? { ok: true } : reply.code(404).send({ error: 'no encontré esa reflexión' });
+  });
+
+  app.delete('/memoria/reflexiones', async (req, reply) => {
+    const id = req.query?.device_id;
+    if (!idValido(id)) return reply.code(400).send({ error: 'falta un device_id válido' });
+    const vaciado = typeof memoria.vaciarReflexiones === 'function'
+      ? await memoria.vaciarReflexiones(id)
+      : typeof memoria.borrarReflexion === 'function';
+    return { ok: true };
+  });
+
+  app.get('/memoria/reflexiones/ajustes', async (req, reply) => {
+    const id = req.query?.device_id;
+    if (!idValido(id)) return reply.code(400).send({ error: 'falta un device_id válido' });
+    const ajustes = typeof memoria.obtenerAjustes === 'function'
+      ? await memoria.obtenerAjustes(id)
+      : { aprendizaje_auto: true };
+    return ajustes;
+  });
+
+  app.put('/memoria/reflexiones/ajustes', async (req, reply) => {
+    const id = req.body?.device_id;
+    if (!idValido(id)) return reply.code(400).send({ error: 'falta un device_id válido' });
+    const aprendizaje_auto = Boolean(req.body?.aprendizaje_auto);
+    const r = typeof memoria.guardarAjustes === 'function'
+      ? await memoria.guardarAjustes(id, { aprendizaje_auto })
+      : { ok: true, aprendizaje_auto };
+    return r.ok ? { ok: true, aprendizaje_auto } : reply.code(500).send({ error: r.error });
+  });
 }

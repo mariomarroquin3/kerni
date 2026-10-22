@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { SnapshotSchema } from '../telemetria.js';
 import { esUuid } from '../memoria/memoria.js';
+import { crearMotorReflexion } from '../memoria/reflexion.js';
 
 /**
  * Chat por texto con la foto del sistema.
@@ -13,6 +14,13 @@ export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 export async function chatRoutes(app, { agent, limitador, memoria, conocimiento, provider, now = () => Date.now() }) {
   // Historial por sesión en memoria del proceso; las inactivas se descartan.
   const sesiones = new Map();
+
+  const motorReflexion = crearMotorReflexion({
+    memoria,
+    provider,
+    logger: app.log,
+    now,
+  });
 
   function limpiarInactivas() {
     for (const [id, s] of sesiones) {
@@ -63,8 +71,11 @@ export async function chatRoutes(app, { agent, limitador, memoria, conocimiento,
         conocimiento?.habilitado ? conocimiento.contexto(mensaje) : '',
       ]);
       const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos, conocimiento: saber, puedeRecordar: Boolean(deviceId) });
-      // Sin esperar: guardar el turno no debe demorar la respuesta ni romperla si Supabase falla.
-      if (deviceId) memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta);
+      // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
+      if (deviceId) {
+        memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta);
+        motorReflexion.encolarReflexion({ deviceId, mensaje });
+      }
       return { session_id: sessionId, respuesta, acciones, traza };
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo }, 'falló el turno');
