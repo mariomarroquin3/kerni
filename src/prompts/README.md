@@ -15,3 +15,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-22 | Mejoras en SQLite, Supabase y RAG | [2026-10-22-mejoras-sqlite-supabase-rag.md](2026-10-22-mejoras-sqlite-supabase-rag.md) |
 | 2026-10-22 | Memoria reflexiva automática (Memory Stream) | [2026-10-22-memoria-reflexiva.md](2026-10-22-memoria-reflexiva.md) |
 
+| 2026-10-22 | Presentation script for six speakers (PDF) | [2026-10-22-presentation-script.md](2026-10-22-presentation-script.md) |
