@@ -353,11 +353,15 @@ mostrarMetricas(leerPref(CLAVE_METRICAS) !== '1');
 // ---------- Ventana: zonas con clic y menú ----------
 async function avisarZonas() {
   if (!enTauri) return;
+  // getBoundingClientRect() devuelve píxeles CSS (lógicos). Rust compara con
+  // coordenadas físicas (cursor_position − inner_position), así que hay que
+  // escalar por devicePixelRatio para que coincidan en monitores con DPI ≠ 100%.
+  const dpr = window.devicePixelRatio || 1;
   const zonas = [...document.querySelectorAll('.zona')]
     .filter((el) => !el.hidden && el.offsetParent !== null)
     .map((el) => {
       const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, ancho: r.width, alto: r.height };
+      return { x: r.x * dpr, y: r.y * dpr, ancho: r.width * dpr, alto: r.height * dpr };
     });
   try { await llamar('zonas_interactivas', { zonas }); } catch { /* aún no listo */ }
 }
