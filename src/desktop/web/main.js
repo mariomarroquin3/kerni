@@ -351,19 +351,25 @@ $('alternar-metricas').addEventListener('click', () => mostrarMetricas($('metric
 mostrarMetricas(leerPref(CLAVE_METRICAS) !== '1');
 
 // ---------- Ventana: zonas con clic y menú ----------
-async function avisarZonas() {
-  if (!enTauri) return;
-  // getBoundingClientRect() devuelve píxeles CSS (lógicos). Rust compara con
-  // coordenadas físicas (cursor_position − inner_position), así que hay que
-  // escalar por devicePixelRatio para que coincidan en monitores con DPI ≠ 100%.
-  const dpr = window.devicePixelRatio || 1;
-  const zonas = [...document.querySelectorAll('.zona')]
-    .filter((el) => !el.hidden && el.offsetParent !== null)
-    .map((el) => {
-      const r = el.getBoundingClientRect();
-      return { x: r.x * dpr, y: r.y * dpr, ancho: r.width * dpr, alto: r.height * dpr };
+// Rust emite la posición física del cursor cada 66 ms ('cursor-movio').
+// JS la convierte a CSS dividiendo por devicePixelRatio (siempre correcto sin
+// importar el DPI del monitor) y usa elementFromPoint para saber si el cursor
+// está sobre una zona interactiva (.zona). El resultado va a Rust via
+// set_interactivo: Rust lo usa para llamar set_ignore_cursor_events.
+// Al mover la detección a JS se evita cualquier desajuste de escala.
+if (enTauri) {
+  (async () => {
+    const { listen } = await import('@tauri-apps/api/event');
+    await listen('cursor-movio', ({ payload }) => {
+      const dpr = window.devicePixelRatio || 1;
+      const x = payload.x / dpr;
+      const y = payload.y / dpr;
+      const el = document.elementFromPoint(x, y);
+      // ¿El elemento (o algún ancestro) pertenece a una zona interactiva?
+      const interactivo = el?.closest('.zona') !== null;
+      llamar('set_interactivo', { interactivo }).catch(() => {});
     });
-  try { await llamar('zonas_interactivas', { zonas }); } catch { /* aún no listo */ }
+  })();
 }
 
 $('mascota').addEventListener('contextmenu', (e) => {
@@ -371,7 +377,6 @@ $('mascota').addEventListener('contextmenu', (e) => {
   llamar('menu_contextual').catch(() => {});
 });
 
-setInterval(avisarZonas, 250);
 actualizar();
 setInterval(actualizar, CADA_MS);
 
