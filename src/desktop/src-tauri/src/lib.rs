@@ -2,8 +2,10 @@
 //!
 //! - Pone la ventana en la esquina inferior derecha de la pantalla.
 //! - Deja pasar los clics por las zonas transparentes: la ventana solo
-//!   "existe" donde están Kerni, su globo, el chat o las confirmaciones. El
-//!   front avisa dónde están con el comando `zonas_interactivas`.
+//!   "existe" donde están Kerni, su globo, el chat o las confirmaciones.
+//!   Rust emite la posición física del cursor a JS cada 66 ms; JS usa
+//!   `elementFromPoint` (coordenadas CSS, siempre correctas en cualquier DPI)
+//!   y devuelve si el cursor está sobre una zona interactiva via `set_interactivo`.
 //! - Ícono en la bandeja y menú con clic derecho para ocultar o cerrar.
 //! - Los comandos que tocan el sistema viven en `sistema.rs`.
 
@@ -12,31 +14,41 @@ mod sistema;
 #[cfg(target_os = "linux")]
 mod linux;
 
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, PhysicalPosition, Runtime, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Runtime, WebviewWindow};
 
 /// Margen entre Kerni y el borde de la pantalla, en píxeles lógicos.
 const MARGEN: f64 = 16.0;
 
-/// Rectángulo en píxeles CSS (lógicos), relativo a la ventana.
-#[derive(Clone, Copy, serde::Deserialize)]
-struct Zona {
+/// Posición del cursor relativa a la esquina superior izquierda del contenido
+/// de la ventana, en píxeles físicos. Se emite a JS para que determine si
+/// el cursor está sobre una zona interactiva.
+#[derive(Clone, serde::Serialize)]
+struct CursorPosicion {
     x: f64,
     y: f64,
-    ancho: f64,
-    alto: f64,
 }
 
-#[derive(Default)]
-struct Zonas(Mutex<Vec<Zona>>);
+/// Resultado que JS devuelve tras su comprobación con elementFromPoint.
+struct CursorInteractivo(AtomicBool);
 
+impl Default for CursorInteractivo {
+    fn default() -> Self {
+        // Al arrancar, se reciben eventos hasta que JS responda.
+        CursorInteractivo(AtomicBool::new(true))
+    }
+}
+
+/// El front llama este comando tras comprobar con elementFromPoint si el cursor
+/// está sobre una zona interactiva (.zona). Sin conversión de coordenadas en
+/// Rust: JS trabaja en CSS y siempre conoce su propio DPR.
 #[tauri::command]
-fn zonas_interactivas(zonas: Vec<Zona>, estado: tauri::State<Zonas>) {
-    *estado.0.lock().unwrap() = zonas;
+fn set_interactivo(interactivo: bool, estado: tauri::State<CursorInteractivo>) {
+    estado.0.store(interactivo, Ordering::Relaxed);
 }
 
 fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str) -> tauri::Result<Menu<R>> {
@@ -83,21 +95,25 @@ fn a_la_esquina(ventana: &WebviewWindow) -> tauri::Result<()> {
     ventana.set_position(PhysicalPosition::new(x, y))
 }
 
-/// ¿El cursor está sobre alguna zona interactiva?
-fn sobre_zona(ventana: &WebviewWindow, zonas: &[Zona]) -> Option<bool> {
-    let cursor = ventana.cursor_position().ok()?;
-    let origen = ventana.inner_position().ok()?;
-    let escala = ventana.scale_factor().ok()?;
-    let x = (cursor.x - origen.x as f64) / escala;
-    let y = (cursor.y - origen.y as f64) / escala;
-    Some(zonas.iter().any(|z| x >= z.x && x <= z.x + z.ancho && y >= z.y && y <= z.y + z.alto))
+/// Emite la posición física del cursor relativa al contenido de la ventana.
+/// JS divide por devicePixelRatio para obtener coordenadas CSS y usa
+/// elementFromPoint, que es DPI-agnóstico por definición.
+fn emitir_cursor(ventana: &WebviewWindow) {
+    let Ok(cursor) = ventana.cursor_position() else { return };
+    let Ok(origen) = ventana.inner_position() else { return };
+    // Ambos en píxeles físicos; la diferencia es la posición relativa a la ventana.
+    let pos = CursorPosicion {
+        x: cursor.x - origen.x as f64,
+        y: cursor.y - origen.y as f64,
+    };
+    let _ = ventana.emit("cursor-movio", pos);
 }
 
 /// Handler de comandos: en Linux la limpieza de temporales vive en `linux.rs`.
 #[cfg(target_os = "linux")]
 fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
-        zonas_interactivas,
+        set_interactivo,
         menu_contextual,
         sistema::metricas,
         sistema::terminar_proceso,
@@ -108,7 +124,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
 #[cfg(not(target_os = "linux"))]
 fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
-        zonas_interactivas,
+        set_interactivo,
         menu_contextual,
         sistema::metricas,
         sistema::terminar_proceso,
@@ -119,7 +135,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .manage(Zonas::default())
+        .manage(CursorInteractivo::default())
         .manage(sistema::Monitor::default())
         .invoke_handler(crear_handler())
         .on_menu_event(|app, evento| al_elegir(app, evento.id().as_ref()))
@@ -137,21 +153,24 @@ pub fn run() {
             a_la_esquina(&ventana)?;
             ventana.show()?;
 
-            // Revisa el cursor unas 15 veces por segundo y solo cambia el
-            // modo de la ventana cuando el cursor entra o sale de una zona.
+            // Revisa el cursor unas 15 veces por segundo:
+            // 1. Emite la posición física a JS para que compruebe con elementFromPoint.
+            // 2. Lee la respuesta de JS (set_interactivo) y actualiza los eventos del cursor.
+            // Al separar la detección en JS se evitan todos los problemas de escala
+            // DPI entre Rust (píxeles físicos) y WebView (píxeles CSS).
             let handle = app.handle().clone();
             std::thread::spawn(move || {
                 let mut ignorando: Option<bool> = None;
                 loop {
                     std::thread::sleep(Duration::from_millis(66));
                     let Some(ventana) = handle.get_webview_window("kerni") else { break };
-                    let zonas = handle.state::<Zonas>().0.lock().unwrap().clone();
-                    // Sin zonas todavía (el front no cargó): la ventana recibe clics.
-                    let dentro = if zonas.is_empty() { Some(true) } else { sobre_zona(&ventana, &zonas) };
-                    let Some(dentro) = dentro else { continue };
-                    if ignorando != Some(!dentro) {
-                        let _ = ventana.set_ignore_cursor_events(!dentro);
-                        ignorando = Some(!dentro);
+                    // Emitir posición del cursor para que JS determine la zona.
+                    emitir_cursor(&ventana);
+                    // Leer el resultado que JS envió en la iteración anterior.
+                    let interactivo = handle.state::<CursorInteractivo>().0.load(Ordering::Relaxed);
+                    if ignorando != Some(!interactivo) {
+                        let _ = ventana.set_ignore_cursor_events(!interactivo);
+                        ignorando = Some(!interactivo);
                     }
                 }
             });
