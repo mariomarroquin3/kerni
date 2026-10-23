@@ -89,6 +89,24 @@ function interaccion() {
   timerReposo = setTimeout(pintarReposo, ACTIVO_MS + 100);
 }
 for (const ev of ['pointerdown', 'pointermove', 'keydown']) document.addEventListener(ev, interaccion, { passive: true });
+
+// ---------- Arrastre de la ventana con mouse ----------
+// data-tauri-drag-region="deep" no siempre funciona cuando el canvas de Rive
+// cubre todo el área (Rive captura los eventos antes que Tauri). Se llama a
+// startDragging() explícitamente en el pointerdown del botón izquierdo.
+// En el navegador (vite dev) la API no existe: se ignora silenciosamente.
+$('mascota').addEventListener('pointerdown', async (e) => {
+  // Solo con el botón izquierdo del mouse (0) o un solo dedo (pointerType touch).
+  if (e.button !== 0) return;
+  if (!enTauri) return;
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().startDragging();
+  } catch (err) {
+    // Si falla (p. ej. foco perdido), no es crítico: el arrastre simplemente no inicia.
+    console.warn('[drag] startDragging falló:', err);
+  }
+});
 function reaccionar(ms = 4000) {
   reaccionHasta = Date.now() + ms;
   actualizarModo();
