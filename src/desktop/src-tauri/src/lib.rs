@@ -9,6 +9,9 @@
 
 mod sistema;
 
+#[cfg(target_os = "linux")]
+mod linux;
+
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -90,18 +93,35 @@ fn sobre_zona(ventana: &WebviewWindow, zonas: &[Zona]) -> Option<bool> {
     Some(zonas.iter().any(|z| x >= z.x && x <= z.x + z.ancho && y >= z.y && y <= z.y + z.alto))
 }
 
+/// Handler de comandos: en Linux la limpieza de temporales vive en `linux.rs`.
+#[cfg(target_os = "linux")]
+fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![
+        zonas_interactivas,
+        menu_contextual,
+        sistema::metricas,
+        sistema::terminar_proceso,
+        linux::limpiar_temporales,
+    ]
+}
+
+#[cfg(not(target_os = "linux"))]
+fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![
+        zonas_interactivas,
+        menu_contextual,
+        sistema::metricas,
+        sistema::terminar_proceso,
+        sistema::limpiar_temporales,
+    ]
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(Zonas::default())
         .manage(sistema::Monitor::default())
-        .invoke_handler(tauri::generate_handler![
-            zonas_interactivas,
-            menu_contextual,
-            sistema::metricas,
-            sistema::terminar_proceso,
-            sistema::limpiar_temporales,
-        ])
+        .invoke_handler(crear_handler())
         .on_menu_event(|app, evento| al_elegir(app, evento.id().as_ref()))
         .setup(|app| {
             // La ventana no tiene bordes ni aparece en la barra de tareas:

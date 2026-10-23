@@ -20,6 +20,12 @@ const PROTEGIDOS: &[&str] = &[
     "fontdrvhost.exe", "msmpeng.exe", "securityhealthservice.exe", "memory compression",
     "kerni.exe",
     "audiodg.exe", "spoolsv.exe", "sihost.exe", "taskhostw.exe", "msedgewebview2.exe",
+    // Linux: PID 1 y supervisores del kernel, sesiones graficas, audio, red, servicios base.
+    "kthreadd", "kworker", "pid", "systemd", "init", "udevd", "dbus", "dbus-daemon",
+    "systemd-journald", "systemd-logind", "systemd-resolved", "systemd-networkd", "avahi-daemon",
+    "xorg", "gdm", "lightdm", "xdm", "sddm", "weston", "sway", "mutter", "gnome-shell", "kwin", "xfwm", "wayfire",
+    "pipewire", "pipewire-pulse", "wireplumber", "pulseaudio", "jackd",
+    "networkmanager", "dhcpcd", "wpa_supplicant", "modemmanager", "bluetoothd", "cron", "rsyslog",
 ];
 
 /// Cuántos procesos se reportan (los que más CPU y más memoria usan).
@@ -241,6 +247,8 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> 
     }
     if proceso.kill() {
         Ok(format!("Cerré {real}"))
+    } else if cfg!(target_os = "linux") {
+        Err(format!("No pude cerrar {real} (puede que necesite permisos de administrador)"))
     } else {
         Err(format!("Windows no me dejó cerrar {real} (puede que necesite permisos de administrador)"))
     }
@@ -248,6 +256,7 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> 
 
 /// Borra archivos temporales viejos del usuario. No sigue enlaces simbólicos
 /// y solo trabaja dentro de una carpeta que se llame temp o tmp.
+#[cfg(not(target_os = "linux"))]
 #[tauri::command]
 pub fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
     let dir = std::env::temp_dir();
