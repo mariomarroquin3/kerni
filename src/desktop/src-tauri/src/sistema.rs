@@ -5,9 +5,11 @@
 //! Aunque el backend ya validó la propuesta del modelo, aquí se revisa otra
 //! vez: este es el único lugar que toca el sistema.
 
+#[cfg(any(not(target_os = "linux"), test))]
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
+#[cfg(any(not(target_os = "linux"), test))]
 use std::time::{Duration, SystemTime};
 
 use serde::Serialize;
@@ -31,6 +33,7 @@ const PROTEGIDOS: &[&str] = &[
 /// Cuántos procesos se reportan (los que más CPU y más memoria usan).
 const PROCESOS_REPORTADOS: usize = 15;
 /// Los temporales con menos de este tiempo se dejan: pueden estar en uso.
+#[cfg(not(target_os = "linux"))]
 const EDAD_MINIMA_TEMPORALES: Duration = Duration::from_secs(24 * 60 * 60);
 
 #[derive(Serialize, Clone)]
@@ -97,6 +100,7 @@ extern "system" {
 
 /// Interpreta el estado de energía de Windows. Separada de la llamada al sistema para poder probarla.
 /// `flag`: 128 = sin batería, 8 = cargando, 255 = desconocido. `porcentaje`: 255 = desconocido.
+#[cfg(any(windows, test))]
 pub fn interpretar_bateria(ac: u8, flag: u8, porcentaje: u8) -> Option<Bateria> {
     if flag == 255 || flag & 128 != 0 || porcentaje > 100 {
         return None;
@@ -270,6 +274,7 @@ pub fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
     Ok(ResultadoLimpieza { archivos, liberado_mb: bytes as f64 / MB })
 }
 
+#[cfg(any(not(target_os = "linux"), test))]
 fn limpiar_dir(dir: &Path, limite: SystemTime, archivos: &mut u32, bytes: &mut u64) {
     let Ok(entradas) = fs::read_dir(dir) else { return };
     for entrada in entradas.flatten() {

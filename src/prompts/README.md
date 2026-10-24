@@ -17,3 +17,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-22 | Presentation script for six speakers (PDF) | [2026-10-22-presentation-script.md](2026-10-22-presentation-script.md) |
 | 2026-10-23 | Unified SQLite memory and the buscar_conocimiento tool | [2026-10-23-unified-memory-and-rag-tool.md](2026-10-23-unified-memory-and-rag-tool.md) |
 | 2026-10-23 | Detección de zonas DPI-agnóstica y arrastre con mouse | [2026-10-23-dpi-mouse-drag-hit-testing.md](2026-10-23-dpi-mouse-drag-hit-testing.md) |
+| 2026-10-24 | Linux Rust warning cleanup | [2026-10-24-linux-rust-warnings.md](2026-10-24-linux-rust-warnings.md) |
