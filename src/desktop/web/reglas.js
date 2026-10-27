@@ -52,8 +52,8 @@ export function crearVigilanteRam({ ahora = () => Date.now() } = {}) {
     avisado.set(p.pid, t);
 
     const texto = motivo === 'fuga'
-      ? `${p.nombre} viene creciendo en memoria sin parar (ya usa ${gb(p.memoriaMb)} GB). Puede tener una fuga.`
-      : `${p.nombre} usa ${gb(p.memoriaMb)} GB y tu RAM va por ${Math.round(ramPct)}%. Es el que más pesa.`;
+      ? `Uy, ${p.nombre} viene creciendo en memoria sin parar (ya usa ${gb(p.memoriaMb)} GB). Puede tener una fuga, ¿lo revisamos?`
+      : `Ay, ${p.nombre} se está comiendo ${gb(p.memoriaMb)} GB y tu RAM va por ${Math.round(ramPct)}%. ¡Es el que más pesa!`;
     return {
       pid: p.pid, nombre: p.nombre, memoriaMb: p.memoriaMb, motivo, texto,
       proponer: {

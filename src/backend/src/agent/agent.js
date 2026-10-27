@@ -108,7 +108,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
           history.length = inicio;
           acciones.length = 0;
           rechazado = true;
-          respuesta = 'Eso no te lo puedo ayudar. ¿Revisamos cómo anda tu compu?';
+          respuesta = 'Uy, con eso no te puedo ayudar. ¿Mejor revisamos cómo anda tu compu? 💙';
           break;
         }
 
@@ -166,7 +166,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
       logger.error?.({ err }, 'falló el turno');
       throw err;
     }
-    if (!respuesta) respuesta = 'Perdón, me enredé. ¿Me lo repetís con otras palabras?';
+    if (!respuesta) respuesta = 'Ay, me enredé todito. ¿Me lo contás de otra forma?';
     traza.push({ tipo: 'total', ms: Math.round(clock() - inicioTurno), rechazado });
     return { respuesta, acciones, traza };
   }

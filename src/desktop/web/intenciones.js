@@ -32,7 +32,7 @@ export function responderLocal(texto, m) {
   if (palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto)) {
     // No hace falta la lectura del sistema: la búsqueda la hace la app, y solo después de que la persona apruebe.
     return {
-      texto: 'Puedo buscar los archivos y carpetas más pesados que no usás hace rato. Solo te los muestro: yo no borro nada de ahí, lo decidís vos.',
+      texto: '¡Puedo buscarlos! Miro los archivos y carpetas más pesados que no usás hace rato. Solo te los muestro: yo no borro nada de ahí, lo decidís vos.',
       proponer: { accion: 'ver_archivos_pesados', motivo: 'Ver qué ocupa espacio sin usarse.' },
     };
   }
@@ -46,9 +46,9 @@ export function responderLocal(texto, m) {
 
   if (pct >= DISCO_APRETADO_PCT) {
     return {
-      texto: `${base} Se está llenando; si querés, limpio los temporales.`,
+      texto: `${base} ¡Ay, se está llenando! Si querés, limpio los temporales.`,
       proponer: { accion: 'limpiar_temporales', motivo: `El disco está al ${pct}%.` },
     };
   }
-  return { texto: pct >= 70 ? `${base} Todavía hay margen, pero vale la pena vigilarlo.` : `${base} Vas bien.` };
+  return { texto: pct >= 70 ? `${base} Todavía hay lugarcito, pero vale la pena vigilarlo 👀` : `${base} ¡Vas muy bien! ✨` };
 }

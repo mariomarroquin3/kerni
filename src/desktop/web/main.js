@@ -218,7 +218,7 @@ async function actualizar() {
     actualizarModo();
     pintar(m);
     pintarPanico(m, panico);
-    if (panico && !eraPanico) decir('¡Ayuda! La CPU lleva rato al 95% o más. Mirá quién la está usando.', 15000);
+    if (panico && !eraPanico) decir('¡Ay, ay, ay! La CPU lleva rato al 95% o más y tu compu anda sudando. ¡Mirá quién la está usando!', 15000);
     eraPanico = panico;
 
     // Vigilante de RAM por reglas: funciona sin backend ni API key.
@@ -259,7 +259,7 @@ async function ejecutar(a) {
       body: JSON.stringify({ device_id: deviceId, clave: a.clave, valor: a.valor }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `error ${res.status}`);
-    decir('Anotado, me lo acuerdo.');
+    decir('¡Anotadito! Me lo voy a acordar ✨');
   } else if (a.accion === 'ver_archivos_pesados') {
     await buscarArchivosPesados();
   } else if (a.accion === 'terminar_proceso') {
@@ -268,8 +268,8 @@ async function ejecutar(a) {
   } else if (a.accion === 'limpiar_temporales') {
     const r = await llamar('limpiar_temporales');
     decir(r.archivos
-      ? `¡Rico! Me comí ${r.archivos} archivos y liberé ${r.liberadoMb.toFixed(0)} MB.`
-      : 'No había temporales viejos que limpiar. Tu compu está ordenada.');
+      ? `¡Ñam! Me comí ${r.archivos} archivos y liberé ${r.liberadoMb.toFixed(0)} MB ✨`
+      : 'No había temporales viejos que limpiar. ¡Tu compu está ordenadita!');
   }
 }
 
@@ -283,7 +283,7 @@ $('aprobar').addEventListener('click', async () => {
     await ejecutar(a);
     reaccionar();
   } catch (err) {
-    decir(`No pude hacerlo: ${err}`);
+    decir(`Ay, no pude hacerlo: ${err}`);
   }
   actualizar();
 });
@@ -293,7 +293,7 @@ $('rechazar').addEventListener('click', () => {
   alertaActiva = false;
   actualizarModo();
   $('confirmar').hidden = true;
-  decir('Está bien, no toco nada.', 4000);
+  decir('Listo, no toco nada. ¡Tranqui!', 4000);
 });
 
 // ---------- Archivos pesados sin uso: solo lectura, Kerni lista y la persona decide ----------
@@ -369,7 +369,7 @@ $('chat').addEventListener('submit', async (e) => {
   input.disabled = true;
   pensando = true;
   actualizarModo();
-  decir('Pensando…', 30000);
+  decir('Mmm, dejame pensar…', 30000);
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
@@ -396,9 +396,9 @@ $('chat').addEventListener('submit', async (e) => {
     else if (recuerdo) proponer({ accion: 'recordar', clave: recuerdo.clave, valor: recuerdo.valor }, false);
   } catch (err) {
     if (err.name === 'AbortError' || err.name === 'TimeoutError') {
-      decir('Tardó mucho en responder. Probá de nuevo en un momento.');
+      decir('Uy, me tardé demasiado pensando. ¿Probamos de nuevo?');
     } else {
-      decir(err instanceof TypeError ? 'No logro hablar con mi cerebro (¿está encendido el backend?).' : String(err.message ?? err));
+      decir(err instanceof TypeError ? 'Ay, no logro hablar con mi cerebro 🥺 ¿Está encendido el backend?' : String(err.message ?? err));
     }
   } finally {
     pensando = false;
@@ -464,5 +464,5 @@ if (enTauri && deviceId) {
     }).catch(() => { /* sin backend o sin memoria: no pasa nada */ });
   }, 10 * 60_000);
 }
-decir('¡Hola! Soy Kerni. Estoy cuidando tu compu.', 6000);
+decir('¡Holi! Soy Kerni y estoy cuidando tu compu 💙', 6000);
 setTimeout(() => personaje.saludar(), 600);
