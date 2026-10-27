@@ -22,3 +22,13 @@
 - Search check with Spanish questions against the English manuals: RAM question 0.795 (setup guide, page 16), battery 0.762, ports 0.790, "blinking light" lands on the diagnostic-lights pages of the service manual (0.733).
 - End to end with the real model: asked whether RAM can be added to a Latitude 3120, it called `buscar_conocimiento` and answered correctly that the memory is soldered, in 2.2 s. A test backend on port 8799 was used and stopped.
 
+
+## Follow-up: one-click launcher and compiled build
+Request: be able to try it now, with a single click, and compile once so it does not rebuild every time.
+- The release app was built once with `tauri build --no-bundle` (no installer, so no WiX or NSIS download): 6 min 45 s, a 10 MB `kerni.exe` in `%LOCALAPPDATA%\kerni\target\release`, the same target folder the dev mode already used (outside OneDrive).
+- `Kerni.bat` now runs the compiled app by default. It rebuilds only when the app code is newer than the exe (PowerShell compares timestamps), e.g. after a `git pull`. Modes: `dev` (tauri dev), `build` (force a rebuild), `check` (no side effects).
+- It also brings up the knowledge base: if `supabase\local\.env` exists it starts Docker Desktop when needed, waits for the daemon with a 15 s guard per probe (Docker hung earlier, so a plain `docker info` could block the launcher forever), runs `docker compose up -d`, and if anything fails it continues without the manuals. Then the backend (only if a model key exists), then the app; on exit it stops the backend it started.
+- The file is ASCII with CRLF line endings, as cmd needs for labels and goto.
+- Note: the release app runs from another origin than `tauri dev`, so its `localStorage` (and therefore its `device_id`) is different: memories saved from the dev build do not show up in the release build.
+
+Verification: `Kerni.bat check` reports the compiled app; a real run started Docker's stack, the backend (`memoria: true`, `conocimiento: true`) and `kerni.exe`. The two-finger menu still has to be tried by hand.

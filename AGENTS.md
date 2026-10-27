@@ -53,7 +53,10 @@ cd src/backend && npm run dev               # backend en 127.0.0.1:8788
 cd src/desktop && npm ci && npm test        # lógica del front
 cd src/desktop/src-tauri && cargo test      # núcleo Rust
 cd src/desktop && npm run dev               # app completa (tauri dev)
-Kerni.bat                                   # todo de una: instala, backend y app (Kerni.bat check = solo revisar)
+Kerni.bat                                   # un clic: Docker + base de conocimiento, backend y la app ya compilada (release). Se recompila sola solo si el codigo cambio
+Kerni.bat dev                               # modo desarrollo (tauri dev, recarga al editar)
+Kerni.bat build                             # fuerza recompilar la app final
+Kerni.bat check                             # solo revisar, no abre ni compila nada
 node src/desktop/scripts/probar-tauri.mjs   # prueba la app REAL desde dentro (ver abajo)
 ```
 
