@@ -7,7 +7,8 @@
 export const TIMEOUT_SUPABASE_MS = 5000;
 
 export function createSupabase({ url, key, fetch: fetchFn = globalThis.fetch, timeoutMs = TIMEOUT_SUPABASE_MS }) {
-  const base = String(url).replace(/\/+$/, '');
+  // Se tolera que peguen la URL con "/rest/v1" al final (error común al copiarla del dashboard).
+  const base = String(url).trim().replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
   // Las llaves nuevas (sb_secret_…) no son JWT: van solo en `apikey`. Las legacy (eyJ…) también en Authorization.
   const headers = { apikey: key, ...(String(key).startsWith('eyJ') ? { authorization: `Bearer ${key}` } : {}) };
 

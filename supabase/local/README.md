@@ -30,7 +30,7 @@ npm run indexar -- --buscar "cuánta memoria RAM necesito"         # checks the 
 
 ## Using Supabase Cloud instead
 
-Create a project, run the files in `supabase/migrations/` in the SQL editor in order, and put its URL and secret key in `src/backend/.env`. Nothing else changes.
+Follow `docs/supabase-cloud-setup.md`: create the project, run the three files in `supabase/migrations/` in the SQL editor in order, put its URL and secret key in `src/backend/.env` and check it with `npm run probar-supabase`. Nothing else changes.
 
 ## Safety
 

@@ -1,0 +1,17 @@
+{
+  "nota": "Manuales oficiales que se bajan con `npm run manuales` (en src/backend). No se suben al repo: tienen derechos de autor y van a conocimiento/privado/, ignorada por git. Para agregar otro, sumá una entrada: solo https desde dl.dell.com y un destino .pdf dentro de privado/.",
+  "manuales": [
+    {
+      "nombre": "Dell Latitude 3120 - Setup and Specifications (en inglés)",
+      "url": "https://dl.dell.com/content/manual33593571-latitude-3120-latitude-3120-2-in-1-setup-and-specifications.pdf?language=en-us",
+      "destino": "privado/dell-latitude-3120/latitude-3120-setup-and-specifications.pdf",
+      "bytesMinimos": 2000000
+    },
+    {
+      "nombre": "Dell Latitude 3120 - Service Manual (en inglés)",
+      "url": "https://dl.dell.com/content/manual36462134-latitude-3120-latitude-3120-2-in-1-service-manual.pdf?language=en-us",
+      "destino": "privado/dell-latitude-3120/latitude-3120-service-manual.pdf",
+      "bytesMinimos": 20000000
+    }
+  ]
+}

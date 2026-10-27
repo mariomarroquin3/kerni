@@ -25,3 +25,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-27 | A friendlier, cuter voice for Kerni | [2026-10-27-friendlier-voice.md](2026-10-27-friendlier-voice.md) |
 | 2026-10-27 | No emojis and a guide to explain the project (PDF) | [2026-10-27-no-emojis-and-explain-guide.md](2026-10-27-no-emojis-and-explain-guide.md) |
 | 2026-10-27 | Is this site safe? A link checker | [2026-10-27-link-checker.md](2026-10-27-link-checker.md) |
+| 2026-10-27 | Guide and tooling to put the RAG on Supabase Cloud | [2026-10-27-supabase-cloud-guide.md](2026-10-27-supabase-cloud-guide.md) |
