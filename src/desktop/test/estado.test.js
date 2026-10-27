@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearDetectorPanico, calcularAnimo, sospechosos, snapshotParaBackend, modoKerni, nivelDeCarga, crearNivelCarga, MODOS_REPOSO } from '../web/estado.js';
+import { crearDetectorPanico, calcularAnimo, sospechosos, snapshotParaBackend, modoKerni, nivelDeCarga, crearNivelCarga, MODOS_REPOSO, duracionGlobo, GLOBO_BASE_MS, GLOBO_MAXIMO_MS } from '../web/estado.js';
 
 const sano = { cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 200, totalGb: 476 }, procesos: [] };
 
@@ -114,4 +114,13 @@ test('una carga sostenida alta lleva a la cara sonriente normal en unos segundos
 test('los modos de reposo (donde Kerni se vuelve transparente) son las caras de carga y dormido', () => {
   assert.deepEqual([...MODOS_REPOSO].sort(), ['aburrido', 'dormido', 'idle', 'neutro']);
   for (const m of ['asustado', 'alerta', 'research', 'sonriente']) assert.ok(!MODOS_REPOSO.includes(m), `${m} no es reposo`);
+});
+
+test('el globo de texto dura lo que se tarda en leerlo, con un mínimo, y tiene tope', () => {
+  assert.equal(duracionGlobo('Hola', 0), 6400);                       // texto corto: base + un poco
+  assert.equal(duracionGlobo('Pensando…', 30000), 30000);              // el mínimo manda si es más largo
+  assert.equal(duracionGlobo('x'.repeat(250), 20000), 31000);          // una respuesta larga se queda más que el mínimo
+  assert.ok(duracionGlobo('x'.repeat(250), 20000) > 20000);
+  assert.equal(duracionGlobo('x'.repeat(5000), 0), GLOBO_MAXIMO_MS);   // nunca se queda para siempre
+  assert.equal(duracionGlobo(undefined, 0), GLOBO_BASE_MS);
 });

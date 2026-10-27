@@ -122,3 +122,12 @@ export function modoKerni({ panico = false, alerta = false, analizando = false, 
 
 /** Modos de "reposo": nadie le habla ni pasa nada. En ellos Kerni se vuelve un poco transparente. */
 export const MODOS_REPOSO = ['idle', 'neutro', 'aburrido', 'dormido'];
+
+/** Cuánto se queda el globo de texto: lo que se tarda en leerlo (unos 10 caracteres por segundo, más una pausa), nunca menos que `minimoMs`. */
+export const GLOBO_BASE_MS = 6000;
+export const GLOBO_MS_POR_CARACTER = 100;
+export const GLOBO_MAXIMO_MS = 90000;
+export function duracionGlobo(texto, minimoMs = 0) {
+  const lectura = GLOBO_BASE_MS + String(texto ?? '').length * GLOBO_MS_POR_CARACTER;
+  return Math.min(GLOBO_MAXIMO_MS, Math.max(minimoMs, lectura));
+}

@@ -149,6 +149,12 @@ test('archivos pesados sin uso: comandos registrados, panel, menú y acción de 
   assert.match(main, /nombre\.textContent = a\.esCarpeta/);
 });
 
+test('el globo de texto dura lo que tarda leerse, no se cierra con el puntero encima y un clic lo cierra', () => {
+  assert.match(main, /setTimeout\(ocultarGlobo, duracionGlobo\(texto, ms\)\)/);
+  assert.match(main, /\$\('globo'\)\.addEventListener\('mouseenter'/);
+  assert.match(main, /\$\('globo'\)\.addEventListener\('click'/);
+});
+
 test('la transparencia en reposo está en el CSS y la activa solo el atributo data-reposo', () => {
   const css = leer('web', 'style.css');
   assert.match(css, /body\[data-reposo='1'\] #mascota \{ opacity: 0\.6/);

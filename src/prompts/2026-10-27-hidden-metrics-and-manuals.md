@@ -32,3 +32,9 @@ Request: be able to try it now, with a single click, and compile once so it does
 - Note: the release app runs from another origin than `tauri dev`, so its `localStorage` (and therefore its `device_id`) is different: memories saved from the dev build do not show up in the release build.
 
 Verification: `Kerni.bat check` reports the compiled app; a real run started Docker's stack, the backend (`memoria: true`, `conocimiento: true`) and `kerni.exe`. The two-finger menu still has to be tried by hand.
+
+## Follow-up: speech bubble duration
+Request: Kerni's answers should stay on screen a few seconds longer; they were hard to read.
+- The bubble closed after a fixed time (20 s for chat answers), so a long answer could vanish before it was read. `decir(texto, ms)` now treats `ms` as a minimum and keeps the bubble as long as it takes to read: 6 s plus 100 ms per character (about 10 characters per second), capped at 90 s (`duracionGlobo` in `estado.js`, pure and tested). Defaults were raised too: 15 s in general, 25 s for model answers and 20 s for local ones.
+- While the pointer is over the bubble it does not close, and after leaving it stays 6 more seconds; a click closes it right away.
+- Tests: front 50 (one new unit test for the duration and one wiring test). Needs a rebuild of the app (`Kerni.bat` does it by itself).

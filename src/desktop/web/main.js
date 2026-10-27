@@ -1,4 +1,4 @@
-import { calcularAnimo, crearDetectorPanico, crearNivelCarga, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
+import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
 import { crearVigilanteRam } from './reglas.js';
 import { responderLocal } from './intenciones.js';
@@ -140,14 +140,25 @@ const deviceId = idDeEstaPc();
 
 // ---------- Globo de texto ----------
 let timerGlobo;
-function decir(texto, ms = 12000) {
+function ocultarGlobo() {
+  $('globo').hidden = true;
+  pintarReposo();
+}
+/** `ms` es el mínimo: si el texto es largo se queda lo que se tarda en leerlo (ver `duracionGlobo`). */
+function decir(texto, ms = 15000) {
   const globo = $('globo');
   globo.textContent = texto; // textContent: lo que dice el modelo nunca se interpreta como HTML
   globo.hidden = false;
   clearTimeout(timerGlobo);
-  timerGlobo = setTimeout(() => { globo.hidden = true; pintarReposo(); }, ms);
+  timerGlobo = setTimeout(ocultarGlobo, duracionGlobo(texto, ms));
   pintarReposo();
 }
+// Mientras el puntero está encima no se cierra (para leer con calma); al salir queda unos segundos más. Un clic lo cierra.
+$('globo').addEventListener('mouseenter', () => clearTimeout(timerGlobo));
+$('globo').addEventListener('mouseleave', () => {
+  if (!$('globo').hidden) timerGlobo = setTimeout(ocultarGlobo, 6000);
+});
+$('globo').addEventListener('click', () => { clearTimeout(timerGlobo); ocultarGlobo(); });
 
 // ---------- Métricas ----------
 function pintarBarra(id, pct) {
@@ -350,7 +361,7 @@ $('chat').addEventListener('submit', async (e) => {
   // Pedidos simples (ej. "cuánto disco me queda") se responden con reglas, sin backend.
   const local = responderLocal(mensaje, ultimas);
   if (local) {
-    decir(local.texto, 15000);
+    decir(local.texto, 20000);
     if (local.proponer && !pendiente) proponer(local.proponer, true);
     return;
   }
@@ -377,7 +388,7 @@ $('chat').addEventListener('submit', async (e) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? `error ${res.status}`);
     sessionId = data.session_id;
-    decir(data.respuesta, 20000);
+    decir(data.respuesta, 25000);
     // Solo la última propuesta espera aprobación; la persona decide, no el modelo.
     const propuesta = data.acciones.filter((a) => a.tipo === 'proponer_accion').at(-1);
     const recuerdo = data.acciones.find((a) => a.tipo === 'proponer_recuerdo');
