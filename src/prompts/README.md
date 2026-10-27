@@ -23,3 +23,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-27 | Heavy files that are no longer used (read-only tool) | [2026-10-27-heavy-files-tool.md](2026-10-27-heavy-files-tool.md) |
 | 2026-10-27 | Questions to ask Kerni tomorrow (PDF) | [2026-10-27-questions-for-kerni.md](2026-10-27-questions-for-kerni.md) |
 | 2026-10-27 | A friendlier, cuter voice for Kerni | [2026-10-27-friendlier-voice.md](2026-10-27-friendlier-voice.md) |
+| 2026-10-27 | No emojis and a guide to explain the project (PDF) | [2026-10-27-no-emojis-and-explain-guide.md](2026-10-27-no-emojis-and-explain-guide.md) |
