@@ -89,17 +89,7 @@ if "%TIENE_LLAVE%"=="1" (
   echo      Para activarlo, pega UNA llave en src\backend\.env: ANTHROPIC_API_KEY=, GEMINI_API_KEY= u OPENROUTER_API_KEY=
 )
 
-rem ---- 5. Base de conocimiento (Supabase Cloud, o Docker) --------------------
-rem Si SUPABASE_URL apunta a un proyecto de Supabase Cloud no se necesita Docker.
-set "NUBE=0"
-if exist "%BACK%\.env" (
-  findstr /r /c:"^SUPABASE_URL=https://..*\.supabase\.co" "%BACK%\.env" >nul 2>&1
-  if not errorlevel 1 set "NUBE=1"
-)
-if "%NUBE%"=="1" (
-  echo  [ok] Base de conocimiento en Supabase Cloud ^(no hace falta Docker^)
-  goto :fin_conocimiento
-)
+rem ---- 5. Base de conocimiento (Docker) -------------------------------------
 if exist "%RAIZ%supabase\local\.env" (
   if "%MODO%"=="check" (
     echo  [ok] Base de conocimiento preparada ^(se enciende con Docker al abrir^)
@@ -110,7 +100,6 @@ if exist "%RAIZ%supabase\local\.env" (
   echo  [i] Base de conocimiento sin preparar: Kerni funciona igual, solo sin los manuales.
   echo      Para activarla: node supabase\local\preparar.mjs
 )
-:fin_conocimiento
 
 if "%MODO%"=="check" (
   echo.
