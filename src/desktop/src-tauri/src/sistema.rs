@@ -125,8 +125,41 @@ pub fn leer_bateria() -> Option<Bateria> {
     interpretar_bateria(e.ac_line_status, e.battery_flag, e.battery_life_percent)
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux")))]
 pub fn leer_bateria() -> Option<Bateria> {
+    None
+}
+
+#[cfg(target_os = "linux")]
+pub fn leer_bateria() -> Option<Bateria> {
+    leer_bateria_linux()
+}
+
+/// Lectura de batería vía sysfs (`/sys/class/power_supply`) en Linux: busca el
+/// entry con `type == "Battery"`, lee `capacity` y `status`, y detecta el
+/// adaptador AC (`type == "Mains"`).
+#[cfg(target_os = "linux")]
+fn leer_bateria_linux() -> Option<Bateria> {
+    let Ok(entradas) = std::fs::read_dir("/sys/class/power_supply") else { return None };
+    for entrada in entradas.flatten() {
+        let Ok(tipo) = std::fs::read_to_string(entrada.path().join("type")).map(|s| s.trim().to_string()) else { continue };
+        if tipo != "Battery" { continue; }
+        let Ok(cap) = std::fs::read_to_string(entrada.path().join("capacity")).map(|s| s.trim().to_string()) else { continue };
+        let Ok(porcentaje) = cap.parse::<u8>() else { continue };
+        if !(1..=100).contains(&porcentaje) { continue; }
+        let cargando = std::fs::read_to_string(entrada.path().join("status")).map(|s| s.trim().to_string())
+            .map(|s| s.eq_ignore_ascii_case("Charging"))
+            .unwrap_or(false);
+        let mut enchufada = false;
+        if let Ok(otras) = std::fs::read_dir("/sys/class/power_supply") {
+            for otra in otras.flatten() {
+                if let Ok(t) = std::fs::read_to_string(otra.path().join("type")).map(|s| s.trim().to_string()) {
+                    if t == "Mains" { enchufada = true; break; }
+                }
+            }
+        }
+        return Some(Bateria { porcentaje, cargando, enchufada });
+    }
     None
 }
 
