@@ -55,10 +55,20 @@ fn set_interactivo(interactivo: bool, estado: tauri::State<CursorInteractivo>) {
     estado.0.store(interactivo, Ordering::Relaxed);
 }
 
-fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str) -> tauri::Result<Menu<R>> {
+fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str, texto_metricas: &str) -> tauri::Result<Menu<R>> {
     let alternar = MenuItem::with_id(app, "alternar", texto_alternar, true, None::<&str>)?;
+    let metricas = MenuItem::with_id(app, "metricas", texto_metricas, true, None::<&str>)?;
+    let limpiar = MenuItem::with_id(app, "limpiar", "Limpiar temporales…", true, None::<&str>)?;
     let salir = MenuItem::with_id(app, "salir", "Cerrar Kerni", true, None::<&str>)?;
-    Menu::with_items(app, &[&alternar, &salir])
+    Menu::with_items(app, &[&alternar, &metricas, &limpiar, &salir])
+}
+
+/// Avisa a la interfaz de una opción del menú. Las métricas están ocultas por defecto y se ven desde aquí;
+/// "limpiar" solo abre la tarjeta de confirmación: nada se borra sin que la persona apruebe.
+fn avisar_a_kerni(app: &AppHandle, evento: &str) {
+    if let Some(ventana) = app.get_webview_window("kerni") {
+        let _ = ventana.emit(evento, ());
+    }
 }
 
 fn al_elegir(app: &AppHandle, id: &str) {
@@ -72,15 +82,19 @@ fn al_elegir(app: &AppHandle, id: &str) {
                 }
             }
         }
+        "metricas" => avisar_a_kerni(app, "alternar-metricas"),
+        "limpiar" => avisar_a_kerni(app, "pedir-limpiar"),
         "salir" => app.exit(0),
         _ => {}
     }
 }
 
-/// Clic derecho sobre Kerni: abre el menú nativo en la posición del cursor.
+/// Clic derecho sobre Kerni (en el touchpad, clic con dos dedos): abre el menú nativo en la posición del cursor.
+/// `metricas_visibles` solo decide si la opción dice "Ver" u "Ocultar".
 #[tauri::command]
-fn menu_contextual(ventana: WebviewWindow) -> Result<(), String> {
-    let menu = crear_menu(&ventana, "Ocultar a Kerni").map_err(|e| e.to_string())?;
+fn menu_contextual(ventana: WebviewWindow, metricas_visibles: Option<bool>) -> Result<(), String> {
+    let texto_metricas = if metricas_visibles.unwrap_or(false) { "Ocultar métricas" } else { "Ver métricas" };
+    let menu = crear_menu(&ventana, "Ocultar a Kerni", texto_metricas).map_err(|e| e.to_string())?;
     ventana.popup_menu(&menu).map_err(|e| e.to_string())
 }
 
@@ -147,7 +161,7 @@ pub fn run() {
         .setup(|app| {
             // La ventana no tiene bordes ni aparece en la barra de tareas:
             // la bandeja es la salida segura.
-            let menu = crear_menu(app, "Mostrar u ocultar")?;
+            let menu = crear_menu(app, "Mostrar u ocultar", "Ver u ocultar métricas")?;
             let mut bandeja = TrayIconBuilder::with_id("kerni").tooltip("Kerni").menu(&menu);
             if let Some(icono) = app.default_window_icon() {
                 bandeja = bandeja.icon(icono.clone());

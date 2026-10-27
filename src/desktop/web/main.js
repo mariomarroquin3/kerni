@@ -47,7 +47,7 @@ function demo(comando, args) {
 const detector = crearDetectorPanico();
 const personaje = createCharacter($('mascota'));
 // Solo en desarrollo (tauri dev / vite): deja que scripts/probar-tauri.mjs maneje al personaje. No existe en el build final.
-if (import.meta.env?.DEV) window.__kerni = { personaje };
+if (import.meta.env?.DEV) window.__kerni = { personaje, mostrarMetricas: (v) => mostrarMetricas(v) };
 
 // ---------- Modo del personaje (Rive) ----------
 let enPanico = false;
@@ -272,9 +272,11 @@ $('rechazar').addEventListener('click', () => {
   decir('Está bien, no toco nada.', 4000);
 });
 
-$('limpiar').addEventListener('click', () => proponer({
-  accion: 'limpiar_temporales', motivo: 'Libera espacio sin tocar tus documentos.',
-}));
+/** Siempre con tarjeta de confirmación: nada se borra sin Aprobar. */
+function pedirLimpieza() {
+  proponer({ accion: 'limpiar_temporales', motivo: 'Libera espacio sin tocar tus documentos.' });
+}
+$('limpiar').addEventListener('click', pedirLimpieza);
 
 // ---------- Chat ----------
 $('chat').addEventListener('submit', async (e) => {
@@ -334,21 +336,14 @@ $('chat').addEventListener('submit', async (e) => {
   }
 });
 
-// ---------- Ocultar / mostrar las métricas ----------
-const CLAVE_METRICAS = 'kerni.metricasOcultas';
-function leerPref(clave) { try { return localStorage.getItem(clave); } catch { return null; } }
-function guardarPref(clave, valor) { try { localStorage.setItem(clave, valor); } catch { /* sin almacenamiento: no pasa nada */ } }
-
+// ---------- Métricas: ocultas siempre al arrancar; se ven desde el menú del clic con dos dedos ----------
 function mostrarMetricas(visible) {
-  $('metricas').hidden = !visible;
-  const boton = $('alternar-metricas');
-  boton.textContent = visible ? 'Ocultar' : 'Mostrar métricas';
-  boton.title = visible ? 'Ocultar las métricas' : 'Mostrar las métricas';
-  boton.setAttribute('aria-pressed', String(!visible));
-  guardarPref(CLAVE_METRICAS, visible ? '0' : '1');
+  $('hud').hidden = !visible;
 }
-$('alternar-metricas').addEventListener('click', () => mostrarMetricas($('metricas').hidden));
-mostrarMetricas(leerPref(CLAVE_METRICAS) !== '1');
+const alternarMetricas = () => mostrarMetricas($('hud').hidden);
+$('alternar-metricas').addEventListener('click', () => mostrarMetricas(false));
+// En el navegador (demo) no hay menú nativo: ?metricas las muestra desde el inicio.
+mostrarMetricas(new URLSearchParams(location.search).has('metricas'));
 
 // ---------- Ventana: zonas con clic y menú ----------
 // Rust emite la posición física del cursor cada 66 ms ('cursor-movio').
@@ -360,6 +355,9 @@ mostrarMetricas(leerPref(CLAVE_METRICAS) !== '1');
 if (enTauri) {
   (async () => {
     const { listen } = await import('@tauri-apps/api/event');
+    // Opciones del menú nativo (clic con dos dedos sobre Kerni, o el icono de la bandeja).
+    await listen('alternar-metricas', alternarMetricas);
+    await listen('pedir-limpiar', () => { if (!pendiente) pedirLimpieza(); });
     await listen('cursor-movio', ({ payload }) => {
       const dpr = window.devicePixelRatio || 1;
       const x = payload.x / dpr;
@@ -374,7 +372,8 @@ if (enTauri) {
 
 $('mascota').addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  llamar('menu_contextual').catch(() => {});
+  if (!enTauri) { alternarMetricas(); return; } // sin menú nativo en el navegador: el clic derecho alterna las métricas
+  llamar('menu_contextual', { metricasVisibles: !$('hud').hidden }).catch(() => {});
 });
 
 actualizar();

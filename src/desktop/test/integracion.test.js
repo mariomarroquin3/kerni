@@ -109,15 +109,24 @@ test('lo que dice el modelo se pinta con textContent, nunca con innerHTML', () =
   assert.doesNotMatch(main, /innerHTML|outerHTML|insertAdjacentHTML/);
 });
 
-test('ocultar métricas: el botón y el contenedor existen y la preferencia se guarda de forma segura', () => {
+test('las métricas están 100% ocultas al arrancar y se ven desde el menú del clic con dos dedos', () => {
+  // toda la sección (barras y botones) nace oculta
+  assert.match(html, /<section id="hud"[^>]*\bhidden\b/);
   assert.match(html, /id="metricas"/);
   assert.match(html, /id="alternar-metricas"/);
-  // el botón de limpiar sigue visible aunque se oculten las barras
-  assert.ok(html.indexOf('id="limpiar"') > html.indexOf('id="metricas"'));
-  assert.doesNotMatch(html.match(/<div id="metricas">[\s\S]*?<\/div>\s*<div class="hud-pie">/)?.[0] ?? '', /id="limpiar"/);
-  // localStorage puede fallar (ventana privada, bloqueado): siempre dentro de try/catch
-  assert.match(main, /try \{ return localStorage\.getItem/);
-  assert.match(main, /try \{ localStorage\.setItem/);
+  // el menú nativo trae las opciones y avisa a la interfaz con eventos
+  const lib = leer('src-tauri', 'src', 'lib.rs');
+  assert.match(lib, /MenuItem::with_id\(app, "metricas"/);
+  assert.match(lib, /"metricas" => avisar_a_kerni\(app, "alternar-metricas"\)/);
+  assert.match(lib, /"limpiar" => avisar_a_kerni\(app, "pedir-limpiar"\)/);
+  assert.match(lib, /fn menu_contextual\(ventana: WebviewWindow, metricas_visibles: Option<bool>\)/);
+  assert.match(main, /listen\('alternar-metricas'/);
+  assert.match(main, /listen\('pedir-limpiar'/);
+  assert.match(main, /llamar\('menu_contextual', \{ metricasVisibles:/);
+  // la limpieza desde el menú sigue pasando por la tarjeta de confirmación
+  assert.match(main, /function pedirLimpieza\(\) \{\s*proponer\(\{ accion: 'limpiar_temporales'/);
+  // y no se recuerda entre sesiones: siempre vuelve a empezar oculta
+  assert.doesNotMatch(main, /kerni\.metricas/);
 });
 
 test('la transparencia en reposo está en el CSS y la activa solo el atributo data-reposo', () => {

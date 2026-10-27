@@ -121,18 +121,18 @@ ok(reposo.llego, 'tras unos segundos sin usarlo, Kerni entra en reposo (data-rep
 ok(reposo.opacidadReposo > 0 && reposo.opacidadReposo < 0.9, 'en reposo se ve un poco transparente', `opacidad ${reposo.opacidadReposo}`);
 ok(reposo.activo === '0' && reposo.opacidadActivo === 1, 'al moverle el puntero vuelve a ser opaco', `opacidad ${reposo.opacidadActivo}`);
 
-console.log('\nOcultar y mostrar métricas');
+console.log('\nMétricas ocultas por defecto');
 const metricas = await evaluar(`(() => {
-  const m = document.getElementById('metricas'), b = document.getElementById('alternar-metricas'), l = document.getElementById('limpiar');
-  const estado = () => ({ oculto: m.hidden, texto: b.textContent, limpiarVisible: l.offsetParent !== null, guardado: localStorage.getItem('kerni.metricasOcultas') });
-  const antes = estado(); b.click(); const oculto = estado(); b.click(); const vuelto = estado();
-  return { antes, oculto, vuelto };
+  const hud = document.getElementById('hud'), ocultar = document.getElementById('alternar-metricas');
+  const estado = () => ({ oculto: hud.hidden, visible: hud.offsetParent !== null });
+  const alInicio = estado();
+  window.__kerni.mostrarMetricas(true); const mostrado = estado();
+  ocultar.click(); const vuelto = estado();
+  return { alInicio, mostrado, vuelto };
 })()`);
-ok(metricas.antes.oculto === false, 'las métricas arrancan visibles');
-ok(metricas.oculto.oculto === true && /Mostrar/.test(metricas.oculto.texto), 'el botón las oculta y cambia su texto', metricas.oculto.texto);
-ok(metricas.oculto.limpiarVisible, 'con las métricas ocultas el botón de limpiar sigue ahí');
-ok(metricas.oculto.guardado === '1' && metricas.vuelto.guardado === '0', 'la preferencia se guarda en el WebView');
-ok(metricas.vuelto.oculto === false && metricas.vuelto.texto === 'Ocultar', 'el botón las vuelve a mostrar');
+ok(metricas.alInicio.oculto && !metricas.alInicio.visible, 'la barra de métricas arranca 100% oculta');
+ok(metricas.mostrado.visible, 'se puede mostrar (desde el menú nativo llega el mismo evento)');
+ok(metricas.vuelto.oculto, 'el botón Ocultar la vuelve a esconder');
 
 console.log('\nRive: cambio de modo');
 const pixelesDistintos = async () => evaluar(`(() => {
