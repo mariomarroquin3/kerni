@@ -301,14 +301,14 @@ describe('herramienta buscar_conocimiento', () => {
   it('sin RAG el modelo no ve la herramienta y el chat funciona igual', async () => {
     const { chat, anthropic, app } = await montar([texto('ok')], { conRag: false });
     expect((await chat(pregunta)).statusCode).toBe(200);
-    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion']);
+    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion', 'revisar_enlace']);
     expect((await app.inject({ url: '/health' })).json().conocimiento).toBe(false);
   });
 
   it('con RAG la herramienta se ofrece junto a las demás y /health lo informa', async () => {
     const { chat, anthropic, app } = await montar([texto('ok')]);
     await chat('hola, ¿cómo estás hoy?');
-    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion', 'buscar_conocimiento']);
+    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion', 'revisar_enlace', 'buscar_conocimiento']);
     expect((await app.inject({ url: '/health' })).json().conocimiento).toBe(true);
   });
 });

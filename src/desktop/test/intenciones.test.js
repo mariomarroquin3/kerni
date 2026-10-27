@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { responderLocal, porcentajeDisco } from '../web/intenciones.js';
+import { responderLocal, porcentajeDisco, enlaceParaRevisar, resumenEnlace } from '../web/intenciones.js';
 
 const lectura = (libreGb, totalGb = 500) => ({
   cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb, totalGb }, procesos: [],
@@ -65,4 +65,39 @@ test('lo de archivos pesados no se confunde con el disco ni con pedidos largos o
   assert.equal(responderLocal('hola, ¿cómo estás hoy?', null), null);
   // un pedido largo o con causa va al modelo
   assert.equal(responderLocal('por favor explicame con calma por qué mis archivos pesados siguen creciendo tanto', null), null);
+});
+
+test('detecta cuando piden revisar UN enlace y lo saca limpio del mensaje', () => {
+  assert.equal(enlaceParaRevisar('¿es seguro https://paypa1-login.com/verify?'), 'https://paypa1-login.com/verify');
+  assert.equal(enlaceParaRevisar('es seguro paypa1-login.com'), 'paypa1-login.com');
+  assert.equal(enlaceParaRevisar('¿será una estafa www.premio-gratis.xyz/ganaste?'), 'www.premio-gratis.xyz/ganaste');
+  assert.equal(enlaceParaRevisar('me llegó http://bit.ly/3abc, ¿es peligroso?'), 'http://bit.ly/3abc');
+});
+
+test('no se mete cuando no corresponde: sin palabra de seguridad, con dos enlaces, muy largo o sin enlace', () => {
+  assert.equal(enlaceParaRevisar('abrí https://www.dell.com por favor'), null);        // no pregunta por seguridad
+  assert.equal(enlaceParaRevisar('¿es seguro dell.com o hp.com?'), null);              // dos enlaces: que decida el modelo
+  assert.equal(enlaceParaRevisar('¿es seguro mi disco?'), null);                       // no hay enlace
+  assert.equal(enlaceParaRevisar('¿es seguro dell.com? ' + 'palabra '.repeat(30)), null);
+  assert.equal(enlaceParaRevisar(''), null);
+});
+
+test('el resumen del enlace nunca dice "seguro", avisa de los límites y explica los motivos', () => {
+  const peligro = resumenEnlace({ nivel: 'peligroso', motivos: ['Usa letras que imitan a otras.', 'No usa conexión cifrada.', 'Tercero.'], dominio: 'x.com', listas: { estado: 'no_consultada' } });
+  assert.match(peligro, /no entres/i);
+  assert.match(peligro, /cambiá la contraseña/);
+  assert.match(peligro, /imitan a otras/);
+  assert.doesNotMatch(peligro, /Tercero/);                                             // máximo dos motivos
+
+  const duda = resumenEnlace({ nivel: 'dudoso', motivos: ['Es un enlace acortado.'], dominio: 'bit.ly', listas: { estado: 'no_consultada' } });
+  assert.match(duda, /desconfianza/);
+  assert.match(duda, /no la lista de sitios peligrosos de Google/);
+
+  const bien = resumenEnlace({ nivel: 'sin_senales', motivos: [], dominio: 'dell.com', listas: { estado: 'no_aparece' } });
+  assert.match(bien, /no veo señales de peligro/i);
+  assert.match(bien, /no es una garantía/);
+  assert.match(bien, /Google tampoco lo tiene/);
+  assert.doesNotMatch(bien, /\bes seguro\b/i);
+
+  assert.match(resumenEnlace({ nivel: 'no_se_puede', motivos: ['No pude entender ese enlace. ¿Lo copiaste completo?'] }), /copiaste completo/);
 });

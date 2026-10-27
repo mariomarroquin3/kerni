@@ -162,6 +162,14 @@ test('los textos de Kerni no llevan emojis (son tokens de más y se ven distinto
   assert.doesNotMatch(html, /\p{Extended_Pictographic}/u);
 });
 
+test('revisar enlaces: el chat llama al backend sin modelo y el CSP lo permite', () => {
+  assert.match(main, /enlaceParaRevisar\(mensaje\)/);
+  assert.match(main, /\$\{BACKEND\}\/enlaces\/revisar/);
+  assert.match(main, /decir\(resumenEnlace\(await res\.json\(\)\), 25000\)/);
+  // no se abre el enlace desde la interfaz: ni window.open ni location ni un iframe
+  assert.doesNotMatch(main, /window\.open|location\.href\s*=|<iframe/);
+});
+
 test('la transparencia en reposo está en el CSS y la activa solo el atributo data-reposo', () => {
   const css = leer('web', 'style.css');
   assert.match(css, /body\[data-reposo='1'\] #mascota \{ opacity: 0\.6/);

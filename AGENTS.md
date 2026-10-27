@@ -22,13 +22,14 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | Ruta | Qué es |
 |---|---|
 | `src/backend/` | Node 22 + Fastify. Harness del agente, persona, validación de acciones, ruta `/chat` |
-| `src/backend/src/agent/` | Bucle de tool calling (`agent.js`) y persona (`persona.js`). Herramientas: `proponer_accion`, `proponer_recuerdo` (piden aprobación) y `buscar_conocimiento` (solo lectura) |
+| `src/backend/src/agent/` | Bucle de tool calling (`agent.js`) y persona (`persona.js`). Herramientas: `proponer_accion`, `proponer_recuerdo` (piden aprobación), `buscar_conocimiento` y `revisar_enlace` (solo lectura) |
 | `src/backend/src/llm/anthropic.js` | Proveedor Anthropic (interfaz `step`, igual que Bitoo) |
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
 | `src/backend/src/memoria/` | Memoria local en **SQLite** (`sqlite.js`), memoria reflexiva automática (`reflexion.js`), validación de recuerdos (`recuerdos.js`) y cliente de **Supabase** opcional (`supabase.js`, solo salud y RAG). Sin llaves de Supabase Kerni funciona de forma totalmente autónoma |
 | `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo con solapamiento), `conocimiento.js` (búsqueda híbrida vectorial + texto). Contenido en `conocimiento/` (`privado/` ignorado por git) |
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
+| `src/backend/src/enlaces.js` | Revisión de enlaces (`revisar_enlace` y `POST /enlaces/revisar`): señales de la dirección y, con llave, la lista de Google Safe Browsing. Nunca abre el sitio |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
 | `src/desktop/src-tauri/src/sistema.rs` | **Único** código que toca el sistema: métricas, cerrar proceso, limpiar temporales y listar archivos pesados sin uso (solo lectura) |
@@ -112,6 +113,14 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
 - Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
 
+## Revisar enlaces (`revisar_enlace`)
+
+- **Solo lectura y sin abrir el sitio.** Mira la dirección (HTTP, un número en vez de un nombre, `@` que esconde el destino, acortadores, letras que imitan a otras, marcas imitadas como `paypa1-login.com` o `paypal.com.cuenta-segura.xyz`, terminaciones de estafa, demasiados subdominios, palabras de engaño) y, si hay `SAFE_BROWSING_API_KEY`, la lista de sitios peligrosos de Google (solo se le manda la dirección). Niveles: `peligroso`, `dudoso`, `sin_senales` y `no_se_puede`.
+- **Nunca se dice que un sitio "es seguro"**: el mejor resultado es "no veo señales de peligro, pero no es una garantía". La persona lo exige y un test lo guarda. Sin llave, Kerni avisa que solo miró la dirección.
+- Dos caminos: una pregunta corta sobre UN enlace ("¿es seguro paypa1-login.com?") la contesta la interfaz llamando a `POST /enlaces/revisar`, sin modelo y al instante; los mensajes largos o con varios enlaces van al modelo, que debe llamar SIEMPRE primero a `revisar_enlace` (máximo 3 por turno).
+- **No mira la pantalla**: una captura puede incluir contraseñas o datos del banco y viajaría a un servicio externo. Si algún día se agrega, con vista previa y aprobación cada vez.
+- Pendiente: probarlo con una llave real de Google Safe Browsing (hoy solo con una respuesta simulada).
+
 ## Archivos pesados sin uso (`ver_archivos_pesados`)
 
 - Es la tercera acción de `proponer_accion`, y es de **solo lectura**: Kerni la propone, la persona aprueba la tarjeta y la app (Rust) busca. También se puede pedir desde el menú del clic con dos dedos (*Archivos pesados sin uso…*, directo, porque lo eligió la persona) o escribiendo algo corto como "archivos pesados" o "qué ocupa más espacio" (regla local en `intenciones.js`, sin modelo).
@@ -161,6 +170,7 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [x] Manuales oficiales de la Latitude 3120 (configuración/especificaciones y manual de servicio, de dl.dell.com) en `conocimiento/privado/dell-latitude-3120/`.
 - [ ] Manuales de Windows, Word y PowerPoint, y de los otros equipos que entregó el Gobierno (hay que saber los modelos).
 - [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
+- [x] Revisar enlaces (`revisar_enlace`): señales de la dirección y lista de Google opcional; probado con el modelo real. Falta una llave real de Google Safe Browsing y, más adelante, revisar la pantalla con aprobación.
 - [x] Archivos y carpetas pesados sin uso: lista de solo lectura con tarjeta, menú y regla local; probado con las carpetas reales (3 s). Falta probarlo a mano en la ventana de Tauri.
 - [x] Las métricas (CPU/RAM/disco y sus botones) nacen 100% ocultas y no se recuerdan entre sesiones. Se ven desde el menú nativo del clic con dos dedos sobre Kerni (o el icono de la bandeja): *Ver métricas*, *Limpiar temporales…* (abre la tarjeta de confirmación) y *Cerrar Kerni*. En el navegador de demostración, el clic derecho las alterna y `?metricas` las muestra.
 - [x] Saneamiento de `<memoria>` y `<conocimiento>`: `sanearParaBloque` quita control, `< >`, bidireccionales, ancho cero y BOM; se aplica al guardar y armar contexto.

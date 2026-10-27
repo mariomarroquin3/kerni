@@ -38,6 +38,9 @@ export function loadConfig(env = process.env) {
       baseUrl: env.EMBEDDINGS_BASE_URL || '',
     },
 
+    // Revisión de enlaces: la llave gratuita de Google Safe Browsing es opcional. Sin ella solo se revisa la dirección.
+    safeBrowsing: { apiKey: env.SAFE_BROWSING_API_KEY || '' },
+
     // Memoria en Supabase (opcional). Sin estas dos variables Kerni funciona igual, pero no recuerda nada.
     supabase: {
       url: env.SUPABASE_URL || '',

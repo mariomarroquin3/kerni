@@ -139,13 +139,13 @@ describe('chat con memoria (SQLite)', () => {
   it('sin memoria el modelo no ve la herramienta de recordar y el chat sigue igual', async () => {
     const { app, anthropic } = await appConMemoria({ respuestas: [texto('ok')], memoriaActiva: false });
     expect((await chat(app, { mensaje: 'hola', device_id: DEVICE })).statusCode).toBe(200);
-    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion']);
+    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion', 'revisar_enlace']);
   });
 
   it('sin device_id el modelo no ve la herramienta de recordar (no habría dónde guardar)', async () => {
     const { app, anthropic } = await appConMemoria({ respuestas: [texto('ok')] });
     await chat(app, { mensaje: 'hola' });
-    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion']);
+    expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion', 'revisar_enlace']);
   });
 
   it('ignora un device_id que no es UUID', async () => {

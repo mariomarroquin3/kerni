@@ -3,6 +3,7 @@ import { PERSONA } from './persona.js';
 import { ProponerAccionSchema, validarPropuesta } from '../acciones.js';
 import { formatearSnapshot } from '../telemetria.js';
 import { ProponerRecuerdoSchema, validarRecuerdo } from '../memoria/recuerdos.js';
+import { createRevisorEnlaces, MAX_ENLACE } from '../enlaces.js';
 
 const MAX_ITERATIONS = 4;
 
@@ -19,6 +20,8 @@ export function quitarEmojis(texto) {
 }
 /** Búsquedas en la base de conocimiento por turno: la herramienta es de lectura, pero cada una cuesta un embedding. */
 const MAX_BUSQUEDAS_POR_TURNO = 2;
+/** Enlaces revisados por turno: cada uno puede consultar la lista de Google, que tiene su propio cupo. */
+const MAX_ENLACES_POR_TURNO = 3;
 /** Mensajes del usuario que se conservan en el historial (limita costo y contexto). */
 export const MAX_TURNOS_HISTORIAL = 10;
 
@@ -65,6 +68,19 @@ const DEFINICION_BUSCAR = {
   parameters: toInputSchema(BuscarConocimientoSchema),
 };
 
+const RevisarEnlaceSchema = z.object({
+  url: z.string().min(3).max(MAX_ENLACE).describe('El enlace o la dirección del sitio que la persona quiere revisar, tal como la pegó.'),
+});
+
+const DEFINICION_ENLACE = {
+  name: 'revisar_enlace',
+  description:
+    'Revisa si un enlace o sitio web parece peligroso (estafa, virus, sitio falso). Es de solo lectura y no necesita aprobación: mira la dirección y, si hay '
+    + 'llave, la lista de sitios peligrosos de Google; NUNCA abre el sitio. Úsala cuando la persona pregunte si un enlace o sitio es seguro, confiable o una estafa. '
+    + 'Devuelve un nivel (peligroso, dudoso, sin_senales o no_se_puede) y los motivos. sin_senales NO significa que sea seguro.',
+  parameters: toInputSchema(RevisarEnlaceSchema),
+};
+
 /**
  * Harness de Kerni: arma el contexto (persona + foto del sistema), corre el
  * bucle de tool calling y devuelve la respuesta con las acciones propuestas.
@@ -73,7 +89,7 @@ const DEFINICION_BUSCAR = {
  * valida contra la foto del sistema y la devuelve como `acciones` para que la
  * app le pida confirmación a la persona y la ejecute en Rust.
  */
-export function createAgent({ provider, logger = console, clock = () => performance.now(), memoriaActiva = false, conocimiento = null }) {
+export function createAgent({ provider, logger = console, clock = () => performance.now(), memoriaActiva = false, conocimiento = null, revisorEnlaces = createRevisorEnlaces() }) {
   const puedeBuscar = Boolean(conocimiento?.habilitado);
   // Sin memoria conectada, el modelo ni se entera de que podría "recordar": no ve la herramienta.
 
@@ -87,7 +103,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
   async function runTurn({ history, mensaje, snapshot, memoria = '', puedeRecordar = true, signal }) {
     // Sin device_id no hay dónde guardar: ofrecer la herramienta llevaría a una propuesta que falla al aprobarla.
     const recuerda = memoriaActiva && puedeRecordar;
-    const definiciones = [...DEFINICIONES, ...(recuerda ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])];
+    const definiciones = [...DEFINICIONES, DEFINICION_ENLACE, ...(recuerda ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])];
     const ahora = new Intl.DateTimeFormat('es-SV', {
       timeZone: 'America/El_Salvador', dateStyle: 'full', timeStyle: 'short',
     }).format(new Date());
@@ -107,6 +123,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
     let respuesta = '';
     let rechazado = false;
     let busquedas = 0;
+    let enlaces = 0;
 
     try {
       for (let i = 0; i < MAX_ITERATIONS; i++) {
@@ -158,6 +175,23 @@ export function createAgent({ provider, logger = console, clock = () => performa
                 : { fragmentos: null, nota: 'No encontré nada relevante en la base de conocimiento; responde con lo que sabes y dilo con honestidad.' }),
             };
           }
+          if (call.name === 'revisar_enlace') {
+            const args = RevisarEnlaceSchema.safeParse(call.input);
+            if (!args.success) {
+              traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'argumentos inválidos' });
+              return { id: call.id, name: call.name, content: JSON.stringify({ error: 'falta el enlace a revisar' }), isError: true };
+            }
+            if (enlaces >= MAX_ENLACES_POR_TURNO) {
+              traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'demasiados enlaces' });
+              return { id: call.id, name: call.name, content: JSON.stringify({ error: 'ya revisaste varios enlaces en este turno; responde con lo que tienes' }), isError: true };
+            }
+            enlaces++;
+            const t2 = clock();
+            const r = await revisorEnlaces.revisar(args.data.url);
+            traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: true, nivel: r.nivel, ms: Math.round(clock() - t2) });
+            // El enlace y los motivos son datos: ya vienen saneados y la persona no necesita ver la llave ni nada más.
+            return { id: call.id, name: call.name, content: JSON.stringify({ nivel: r.nivel, motivos: r.motivos, dominio: r.dominio, listas_de_google: r.listas.estado, nota: r.nota }) };
+          }
           if (call.name !== 'proponer_accion') {
             traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'herramienta desconocida' });
             return { id: call.id, name: call.name, content: JSON.stringify({ error: `herramienta desconocida: ${call.name}` }), isError: true };
@@ -184,5 +218,5 @@ export function createAgent({ provider, logger = console, clock = () => performa
     return { respuesta, acciones, traza };
   }
 
-  return { runTurn, definitions: [...DEFINICIONES, ...(memoriaActiva ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])] };
+  return { runTurn, definitions: [...DEFINICIONES, DEFINICION_ENLACE, ...(memoriaActiva ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])] };
 }

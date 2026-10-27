@@ -52,3 +52,36 @@ export function responderLocal(texto, m) {
   }
   return { texto: pct >= 70 ? `${base} Todavía hay lugarcito, pero vale la pena vigilarlo.` : `${base} ¡Vas muy bien!` };
 }
+
+// ---------- Revisar un enlace: "¿es seguro paypa1-login.com/verify?" ----------
+// Si la persona pregunta por la seguridad de UN enlace, lo revisa el backend (sin modelo, al instante). Lo demás va al modelo.
+const PIDE_SEGURIDAD = /\b(segur[oa]s?|peligros[oa]s?|confiable|estafa|fraude|phishing|virus|malicios[oa]|leg[ií]tim[oa]|de fiar|trampa|falso|truco)\b/i;
+const ALGO_COMO_ENLACE = /(https?:\/\/[^\s]+|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?)/i;
+export const MAX_PALABRAS_ENLACE = 25;
+
+/** @returns {string|null} el enlace a revisar, o null si el mensaje no pide eso */
+export function enlaceParaRevisar(texto) {
+  if (!texto || palabras(texto) > MAX_PALABRAS_ENLACE || !PIDE_SEGURIDAD.test(texto)) return null;
+  const coincidencias = texto.match(new RegExp(ALGO_COMO_ENLACE.source, 'gi')) ?? [];
+  // Si hay más de uno, que decida el modelo: no se adivina cuál quiso decir.
+  if (coincidencias.length !== 1) return null;
+  return coincidencias[0].replace(/[.,;:!?)\]"']+$/, '');
+}
+
+/** Texto para la burbuja a partir del resultado de `/enlaces/revisar`. Nunca dice "seguro": solo "no veo señales de peligro". */
+export function resumenEnlace(r) {
+  const motivos = (r.motivos ?? []).slice(0, 2).join(' ');
+  const listas = r.listas?.estado;
+  if (r.nivel === 'peligroso') {
+    return `Cuidado, no entres a ese enlace. ${motivos} No pongas contraseñas ni datos ahí; y si ya lo hiciste, cambiá la contraseña cuanto antes.`;
+  }
+  if (r.nivel === 'dudoso') {
+    const nota = listas === 'no_consultada' ? ' Solo miré la dirección, no la lista de sitios peligrosos de Google.' : '';
+    return `Mmm, ese enlace me da desconfianza. ${motivos} Mejor no pongas datos ahí y entrá escribiendo vos la dirección oficial.${nota}`;
+  }
+  if (r.nivel === 'sin_senales') {
+    const lista = listas === 'no_aparece' ? ' Google tampoco lo tiene en su lista de sitios peligrosos.' : listas === 'no_consultada' ? ' Solo miré la dirección, no la lista de sitios peligrosos de Google.' : '';
+    return `No veo señales de peligro en la dirección de ${r.dominio}, pero ojo: no es una garantía.${lista} Antes de poner contraseñas, fijate que sea el sitio oficial.`;
+  }
+  return r.motivos?.[0] ?? 'No pude entender ese enlace. ¿Lo copiaste completo?';
+}

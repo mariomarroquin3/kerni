@@ -1,7 +1,7 @@
 import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
 import { crearVigilanteRam } from './reglas.js';
-import { responderLocal } from './intenciones.js';
+import { enlaceParaRevisar, resumenEnlace, responderLocal } from './intenciones.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 const CADA_MS = 2000;
@@ -357,6 +357,23 @@ $('chat').addEventListener('submit', async (e) => {
   const mensaje = input.value.trim();
   if (!mensaje) return;
   input.value = '';
+
+  // "¿Es seguro este enlace?": lo revisa el backend sin modelo (sin gastar cupo). Si no responde, lo intenta el modelo.
+  const enlace = enlaceParaRevisar(mensaje);
+  if (enlace) {
+    decir('Revisando el enlace…', 8000);
+    try {
+      const res = await fetch(`${BACKEND}/enlaces/revisar`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: enlace }),
+      });
+      if (res.ok) {
+        decir(resumenEnlace(await res.json()), 25000);
+        return;
+      }
+    } catch { /* sin backend: sigue el camino normal y el chat avisa */ }
+  }
 
   // Pedidos simples (ej. "cuánto disco me queda") se responden con reglas, sin backend.
   const local = responderLocal(mensaje, ultimas);

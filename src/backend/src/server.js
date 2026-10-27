@@ -9,6 +9,7 @@ import { createMemoriaNula } from './memoria/memoria.js';
 import { createSqliteMemoria } from './memoria/sqlite.js';
 import { crearEmbeddings } from './rag/embeddings.js';
 import { createConocimiento, createConocimientoNulo } from './rag/conocimiento.js';
+import { createRevisorEnlaces } from './enlaces.js';
 
 const config = loadConfig();
 
@@ -49,10 +50,14 @@ if (supabaseDb) {
   }
 }
 
-const agent = createAgent({ provider: elegido.provider, memoriaActiva: memoria.habilitada, conocimiento });
-const app = buildApp({ config, agent, provider: elegido.provider, memoria, conocimiento, logger: true });
+// Revisión de enlaces: siempre disponible; con SAFE_BROWSING_API_KEY también consulta la lista de sitios peligrosos de Google.
+const revisorEnlaces = createRevisorEnlaces({ apiKey: config.safeBrowsing.apiKey });
+
+const agent = createAgent({ provider: elegido.provider, memoriaActiva: memoria.habilitada, conocimiento, revisorEnlaces });
+const app = buildApp({ config, agent, provider: elegido.provider, memoria, conocimiento, revisorEnlaces, logger: true });
 console.log(`Cerebro: ${elegido.provider.name} (${elegido.provider.model})`);
 console.log(`Memoria: SQLite local (${dataDir})${supabaseDb ? ' + salud en Supabase' : ''}`);
+console.log(revisorEnlaces.listasDisponibles ? 'Enlaces: dirección + lista de Google' : 'Enlaces: solo la dirección (sin SAFE_BROWSING_API_KEY)');
 console.log(conocimiento.habilitado ? 'Conocimiento (RAG): activo' : 'Conocimiento (RAG): apagado (falta Supabase o una llave de embeddings)');
 memoria.mantenimiento();
 
