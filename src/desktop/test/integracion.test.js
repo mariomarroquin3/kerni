@@ -155,6 +155,13 @@ test('el globo de texto dura lo que tarda leerse, no se cierra con el puntero en
   assert.match(main, /\$\('globo'\)\.addEventListener\('click'/);
 });
 
+test('los textos de Kerni no llevan emojis (son tokens de más y se ven distinto en cada equipo)', () => {
+  for (const archivo of ['main.js', 'intenciones.js', 'reglas.js', 'estado.js', 'character.js']) {
+    assert.doesNotMatch(leer('web', archivo), /(?![\u00A9\u00AE\u2122])\p{Extended_Pictographic}/u, archivo);
+  }
+  assert.doesNotMatch(html, /\p{Extended_Pictographic}/u);
+});
+
 test('la transparencia en reposo está en el CSS y la activa solo el atributo data-reposo', () => {
   const css = leer('web', 'style.css');
   assert.match(css, /body\[data-reposo='1'\] #mascota \{ opacity: 0\.6/);

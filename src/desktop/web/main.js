@@ -259,7 +259,7 @@ async function ejecutar(a) {
       body: JSON.stringify({ device_id: deviceId, clave: a.clave, valor: a.valor }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `error ${res.status}`);
-    decir('¡Anotadito! Me lo voy a acordar ✨');
+    decir('¡Anotadito! Me lo voy a acordar.');
   } else if (a.accion === 'ver_archivos_pesados') {
     await buscarArchivosPesados();
   } else if (a.accion === 'terminar_proceso') {
@@ -268,7 +268,7 @@ async function ejecutar(a) {
   } else if (a.accion === 'limpiar_temporales') {
     const r = await llamar('limpiar_temporales');
     decir(r.archivos
-      ? `¡Ñam! Me comí ${r.archivos} archivos y liberé ${r.liberadoMb.toFixed(0)} MB ✨`
+      ? `¡Ñam! Me comí ${r.archivos} archivos y liberé ${r.liberadoMb.toFixed(0)} MB.`
       : 'No había temporales viejos que limpiar. ¡Tu compu está ordenadita!');
   }
 }
@@ -398,7 +398,7 @@ $('chat').addEventListener('submit', async (e) => {
     if (err.name === 'AbortError' || err.name === 'TimeoutError') {
       decir('Uy, me tardé demasiado pensando. ¿Probamos de nuevo?');
     } else {
-      decir(err instanceof TypeError ? 'Ay, no logro hablar con mi cerebro 🥺 ¿Está encendido el backend?' : String(err.message ?? err));
+      decir(err instanceof TypeError ? 'Ay, no logro hablar con mi cerebro. ¿Está encendido el backend?' : String(err.message ?? err));
     }
   } finally {
     pensando = false;
@@ -464,5 +464,5 @@ if (enTauri && deviceId) {
     }).catch(() => { /* sin backend o sin memoria: no pasa nada */ });
   }, 10 * 60_000);
 }
-decir('¡Holi! Soy Kerni y estoy cuidando tu compu 💙', 6000);
+decir('¡Holi! Soy Kerni y estoy cuidando tu compu.', 6000);
 setTimeout(() => personaje.saludar(), 600);

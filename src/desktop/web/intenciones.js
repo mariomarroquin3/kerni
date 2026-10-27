@@ -50,5 +50,5 @@ export function responderLocal(texto, m) {
       proponer: { accion: 'limpiar_temporales', motivo: `El disco está al ${pct}%.` },
     };
   }
-  return { texto: pct >= 70 ? `${base} Todavía hay lugarcito, pero vale la pena vigilarlo 👀` : `${base} ¡Vas muy bien! ✨` };
+  return { texto: pct >= 70 ? `${base} Todavía hay lugarcito, pero vale la pena vigilarlo.` : `${base} ¡Vas muy bien!` };
 }

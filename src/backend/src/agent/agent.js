@@ -5,6 +5,18 @@ import { formatearSnapshot } from '../telemetria.js';
 import { ProponerRecuerdoSchema, validarRecuerdo } from '../memoria/recuerdos.js';
 
 const MAX_ITERATIONS = 4;
+
+// Kerni habla sin emojis (son tokens de más y se ven distinto en cada equipo). El prompt ya lo pide;
+// esto es la red de seguridad por si el modelo se le escapa uno. Se respetan (c), (r) y (tm).
+const EMOJIS = /(?![\u00A9\u00AE\u2122])[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
+export function quitarEmojis(texto) {
+  return String(texto)
+    .replace(EMOJIS, '')
+    .replace(/[ \t]+([.,;:!?])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+}
 /** Búsquedas en la base de conocimiento por turno: la herramienta es de lectura, pero cada una cuesta un embedding. */
 const MAX_BUSQUEDAS_POR_TURNO = 2;
 /** Mensajes del usuario que se conservan en el historial (limita costo y contexto). */
@@ -108,7 +120,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
           history.length = inicio;
           acciones.length = 0;
           rechazado = true;
-          respuesta = 'Uy, con eso no te puedo ayudar. ¿Mejor revisamos cómo anda tu compu? 💙';
+          respuesta = 'Uy, con eso no te puedo ayudar. ¿Mejor revisamos cómo anda tu compu?';
           break;
         }
 
@@ -166,6 +178,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
       logger.error?.({ err }, 'falló el turno');
       throw err;
     }
+    respuesta = quitarEmojis(respuesta);
     if (!respuesta) respuesta = 'Ay, me enredé todito. ¿Me lo contás de otra forma?';
     traza.push({ tipo: 'total', ms: Math.round(clock() - inicioTurno), rechazado });
     return { respuesta, acciones, traza };
