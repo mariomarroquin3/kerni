@@ -57,6 +57,8 @@ cd src/desktop && npm ci && npm test        # lógica del front
 cd src/desktop/src-tauri && cargo test      # núcleo Rust
 cd src/desktop && npm run dev               # app completa (tauri dev)
 Kerni.bat                                   # un clic: Docker + base de conocimiento, backend y la app ya compilada (release). Se recompila sola solo si el codigo cambio
+Kerni-nube.bat                              # igual, pero con la base de conocimiento en Supabase Cloud: revisa el proyecto y no enciende Docker (Kerni.bat tambien lo detecta solo por SUPABASE_URL)
+cd src/backend && npm run pdf-a-md -- ruta   # convierte PDFs con texto a .md (un titulo "Pagina N" por pagina); indexar usa el .md y salta el .pdf de al lado
 Kerni.bat dev                               # modo desarrollo (tauri dev, recarga al editar)
 Kerni.bat build                             # fuerza recompilar la app final
 Kerni.bat check                             # solo revisar, no abre ni compila nada
