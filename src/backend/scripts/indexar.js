@@ -89,7 +89,10 @@ if (simular) {
 }
 
 try {
-  const r = await conocimiento.indexar(documentos, { alProgreso: (f, n) => console.log(`  ${f}: ${n} fragmentos`) });
+  const r = await conocimiento.indexar(documentos, {
+    alProgreso: (f, n) => console.log(`  ${f}: ${n} fragmentos`),
+    alEsperar: (s) => console.log(`  … límite de embeddings por minuto: espero ${s} s y sigo`),
+  });
   console.log(`Listo: ${r.nuevos} nuevos, ${r.iguales} sin cambios, ${r.borrados} borrados.`);
 } catch (err) {
   console.error(`No pude indexar: ${err.message}`);

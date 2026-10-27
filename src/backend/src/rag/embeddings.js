@@ -12,10 +12,21 @@ const REINTENTOS = 3;
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Cuánto espera el servidor que esperemos tras un 429: cabecera Retry-After o "retry in 30.2s" en el mensaje. Máximo 90 s. */
+async function segundosDeEspera(res) {
+  const cabecera = Number(res.headers?.get?.('retry-after'));
+  let s = Number.isFinite(cabecera) && cabecera > 0 ? cabecera : 0;
+  if (!s) {
+    try { s = Number((await res.text()).match(/retry in ([\d.]+)\s*s/i)?.[1]) || 0; } catch { /* sin cuerpo */ }
+  }
+  return Math.min(90, Math.ceil(s || 30) + 1);
+}
+
+
 export function createEmbeddings({ apiKey, baseUrl, model, dimensions = DIMENSIONES, fetch: fetchFn = globalThis.fetch, sleep = dormir, nombre = 'embeddings' }) {
   /** `reintentos` y `timeoutMs` se acortan en el chat, donde esperar los embeddings demora la respuesta.
    * @param {string[]} textos @returns {Promise<number[][]>} un vector por texto, en el mismo orden */
-  async function embed(textos, { reintentos = REINTENTOS, timeoutMs = TIMEOUT_MS } = {}) {
+  async function embed(textos, { reintentos = REINTENTOS, timeoutMs = TIMEOUT_MS, esperarCupo = false, alEsperar } = {}) {
     if (!textos.length) return [];
     for (let intento = 0; ; intento++) {
       let res;
@@ -31,6 +42,9 @@ export function createEmbeddings({ apiKey, baseUrl, model, dimensions = DIMENSIO
         throw Object.assign(new Error('No pude calcular los embeddings (sin red o tardó demasiado).'), { codigo: 'sin_red' });
       }
       if (res.status === 429 || res.status >= 500) {
+        // Al indexar manuales grandes se pasa el límite por minuto: se espera lo que pide el servidor y se sigue.
+        const espera = res.status === 429 && esperarCupo ? await segundosDeEspera(res) : 0;
+        if (intento < reintentos - 1 && espera) { alEsperar?.(espera); await sleep(espera * 1000); continue; }
         if (intento < reintentos - 1) { await sleep(2000 * 2 ** intento); continue; }
         throw Object.assign(new Error(res.status === 429 ? 'Se agotó el cupo de embeddings; probá más tarde.' : 'El servicio de embeddings no responde.'), { codigo: res.status === 429 ? 'sin_cupo' : 'sin_red' });
       }

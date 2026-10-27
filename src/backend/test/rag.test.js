@@ -105,6 +105,27 @@ describe('embeddings', () => {
     expect(err.message).not.toContain('LLAVE_SECRETA');
   });
 
+  it('al indexar, un 429 con "retry in" espera lo que pide el servidor y sigue (sin gastar los reintentos del chat)', async () => {
+    const esperas = []; const avisos = []; let n = 0;
+    const e = createEmbeddings({
+      apiKey: 'k', baseUrl: 'u', model: 'm', dimensions: 3, sleep: async (ms) => { esperas.push(ms); },
+      fetch: async () => (++n < 3 ? new Response('{"error":{"message":"Please retry in 12.4s."}}', { status: 429 }) : respuesta(1, 3)),
+    });
+    expect(await e.embed(['a'], { reintentos: 8, esperarCupo: true, alEsperar: (s) => avisos.push(s) })).toHaveLength(1);
+    expect(esperas).toEqual([14000, 14000]);   // 12.4 s redondeado hacia arriba + 1 s de margen
+    expect(avisos).toEqual([14, 14]);
+  });
+
+  it('la espera por cupo tiene un tope de 90 s y usa Retry-After si viene', async () => {
+    const esperas = []; let n = 0;
+    const e = createEmbeddings({
+      apiKey: 'k', baseUrl: 'u', model: 'm', dimensions: 3, sleep: async (ms) => { esperas.push(ms); },
+      fetch: async () => (++n === 1 ? new Response('{}', { status: 429, headers: { 'retry-after': '500' } }) : n === 2 ? new Response('{}', { status: 429, headers: { 'retry-after': '5' } }) : respuesta(1, 3)),
+    });
+    await e.embed(['a'], { reintentos: 5, esperarCupo: true });
+    expect(esperas).toEqual([90000, 6000]);
+  });
+
   it('se recupera si el segundo intento funciona', async () => {
     let n = 0;
     const e = createEmbeddings({ apiKey: 'k', baseUrl: 'u', model: 'm', dimensions: 3, sleep: async () => {}, fetch: async () => (++n === 1 ? new Response('{}', { status: 503 }) : respuesta(1, 3)) });

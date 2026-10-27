@@ -57,7 +57,7 @@ export function createConocimiento({ db, embeddings, logger = console }) {
    * y borra los de esa fuente que ya no están en el texto.
    * @returns {Promise<{ nuevos: number, iguales: number, borrados: number }>}
    */
-  async function indexar(documentos, { alProgreso = () => {} } = {}) {
+  async function indexar(documentos, { alProgreso = () => {}, alEsperar } = {}) {
     const total = { nuevos: 0, iguales: 0, borrados: 0 };
     for (const doc of documentos) {
       const fragmentos = fragmentar(doc.texto).map((f) => ({ ...f, hash: huella(doc.fuente, f.contenido) }));
@@ -71,7 +71,7 @@ export function createConocimiento({ db, embeddings, logger = console }) {
       total.iguales += fragmentos.length - nuevos.length;
       for (let i = 0; i < nuevos.length; i += LOTE) {
         const lote = nuevos.slice(i, i + LOTE);
-        const vectores = await embeddings.embed(lote.map((f) => (f.titulo ? `${sanearParaBloque(f.titulo)}\n${sanearParaBloque(f.contenido)}` : sanearParaBloque(f.contenido))));
+        const vectores = await embeddings.embed(lote.map((f) => (f.titulo ? `${sanearParaBloque(f.titulo)}\n${sanearParaBloque(f.contenido)}` : sanearParaBloque(f.contenido))), { reintentos: 8, esperarCupo: true, alEsperar });
         await db.upsert('kerni_conocimiento', lote.map((f, j) => ({
           fuente: sanearParaBloque(doc.fuente), titulo: sanearParaBloque(f.titulo), contenido: sanearParaBloque(f.contenido), hash: f.hash, embedding: vector(vectores[j]),
         })), 'hash');

@@ -19,3 +19,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-23 | Detección de zonas DPI-agnóstica y arrastre con mouse | [2026-10-23-dpi-mouse-drag-hit-testing.md](2026-10-23-dpi-mouse-drag-hit-testing.md) |
 | 2026-10-24 | Linux Rust warning cleanup | [2026-10-24-linux-rust-warnings.md](2026-10-24-linux-rust-warnings.md) |
 | 2026-10-27 | Local Supabase with Docker and first real RAG indexing | [2026-10-27-local-supabase-docker.md](2026-10-27-local-supabase-docker.md) |
+| 2026-10-27 | Hidden metrics and the first official manuals | [2026-10-27-hidden-metrics-and-manuals.md](2026-10-27-hidden-metrics-and-manuals.md) |

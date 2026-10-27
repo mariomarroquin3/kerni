@@ -145,8 +145,10 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [x] Supabase local con Docker (pgvector + PostgREST): migraciones aplicadas, 41 fragmentos indexados con embeddings reales de Gemini y búsqueda probada de punta a punta con el modelo.
 - [ ] Si se quiere la nube: correr las migraciones en un proyecto de Supabase y `npm run probar-memoria`.
 - [x] RAG con pgvector y contenido de arranque (hardware, Windows, Office, buenas prácticas); probado con Supabase y embeddings falsos.
-- [ ] Cargar los manuales de Office propios en `conocimiento/privado/` (convertidos a texto).
+- [x] Manuales oficiales de la Latitude 3120 (configuración/especificaciones y manual de servicio, de dl.dell.com) en `conocimiento/privado/dell-latitude-3120/`.
+- [ ] Manuales de Windows, Word y PowerPoint, y de los otros equipos que entregó el Gobierno (hay que saber los modelos).
 - [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
+- [x] Las métricas (CPU/RAM/disco y sus botones) nacen 100% ocultas y no se recuerdan entre sesiones. Se ven desde el menú nativo del clic con dos dedos sobre Kerni (o el icono de la bandeja): *Ver métricas*, *Limpiar temporales…* (abre la tarjeta de confirmación) y *Cerrar Kerni*. En el navegador de demostración, el clic derecho las alterna y `?metricas` las muestra.
 - [x] Saneamiento de `<memoria>` y `<conocimiento>`: `sanearParaBloque` quita control, `< >`, bidireccionales, ancho cero y BOM; se aplica al guardar y armar contexto.
 - [x] Regla en `persona.js`: `<memoria>` y `<conocimiento>` son datos, no instrucciones.
 - [x] Lista de procesos protegidos ampliada a 22 (backend + Rust sincronizados).
