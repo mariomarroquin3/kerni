@@ -14,3 +14,9 @@ Set everything up for the knowledge base without a Supabase project: use Docker 
 - Search quality measured with six real questions: relevant ones score 0.74 to 0.81 on the best passage, an off-topic one scores 0.47, so the 0.55 threshold stays.
 - End to end with the real model: it called `buscar_conocimiento`, got the passages and answered citing the memory guide in 3.3 s. A test backend on port 8799 was used and stopped; the user's own instance was not touched.
 - A new backend test checks that every migration is mounted in the compose file, in order, and that the compose file carries no secrets.
+
+## Follow-up: PDF manuals
+Request: load manuals (Dell Latitude 3120 and the other government-issued PCs, Word, PowerPoint, Windows).
+- The indexer now reads PDFs (`unpdf`, no native code): one "Página N" heading per page so answers can cite pages, line breaks re-joined and hyphenated words repaired. Scanned PDFs are skipped with a warning (no OCR). `--simular` counts fragments without keys or quota.
+- Manuals go in `conocimiento/privado/` (git-ignored, possibly copyrighted). Nothing was downloaded or added: no manuals were uploaded by the assistant; the only indexed content is the 6 short documents written for the repo.
+- Verified for real: a sample PDF was indexed in the local database, found with similarity 0.825 citing its page, a scanned sample was skipped, and the sample rows were removed. Backend: 156 tests (4 new with small PDF fixtures).

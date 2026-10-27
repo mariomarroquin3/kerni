@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createEmbeddings, crearEmbeddings } from '../src/rag/embeddings.js';
 import { fragmentar, huella, MAX_FRAGMENTO } from '../src/rag/fragmentos.js';
+import { EXTENSIONES, leerDocumento, limpiarPagina, textoDePdf } from '../src/rag/documentos.js';
 import { createConocimiento, createConocimientoNulo } from '../src/rag/conocimiento.js';
 import { createSupabase } from '../src/memoria/supabase.js';
 import { loadConfig } from '../src/config.js';
@@ -14,6 +15,7 @@ import { fakeAnthropic, texto, usarTool } from './helpers.js';
 
 const callado = { error() {} };
 const AQUI = dirname(fileURLToPath(import.meta.url));
+const raizDelRepo = () => join(AQUI, '..', '..', '..');
 
 /** Embeddings falsos: vector de 4 dimensiones según palabras clave, para probar el ranking sin red. */
 function embeddingsFalsos() {
@@ -287,6 +289,36 @@ describe('herramienta buscar_conocimiento', () => {
     await chat('hola, ¿cómo estás hoy?');
     expect(anthropic.messages.create.llamadas[0].tools.map((t) => t.name)).toEqual(['proponer_accion', 'buscar_conocimiento']);
     expect((await app.inject({ url: '/health' })).json().conocimiento).toBe(true);
+  });
+});
+
+describe('documentos PDF', () => {
+  const fixture = (n) => join(AQUI, 'fixtures', n);
+
+  it('limpiarPagina une los renglones, arregla las palabras partidas y respeta los párrafos', () => {
+    expect(limpiarPagina('La memoria está sol-\ndada a la placa\ny no se amplía.\n\nOtro párrafo.')).toBe('La memoria está soldada a la placa y no se amplía.\n\nOtro párrafo.');
+  });
+
+  it('extrae el texto de un PDF con un título por página, para poder citar de dónde sale', async () => {
+    const d = await leerDocumento(fixture('manual-prueba.pdf'));
+    expect(d.paginas).toBe(2);
+    expect(d.aviso).toBeUndefined();
+    expect(d.texto).toMatch(/^## Página 1\n/);
+    expect(d.texto).toContain('## Página 2');
+    expect(d.texto).toContain('memoria LPDDR4 soldada a la placa base');
+    expect(fragmentar(d.texto).map((f) => f.titulo)).toEqual(['Página 1', 'Página 2']);
+  });
+
+  it('un PDF escaneado (solo imágenes) avisa que hace falta OCR en vez de indexar vacío', async () => {
+    const d = await textoDePdf(readFileSync(fixture('escaneado-prueba.pdf')));
+    expect(d.aviso).toMatch(/OCR/);
+    expect(d.texto).toBe('');
+  });
+
+  it('un archivo que no es PDF no se rompe y los .md siguen leyéndose igual', async () => {
+    expect(EXTENSIONES).toEqual(['.md', '.txt', '.pdf']);
+    expect((await leerDocumento(join(raizDelRepo(), 'conocimiento', 'hardware', 'memoria-ram.md'))).texto).toMatch(/Memoria RAM/);
+    await expect(textoDePdf(Buffer.from('esto no es un pdf'))).rejects.toThrow();
   });
 });
 

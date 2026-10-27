@@ -48,7 +48,7 @@ cd src/backend && cp .env.example .env      # poné UNA llave: ANTHROPIC_API_KEY
 cd src/backend && npm run probar-llm        # prueba tu llave contra la API real (npm run probar-llm -- gemini)
 cd src/backend && npm run probar-memoria    # prueba la memoria SQLite y, si hay llaves, la salud en Supabase
 node supabase/local/preparar.mjs            # (una vez) Supabase local con Docker: claves y .env; luego docker compose -f supabase/local/docker-compose.yml up -d
-cd src/backend && npm run indexar           # indexa conocimiento/ en Supabase (npm run indexar -- --buscar "pregunta" prueba la búsqueda)
+cd src/backend && npm run indexar           # indexa conocimiento/ (.md, .txt y .pdf) en Supabase; con --simular solo cuenta (npm run indexar -- --buscar "pregunta" prueba la búsqueda)
 cd src/backend && npm run dev               # backend en 127.0.0.1:8788
 cd src/desktop && npm ci && npm test        # lógica del front
 cd src/desktop/src-tauri && cargo test      # núcleo Rust
@@ -105,7 +105,7 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - **Sin proyecto de Supabase: Docker.** `supabase/local/` levanta PostgreSQL con pgvector, PostgREST y un nginx que imita `/rest/v1` en `127.0.0.1:54321`, y aplica las migraciones solo. `node supabase/local/preparar.mjs` genera las claves y llena `src/backend/.env`; ver `supabase/local/README.md`. Para pasar a Supabase Cloud basta cambiar `SUPABASE_URL` y `SUPABASE_SECRET_KEY`.
 - **Modelo de embeddings:** `gemini-embedding-001` (768 dimensiones). `text-embedding-004` ya no existe en las cuentas de Gemini y daba 404; los ids cambian, así que si falla con 404 revisá `GET /v1beta/models` con tu llave.
 - **Umbral medido (2026-10-27, 41 fragmentos):** las preguntas del tema salen con similitud 0.74-0.81 en el mejor fragmento y una pregunta ajena (receta de pupusas) no pasa de 0.47; `SIMILITUD_MINIMA = 0.55` queda bien.
-- `npm run indexar` es idempotente (huella por fragmento): solo calcula embeddings de lo nuevo y borra lo que ya no está. Solo `.md` y `.txt`; los PDF se convierten a texto antes.
+- `npm run indexar` es idempotente (huella por fragmento): solo calcula embeddings de lo nuevo y borra lo que ya no está. Lee `.md`, `.txt` y **`.pdf`** (cada página es un título "Página N", así las respuestas pueden citar la página). Un PDF escaneado (solo imágenes) se omite con un aviso: necesita OCR antes. `npm run indexar -- --simular` cuenta documentos y fragmentos sin gastar embeddings, útil antes de meter manuales grandes. Si se agota el cupo a medio camino, volver a correrlo retoma donde quedó.
 - Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
 - Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
 
