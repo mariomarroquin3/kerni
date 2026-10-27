@@ -13,3 +13,5 @@ __pycache__/
 
 # Manuales propios para el RAG (pueden tener derechos de autor): no se suben
 conocimiento/privado/
+supabase/local/.env
+supabase/local/generado/

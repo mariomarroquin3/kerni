@@ -1,0 +1,57 @@
+# Local stand-in for the Supabase REST API, for the knowledge base (RAG) and the health copy.
+# Same URL shape as Supabase Cloud (http://127.0.0.1:54321/rest/v1), so the backend does not know the difference.
+#
+#   node supabase/local/preparar.mjs     generates local keys and fills src/backend/.env (once)
+#   docker compose -f supabase/local/docker-compose.yml up -d
+#
+# Everything listens on 127.0.0.1 only. Data lives in the named volume kerni_pgdata.
+name: kerni-supabase-local
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${KERNI_DB_PASSWORD:?run node supabase/local/preparar.mjs first}
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:54322:5432"
+    volumes:
+      - kerni_pgdata:/var/lib/postgresql/data
+      # Run once, in this order, the first time the volume is created.
+      - ./init/00-roles.sql:/docker-entrypoint-initdb.d/00-roles.sql:ro
+      - ./generado/01-authenticator.sql:/docker-entrypoint-initdb.d/01-authenticator.sql:ro
+      - ../migrations/20261021000000_memory.sql:/docker-entrypoint-initdb.d/10-memory.sql:ro
+      - ../migrations/20261021000100_rag.sql:/docker-entrypoint-initdb.d/11-rag.sql:ro
+      - ../migrations/20261021000200_rag_hibrido.sql:/docker-entrypoint-initdb.d/12-rag-hibrido.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  rest:
+    image: postgrest/postgrest:v12.2.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${KERNI_DB_PASSWORD}@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_EXTRA_SEARCH_PATH: public,extensions
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${KERNI_JWT_SECRET}
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - rest
+    ports:
+      - "127.0.0.1:54321:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  kerni_pgdata:

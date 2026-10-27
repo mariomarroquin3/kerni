@@ -300,6 +300,22 @@ describe('contenido y migración', () => {
     for (const d of docs) expect(fragmentar(readFileSync(d, 'utf8')).length, d).toBeGreaterThan(2);
   });
 
+  it('el Docker local monta todas las migraciones, en orden, y no lleva secretos', () => {
+    const compose = readFileSync(join(raiz, 'supabase', 'local', 'docker-compose.yml'), 'utf8');
+    const migraciones = readdirSync(join(raiz, 'supabase', 'migrations')).filter((f) => f.endsWith('.sql')).sort();
+    const montadas = [...compose.matchAll(/\.\.\/migrations\/([\w.-]+\.sql):\/docker-entrypoint-initdb\.d\/(\d+)-/g)];
+    expect(montadas.map((m) => m[1])).toEqual(migraciones);
+    const prefijos = montadas.map((m) => Number(m[2]));
+    expect(prefijos).toEqual([...prefijos].sort((a, b) => a - b));
+    expect(compose).not.toMatch(/eyJ[\w-]{20,}/);
+    expect(compose).toMatch(/127\.0\.0\.1:54321/);
+    expect(readFileSync(join(raiz, '.gitignore'), 'utf8')).toMatch(/supabase\/local\/\.env/);
+  });
+
+  it('el modelo de embeddings de Gemini por defecto es uno que existe (gemini-embedding-001)', () => {
+    expect(crearEmbeddings(loadConfig({ GEMINI_API_KEY: 'g' })).model).toBe('gemini-embedding-001');
+  });
+
   it('la migración, la configuración y el .gitignore están de acuerdo', () => {
     const sql = readFileSync(join(raiz, 'supabase', 'migrations', '20261021000100_rag.sql'), 'utf8');
     expect(sql).toMatch(/create extension if not exists vector/);

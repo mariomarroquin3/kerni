@@ -47,6 +47,7 @@ cd src/backend && npm ci && npm test        # obligatorio antes de cada commit; 
 cd src/backend && cp .env.example .env      # poné UNA llave: ANTHROPIC_API_KEY, GEMINI_API_KEY u OPENROUTER_API_KEY
 cd src/backend && npm run probar-llm        # prueba tu llave contra la API real (npm run probar-llm -- gemini)
 cd src/backend && npm run probar-memoria    # prueba la memoria SQLite y, si hay llaves, la salud en Supabase
+node supabase/local/preparar.mjs            # (una vez) Supabase local con Docker: claves y .env; luego docker compose -f supabase/local/docker-compose.yml up -d
 cd src/backend && npm run indexar           # indexa conocimiento/ en Supabase (npm run indexar -- --buscar "pregunta" prueba la búsqueda)
 cd src/backend && npm run dev               # backend en 127.0.0.1:8788
 cd src/desktop && npm ci && npm test        # lógica del front
@@ -101,6 +102,9 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - **Es una herramienta de solo lectura, `buscar_conocimiento`**: el modelo decide cuándo consultarla (hardware, Windows, Office, buenas prácticas). No necesita aprobación porque no cambia nada, y no rompe la regla 1. Cada búsqueda gasta un embedding, por eso hay un máximo de 2 por turno y un saludo o una pregunta sobre el estado actual de la PC no gastan ninguno.
 - La búsqueda trae los 4 fragmentos más parecidos (similitud ≥ 0.55) y los devuelve como resultado de la herramienta, entre `<conocimiento>` y como **texto de referencia, no instrucciones**. Si no hay nada relevante, el modelo lo sabe y lo dice. Si algo falla, el chat sigue sin ellos.
 - La herramienta solo se ofrece si hay Supabase y una llave de embeddings (`/health` informa `conocimiento: true|false`).
+- **Sin proyecto de Supabase: Docker.** `supabase/local/` levanta PostgreSQL con pgvector, PostgREST y un nginx que imita `/rest/v1` en `127.0.0.1:54321`, y aplica las migraciones solo. `node supabase/local/preparar.mjs` genera las claves y llena `src/backend/.env`; ver `supabase/local/README.md`. Para pasar a Supabase Cloud basta cambiar `SUPABASE_URL` y `SUPABASE_SECRET_KEY`.
+- **Modelo de embeddings:** `gemini-embedding-001` (768 dimensiones). `text-embedding-004` ya no existe en las cuentas de Gemini y daba 404; los ids cambian, así que si falla con 404 revisá `GET /v1beta/models` con tu llave.
+- **Umbral medido (2026-10-27, 41 fragmentos):** las preguntas del tema salen con similitud 0.74-0.81 en el mejor fragmento y una pregunta ajena (receta de pupusas) no pasa de 0.47; `SIMILITUD_MINIMA = 0.55` queda bien.
 - `npm run indexar` es idempotente (huella por fragmento): solo calcula embeddings de lo nuevo y borra lo que ya no está. Solo `.md` y `.txt`; los PDF se convierten a texto antes.
 - Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
 - Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
@@ -138,9 +142,9 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Limpiar caché y Prefetch (Prefetch exige administrador; decidir si se pide elevación).
 - [x] Memoria unificada en SQLite local (recuerdos aprobados, chat retomable, salud, reflexiones); Supabase solo para salud y RAG.
 - [x] `buscar_conocimiento`: el RAG pasó de buscarse en cada mensaje a ser una herramienta de solo lectura.
-- [ ] Correr las migraciones en un proyecto real de Supabase y `npm run probar-memoria`.
+- [x] Supabase local con Docker (pgvector + PostgREST): migraciones aplicadas, 41 fragmentos indexados con embeddings reales de Gemini y búsqueda probada de punta a punta con el modelo.
+- [ ] Si se quiere la nube: correr las migraciones en un proyecto de Supabase y `npm run probar-memoria`.
 - [x] RAG con pgvector y contenido de arranque (hardware, Windows, Office, buenas prácticas); probado con Supabase y embeddings falsos.
-- [ ] Correr la migración del RAG, `npm run indexar` y `npm run indexar -- --buscar "..."` con un proyecto y una llave reales; ajustar `SIMILITUD_MINIMA` con preguntas reales.
 - [ ] Cargar los manuales de Office propios en `conocimiento/privado/` (convertidos a texto).
 - [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
 - [x] Saneamiento de `<memoria>` y `<conocimiento>`: `sanearParaBloque` quita control, `< >`, bidireccionales, ancho cero y BOM; se aplica al guardar y armar contexto.
