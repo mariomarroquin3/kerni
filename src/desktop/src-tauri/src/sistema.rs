@@ -339,6 +339,7 @@ const MAX_RESULTADOS: usize = 25;
 const MAX_ENTRADAS: u32 = 400_000;
 const TIEMPO_MAXIMO: Duration = Duration::from_secs(20);
 const PROFUNDIDAD_MAXIMA: u32 = 12;
+#[cfg(not(target_os = "linux"))]
 const CARPETAS_PERSONALES: &[&str] = &["Downloads", "Desktop", "Documents", "Videos", "Pictures", "Music"];
 /// Carpetas de dependencias y de compilación de programadores: son cientos de miles de archivos que nadie quiere
 /// ver uno por uno y volverían lentísima la búsqueda. No se recorren (sí cuenta su fecha, ver `analizar_dir`).
@@ -502,6 +503,28 @@ fn carpeta_personal() -> Option<std::path::PathBuf> {
 }
 
 /// Las únicas carpetas que Kerni mira (y desde donde deja abrir algo): las personales de la persona.
+#[cfg(target_os = "linux")]
+fn raices_del_usuario() -> Vec<std::path::PathBuf> {
+    let Some(casa) = carpeta_personal() else { return Vec::new() };
+    let mut raices: Vec<std::path::PathBuf> = Vec::new();
+    let intentos: &[(&str, &str, &str)] = &[
+        // (clave xdg-user-dir, candidato en español, candidato en inglés)
+        ("DOWNLOAD", "Descargas", "Downloads"),
+        ("DESKTOP", "Escritorio", "Desktop"),
+        ("DOCUMENTS", "Documentos", "Documents"),
+        ("PICTURES", "Imágenes", "Pictures"),
+        ("VIDEOS", "Vídeos", "Videos"),
+        ("MUSIC", "Música", "Music"),
+    ];
+    for (clave, es, en) in intentos {
+        if let Some(p) = xdg_user_dir(clave).or_else(|| primera_casa(&casa, &[es, en])) {
+            raices.push(p);
+        }
+    }
+    sin_anidadas(raices.into_iter().filter(|r| r.is_dir()).collect())
+}
+
+#[cfg(not(target_os = "linux"))]
 fn raices_del_usuario() -> Vec<std::path::PathBuf> {
     let Some(casa) = carpeta_personal() else { return Vec::new() };
     let mut raices: Vec<std::path::PathBuf> = CARPETAS_PERSONALES.iter().map(|n| casa.join(n)).collect();
@@ -510,6 +533,28 @@ fn raices_del_usuario() -> Vec<std::path::PathBuf> {
         raices.extend(["Desktop", "Documents", "Pictures"].iter().map(|n| onedrive.join(n)));
     }
     sin_anidadas(raices.into_iter().filter(|r| r.is_dir()).collect())
+}
+
+/// Carpeta personal vía `xdg-user-dir` (Linux); `None` si no existe o falla.
+#[cfg(target_os = "linux")]
+fn xdg_user_dir(clave: &str) -> Option<std::path::PathBuf> {
+    use std::process::Command;
+    let out = Command::new("xdg-user-dir").arg(clave).output().ok()?;
+    if !out.status.success() { return None; }
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() { return None; }
+    let p = std::path::PathBuf::from(s);
+    if p.is_dir() { Some(p) } else { None }
+}
+
+/// Primera carpeta de la lista que exista bajo `casa` (español antes que inglés).
+#[cfg(target_os = "linux")]
+fn primera_casa(casa: &std::path::Path, nombres: &[&str]) -> Option<std::path::PathBuf> {
+    for n in nombres {
+        let p = casa.join(n);
+        if p.is_dir() { return Some(p); }
+    }
+    None
 }
 
 fn mostrar_ruta(p: &Path, casa: Option<&Path>) -> String {
