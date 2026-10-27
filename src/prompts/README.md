@@ -21,3 +21,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-27 | Local Supabase with Docker and first real RAG indexing | [2026-10-27-local-supabase-docker.md](2026-10-27-local-supabase-docker.md) |
 | 2026-10-27 | Hidden metrics and the first official manuals | [2026-10-27-hidden-metrics-and-manuals.md](2026-10-27-hidden-metrics-and-manuals.md) |
 | 2026-10-27 | Heavy files that are no longer used (read-only tool) | [2026-10-27-heavy-files-tool.md](2026-10-27-heavy-files-tool.md) |
+| 2026-10-27 | Questions to ask Kerni tomorrow (PDF) | [2026-10-27-questions-for-kerni.md](2026-10-27-questions-for-kerni.md) |
