@@ -15,7 +15,6 @@ mod sistema;
 mod linux;
 
 use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(not(target_os = "linux"))]
 use std::time::Duration;
 
 use tauri::menu::{Menu, MenuItem};
@@ -28,7 +27,6 @@ const MARGEN: f64 = 16.0;
 /// Posición del cursor relativa a la esquina superior izquierda del contenido
 /// de la ventana, en píxeles físicos. Se emite a JS para que determine si
 /// el cursor está sobre una zona interactiva.
-#[cfg(not(target_os = "linux"))]
 #[derive(Clone, serde::Serialize)]
 struct CursorPosicion {
     x: f64,
@@ -116,7 +114,6 @@ fn a_la_esquina(ventana: &WebviewWindow) -> tauri::Result<()> {
 /// Emite la posición física del cursor relativa al contenido de la ventana.
 /// JS divide por devicePixelRatio para obtener coordenadas CSS y usa
 /// elementFromPoint, que es DPI-agnóstico por definición.
-#[cfg(not(target_os = "linux"))]
 fn emitir_cursor(ventana: &WebviewWindow) {
     let Ok(cursor) = ventana.cursor_position() else { return };
     let Ok(origen) = ventana.inner_position() else { return };
@@ -178,14 +175,12 @@ pub fn run() {
             #[cfg(target_os = "linux")]
             ventana.set_focus()?;
 
-            // Fuera de Linux, revisa el cursor unas 15 veces por segundo:
+            // Revisa el cursor unas 15 veces por segundo:
             // 1. Emite la posición física a JS para que compruebe con elementFromPoint.
             // 2. Lee la respuesta de JS (set_interactivo) y actualiza los eventos del cursor.
             // Al separar la detección en JS se evitan todos los problemas de escala
             // DPI entre Rust (píxeles físicos) y WebView (píxeles CSS).
-            #[cfg(not(target_os = "linux"))]
             let handle = app.handle().clone();
-            #[cfg(not(target_os = "linux"))]
             std::thread::spawn(move || {
                 let mut ignorando: Option<bool> = None;
                 loop {
