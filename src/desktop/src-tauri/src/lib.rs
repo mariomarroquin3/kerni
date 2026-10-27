@@ -20,9 +20,7 @@ use std::time::Duration;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-#[cfg(not(target_os = "linux"))]
-use tauri::Emitter;
-use tauri::{AppHandle, Manager, PhysicalPosition, Runtime, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Runtime, WebviewWindow};
 
 /// Margen entre Kerni y el borde de la pantalla, en píxeles lógicos.
 const MARGEN: f64 = 16.0;
