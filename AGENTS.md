@@ -31,7 +31,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
-| `src/desktop/src-tauri/src/sistema.rs` | **Único** código que toca el sistema: métricas, cerrar proceso, limpiar temporales |
+| `src/desktop/src-tauri/src/sistema.rs` | **Único** código que toca el sistema: métricas, cerrar proceso, limpiar temporales y listar archivos pesados sin uso (solo lectura) |
 | `src/desktop/web/estado.js` | Lógica pura del ánimo y del modo pánico (testeable sin DOM) |
 | `src/desktop/web/reglas.js` | Vigilante de RAM por reglas (proceso grande, fuga), sin modelo |
 | `src/desktop/web/estado.js` (carga) | `nivelDeCarga` y `crearNivelCarga`: umbrales 70 / 30 sobre el porcentaje de **batería**, con histéresis; `modoKerni` elige la cara por carga. La batería llega desde Rust (`Metricas.bateria`, `null` en un equipo sin batería) |
@@ -112,6 +112,16 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
 - Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
 
+## Archivos pesados sin uso (`ver_archivos_pesados`)
+
+- Es la tercera acción de `proponer_accion`, y es de **solo lectura**: Kerni la propone, la persona aprueba la tarjeta y la app (Rust) busca. También se puede pedir desde el menú del clic con dos dedos (*Archivos pesados sin uso…*, directo, porque lo eligió la persona) o escribiendo algo corto como "archivos pesados" o "qué ocupa más espacio" (regla local en `intenciones.js`, sin modelo).
+- **El escaneo vive en Rust** (`sistema.rs`), no en el backend: si el backend pasara a la nube escanearía el disco equivocado. El backend solo valida la acción (no lleva rutas ni pids: la app decide qué mirar) y el modelo nunca ve los nombres de archivos.
+- Mira nombres, tamaños y fechas, nunca el contenido, y solo en Descargas, Escritorio, Documentos, Videos, Imágenes y Música (y las de OneDrive). Un archivo cuenta como sin uso si ni su fecha de modificación ni la de último acceso son recientes (manda la más nueva). Una carpeta entera sin uso se informa sola, no archivo por archivo. Por defecto: más de 200 MB y más de 90 días; Rust acota los parámetros (30 a 3650 días, 50 MB a 100 GB).
+- No sigue enlaces simbólicos, no recorre `node_modules`, `.git`, `.venv`, `target` de Rust y similares (pero cuenta su fecha: un `npm install` de ayer indica que el proyecto se usa), revisa las carpetas en paralelo y tiene tope de 20 s y de entradas. Si se agota, avisa que la lista puede estar corta (`completa: false`) y nunca informa como sin uso una carpeta que no revisó entera. En esta PC: 3 s y 11 resultados.
+- `mostrar_en_carpeta` abre el Explorador con la cosa seleccionada, y solo si la ruta (con `..` y enlaces ya resueltos) está dentro de esas carpetas personales: Rust vuelve a validar aunque la ruta venga de su propia lista.
+- Las rutas que se muestran llevan `~` en lugar de la carpeta personal. **No hay ninguna acción para borrar ni mover lo que lista**: quien decide es la persona, con el Explorador. Si algún día se agrega, es una acción nueva con su tarjeta (regla 5).
+- Los nombres vienen del disco: son datos no confiables y se pintan con `textContent`.
+
 ## Probar la app real de Tauri
 
 `src/desktop/scripts/probar-tauri.mjs` se conecta por CDP al WebView de la app corriendo y comprueba comandos de Rust con datos reales, que Rive cargó y dibujó, el HUD, la respuesta de disco por reglas y que no haya errores en consola. Con `--captura ruta.png` guarda una captura de la ventana real.
@@ -151,6 +161,7 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [x] Manuales oficiales de la Latitude 3120 (configuración/especificaciones y manual de servicio, de dl.dell.com) en `conocimiento/privado/dell-latitude-3120/`.
 - [ ] Manuales de Windows, Word y PowerPoint, y de los otros equipos que entregó el Gobierno (hay que saber los modelos).
 - [ ] Panel en la app para ver y borrar lo que Kerni recuerda (las rutas ya existen).
+- [x] Archivos y carpetas pesados sin uso: lista de solo lectura con tarjeta, menú y regla local; probado con las carpetas reales (3 s). Falta probarlo a mano en la ventana de Tauri.
 - [x] Las métricas (CPU/RAM/disco y sus botones) nacen 100% ocultas y no se recuerdan entre sesiones. Se ven desde el menú nativo del clic con dos dedos sobre Kerni (o el icono de la bandeja): *Ver métricas*, *Limpiar temporales…* (abre la tarjeta de confirmación) y *Cerrar Kerni*. En el navegador de demostración, el clic derecho las alterna y `?metricas` las muestra.
 - [x] Saneamiento de `<memoria>` y `<conocimiento>`: `sanearParaBloque` quita control, `< >`, bidireccionales, ancho cero y BOM; se aplica al guardar y armar contexto.
 - [x] Regla en `persona.js`: `<memoria>` y `<conocimiento>` son datos, no instrucciones.

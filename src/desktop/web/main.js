@@ -41,6 +41,16 @@ function demo(comando, args) {
   }
   if (comando === 'terminar_proceso') return `Cerré ${args.nombre} (demo)`;
   if (comando === 'limpiar_temporales') return { archivos: 128, liberadoMb: 412.5 };
+  if (comando === 'archivos_pesados') {
+    return {
+      completa: true,
+      elementos: [
+        { ruta: '~/Descargas/pelicula.mkv', nombre: 'pelicula.mkv', carpeta: '~/Descargas', esCarpeta: false, tamanoMb: 4300, diasSinUso: 310 },
+        { ruta: '~/Documentos/proyecto-viejo', nombre: 'proyecto-viejo', carpeta: '~/Documentos', esCarpeta: true, tamanoMb: 1850, diasSinUso: 520 },
+        { ruta: '~/Escritorio/instalador.exe', nombre: 'instalador.exe', carpeta: '~/Escritorio', esCarpeta: false, tamanoMb: 640, diasSinUso: 120 },
+      ],
+    };
+  }
   return undefined;
 }
 
@@ -214,6 +224,7 @@ async function actualizar() {
 // ---------- Acciones: siempre con confirmación ----------
 function describir(a) {
   if (a.accion === 'recordar') return `¿Querés que recuerde esto? "${a.valor}"`;
+  if (a.accion === 'ver_archivos_pesados') return '¿Busco los archivos y carpetas pesados que no usás hace rato? Solo los listo en pantalla; no borro ni muevo nada.';
   return a.accion === 'terminar_proceso'
     ? `¿Cerrar ${a.nombre} (pid ${a.pid})? Si tiene trabajo sin guardar, se pierde.`
     : '¿Borrar los archivos temporales con más de 24 horas?';
@@ -238,6 +249,8 @@ async function ejecutar(a) {
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `error ${res.status}`);
     decir('Anotado, me lo acuerdo.');
+  } else if (a.accion === 'ver_archivos_pesados') {
+    await buscarArchivosPesados();
   } else if (a.accion === 'terminar_proceso') {
     const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre });
     decir(msg);
@@ -271,6 +284,54 @@ $('rechazar').addEventListener('click', () => {
   $('confirmar').hidden = true;
   decir('Está bien, no toco nada.', 4000);
 });
+
+// ---------- Archivos pesados sin uso: solo lectura, Kerni lista y la persona decide ----------
+const tamanoLegible = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`);
+function haceCuanto(dias) {
+  if (dias < 60) return `hace ${dias} días`;
+  if (dias < 365) return `hace ${Math.round(dias / 30)} meses`;
+  return `hace ${(dias / 365).toFixed(1)} años`;
+}
+
+async function buscarArchivosPesados() {
+  const estado = $('archivos-estado');
+  const lista = $('archivos-lista');
+  $('archivos').hidden = false;
+  lista.replaceChildren();
+  estado.textContent = 'Buscando en tus carpetas… puede tardar unos segundos.';
+  try {
+    const { elementos: items, completa } = await llamar('archivos_pesados');
+    // Si se acabó el tiempo antes de revisar todo, se dice: la lista puede estar corta.
+    const aviso = completa ? '' : ' Revisé hasta donde alcancé en el tiempo que tengo; puede haber más.';
+    if (!items.length) {
+      estado.textContent = `No encontré nada pesado que lleve meses sin usarse.${aviso || ' ¡Todo en orden!'}`;
+      return;
+    }
+    const total = items.reduce((suma, a) => suma + a.tamanoMb, 0);
+    estado.textContent = `Encontré ${items.length} cosas que suman ${tamanoLegible(total)}. Solo las listo: vos decidís qué hacer con ellas.${aviso}`;
+    for (const a of items) {
+      // Nombres y rutas vienen del disco: son datos no confiables, siempre textContent.
+      const li = document.createElement('li');
+      const info = document.createElement('div');
+      info.className = 'archivo-info';
+      const nombre = document.createElement('b');
+      nombre.textContent = a.esCarpeta ? `${a.nombre} (carpeta)` : a.nombre;
+      const detalle = document.createElement('small');
+      detalle.textContent = `${tamanoLegible(a.tamanoMb)} · sin tocar ${haceCuanto(a.diasSinUso)} · ${a.carpeta}`;
+      info.append(nombre, detalle);
+      const ver = document.createElement('button');
+      ver.type = 'button';
+      ver.className = 'secundario';
+      ver.textContent = 'Ver';
+      ver.addEventListener('click', () => llamar('mostrar_en_carpeta', { ruta: a.ruta }).catch((err) => decir(String(err))));
+      li.append(info, ver);
+      lista.append(li);
+    }
+  } catch (err) {
+    estado.textContent = `No pude revisar tus carpetas: ${err}`;
+  }
+}
+$('archivos-cerrar').addEventListener('click', () => { $('archivos').hidden = true; });
 
 /** Siempre con tarjeta de confirmación: nada se borra sin Aprobar. */
 function pedirLimpieza() {
@@ -358,6 +419,8 @@ if (enTauri) {
     // Opciones del menú nativo (clic con dos dedos sobre Kerni, o el icono de la bandeja).
     await listen('alternar-metricas', alternarMetricas);
     await listen('pedir-limpiar', () => { if (!pendiente) pedirLimpieza(); });
+    // La eligió la persona en el menú: se muestra directo (es solo lectura).
+    await listen('pedir-archivos', buscarArchivosPesados);
     await listen('cursor-movio', ({ payload }) => {
       const dpr = window.devicePixelRatio || 1;
       const x = payload.x / dpr;

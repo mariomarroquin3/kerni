@@ -42,6 +42,14 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 #panico li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #panico li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Lista de archivos pesados sin uso: se desplaza si es larga. */
+#archivos h2 { color: var(--texto); }
+#archivos ul { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow-y: auto; }
+#archivos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#archivos .archivo-info { min-width: 0; display: flex; flex-direction: column; }
+#archivos .archivo-info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#archivos .archivo-info small { color: var(--suave); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 button {
   font: inherit; font-size: 12px; cursor: pointer; border: 0; border-radius: 10px;
   padding: 7px 12px; background: var(--acento); color: #06201c; font-weight: 600;

@@ -27,7 +27,8 @@ const DEFINICIONES = [
     name: 'proponer_accion',
     description:
       'Propone una acción sobre la PC. No se ejecuta: la persona la ve en pantalla y decide si la aprueba. '
-      + 'terminar_proceso requiere pid y nombre exactos del bloque <sistema>; limpiar_temporales borra archivos temporales viejos.',
+      + 'terminar_proceso requiere pid y nombre exactos del bloque <sistema>; limpiar_temporales borra archivos temporales viejos; '
+      + 'ver_archivos_pesados solo LISTA los archivos y carpetas pesados que no se usan hace tiempo (no borra nada).',
     parameters: toInputSchema(ProponerAccionSchema),
   },
 ];

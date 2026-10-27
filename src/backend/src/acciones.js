@@ -6,7 +6,7 @@ import { esProtegido, limpiarNombre } from './telemetria.js';
  * la API de Anthropic exige `type: object` en la raíz del input_schema.
  */
 export const ProponerAccionSchema = z.object({
-  accion: z.enum(['terminar_proceso', 'limpiar_temporales']).describe('Qué se propone hacer.'),
+  accion: z.enum(['terminar_proceso', 'limpiar_temporales', 'ver_archivos_pesados']).describe('Qué se propone hacer.'),
   pid: z.number().int().positive().optional().describe('Solo para terminar_proceso: el pid exacto del bloque <sistema>.'),
   nombre: z.string().optional().describe('Solo para terminar_proceso: el nombre exacto del proceso, como aparece en <sistema>.'),
   motivo: z.string().min(3).max(300).describe('Una frase simple para la persona: por qué conviene.'),
@@ -23,7 +23,8 @@ export function validarPropuesta(input, snapshot) {
   if (!parsed.success) return { ok: false, error: parsed.error.issues.map((i) => i.message).join('; ') };
   const { accion, pid, nombre, motivo } = parsed.data;
 
-  if (accion === 'limpiar_temporales') return { ok: true, accion: { tipo: 'proponer_accion', accion, motivo } };
+  // Ninguna de estas dos lleva datos del sistema: la app decide qué y cuánto mirar. ver_archivos_pesados es solo lectura.
+  if (accion === 'limpiar_temporales' || accion === 'ver_archivos_pesados') return { ok: true, accion: { tipo: 'proponer_accion', accion, motivo } };
 
   if (!pid || !nombre) return { ok: false, error: 'terminar_proceso necesita pid y nombre' };
   if (!snapshot) return { ok: false, error: 'no hay foto del sistema; no se puede verificar el proceso' };

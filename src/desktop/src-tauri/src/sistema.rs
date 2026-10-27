@@ -1,16 +1,15 @@
 //! Núcleo de salud de Kerni: lee métricas reales de la PC y ejecuta, solo
-//! cuando la persona lo aprobó en pantalla, las dos acciones del hito 1:
-//! cerrar un proceso y limpiar archivos temporales.
+//! cuando la persona lo aprobó en pantalla, las acciones del hito 1: cerrar un
+//! proceso y limpiar archivos temporales. También puede, solo leyendo, listar
+//! los archivos y carpetas pesados que ya no se usan.
 //!
 //! Aunque el backend ya validó la propuesta del modelo, aquí se revisa otra
 //! vez: este es el único lugar que toca el sistema.
 
-#[cfg(any(not(target_os = "linux"), test))]
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
-#[cfg(any(not(target_os = "linux"), test))]
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use serde::Serialize;
 use sysinfo::{Disks, ProcessesToUpdate, System};
@@ -294,6 +293,304 @@ fn limpiar_dir(dir: &Path, limite: SystemTime, archivos: &mut u32, bytes: &mut u
     }
 }
 
+// ---------- Archivos y carpetas pesados que ya no se usan (solo lectura) ----------
+//
+// Solo mira nombres, tamaños y fechas dentro de las carpetas personales (Descargas, Escritorio, Documentos,
+// Videos, Imágenes y Música). No lee el contenido, no sigue enlaces simbólicos y NO borra ni mueve nada:
+// la persona decide qué hacer con lo que ve. Un archivo cuenta como "sin uso" cuando ni su fecha de
+// modificación ni la de último acceso son recientes (la más nueva de las dos manda).
+
+const DIAS_SIN_USO_POR_DEFECTO: u32 = 90;
+const MB_MINIMOS_POR_DEFECTO: u32 = 200;
+const MAX_RESULTADOS: usize = 25;
+const MAX_ENTRADAS: u32 = 400_000;
+const TIEMPO_MAXIMO: Duration = Duration::from_secs(20);
+const PROFUNDIDAD_MAXIMA: u32 = 12;
+const CARPETAS_PERSONALES: &[&str] = &["Downloads", "Desktop", "Documents", "Videos", "Pictures", "Music"];
+/// Carpetas de dependencias y de compilación de programadores: son cientos de miles de archivos que nadie quiere
+/// ver uno por uno y volverían lentísima la búsqueda. No se recorren (sí cuenta su fecha, ver `analizar_dir`).
+const CARPETAS_AJENAS: &[&str] = &["node_modules", ".git", "__pycache__", ".venv", "venv", ".gradle", ".m2", "$recycle.bin", "system volume information"];
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BusquedaArchivos {
+    pub elementos: Vec<ArchivoPesado>,
+    /// `false` si se acabó el tiempo o el tope de entradas antes de revisar todo: puede haber más.
+    pub completa: bool,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchivoPesado {
+    pub ruta: String,
+    pub nombre: String,
+    /// Carpeta que lo contiene, con `~` en lugar de la carpeta personal (así no viaja el nombre de usuario).
+    pub carpeta: String,
+    pub es_carpeta: bool,
+    pub tamano_mb: f64,
+    pub dias_sin_uso: u32,
+}
+
+struct Hallazgo {
+    ruta: std::path::PathBuf,
+    es_carpeta: bool,
+    bytes: u64,
+    ultimo_uso: SystemTime,
+}
+
+struct Resumen {
+    bytes: u64,
+    mas_reciente: SystemTime,
+    hallazgos: Vec<Hallazgo>,
+}
+
+struct Limites {
+    ahora: SystemTime,
+    edad_minima: Duration,
+    min_bytes: u64,
+}
+
+impl Limites {
+    fn sin_uso(&self, ultimo_uso: SystemTime) -> bool {
+        // Una fecha en el futuro (reloj raro) nunca cuenta como sin uso.
+        self.ahora.duration_since(ultimo_uso).map_or(false, |d| d >= self.edad_minima)
+    }
+}
+
+/// Tope de trabajo: un disco enorme no debe dejar a Kerni pensando para siempre.
+struct Presupuesto {
+    entradas: u32,
+    max_entradas: u32,
+    inicio: Instant,
+    tiempo_maximo: Duration,
+}
+
+impl Presupuesto {
+    fn nuevo(max_entradas: u32, tiempo_maximo: Duration) -> Self {
+        Presupuesto { entradas: 0, max_entradas, inicio: Instant::now(), tiempo_maximo }
+    }
+    fn agotado(&self) -> bool {
+        self.entradas >= self.max_entradas || self.inicio.elapsed() >= self.tiempo_maximo
+    }
+}
+
+/// La fecha de uso es la más nueva entre modificación y último acceso: así nunca se marca como "sin uso"
+/// algo que se abrió hace poco, aunque no se haya cambiado.
+fn ultimo_uso(meta: &fs::Metadata) -> SystemTime {
+    match (meta.modified().ok(), meta.accessed().ok()) {
+        (Some(m), Some(a)) => m.max(a),
+        (Some(x), None) | (None, Some(x)) => x,
+        (None, None) => SystemTime::now(),
+    }
+}
+
+fn es_carpeta_ajena(nombre: &str, junto_a_cargo_toml: bool) -> bool {
+    let n = nombre.to_lowercase();
+    CARPETAS_AJENAS.contains(&n.as_str()) || (junto_a_cargo_toml && n == "target")
+}
+
+fn analizar_dir(dir: &Path, profundidad: u32, lim: &Limites, pres: &mut Presupuesto) -> Resumen {
+    let mut r = Resumen { bytes: 0, mas_reciente: SystemTime::UNIX_EPOCH, hallazgos: Vec::new() };
+    // Si no se pudo mirar todo (carpeta ilegible, demasiado profunda o sin presupuesto), se asume que
+    // hay algo reciente: jamás se informa como "sin uso" una carpeta que no se revisó completa.
+    let incompleto = |r: &mut Resumen| r.mas_reciente = lim.ahora;
+    if profundidad > PROFUNDIDAD_MAXIMA || pres.agotado() {
+        incompleto(&mut r);
+        return r;
+    }
+    let Ok(entradas) = fs::read_dir(dir) else {
+        incompleto(&mut r);
+        return r;
+    };
+    let es_proyecto_rust = dir.join("Cargo.toml").is_file();
+    for entrada in entradas.flatten() {
+        pres.entradas += 1;
+        if pres.agotado() {
+            incompleto(&mut r);
+            break;
+        }
+        let ruta = entrada.path();
+        // `DirEntry::metadata` no sigue enlaces y en Windows sale de los datos que ya trae la lectura de la carpeta
+        // (sin abrir cada archivo): es varias veces más rápido que `symlink_metadata(ruta)`.
+        let Ok(meta) = entrada.metadata() else { continue };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        if meta.is_dir() && es_carpeta_ajena(&entrada.file_name().to_string_lossy(), es_proyecto_rust) {
+            // No se recorre, pero su fecha cuenta: un `npm install` o una compilación de ayer indica que el proyecto se usa.
+            r.mas_reciente = r.mas_reciente.max(ultimo_uso(&meta));
+            continue;
+        }
+        if meta.is_dir() {
+            let hijo = analizar_dir(&ruta, profundidad + 1, lim, pres);
+            r.bytes += hijo.bytes;
+            r.mas_reciente = r.mas_reciente.max(hijo.mas_reciente);
+            if hijo.bytes >= lim.min_bytes && lim.sin_uso(hijo.mas_reciente) {
+                // Toda la carpeta está sin uso: se informa ella sola, no uno por uno sus archivos.
+                r.hallazgos.push(Hallazgo { ruta, es_carpeta: true, bytes: hijo.bytes, ultimo_uso: hijo.mas_reciente });
+            } else {
+                r.hallazgos.extend(hijo.hallazgos);
+            }
+        } else if meta.is_file() {
+            let uso = ultimo_uso(&meta);
+            r.bytes += meta.len();
+            r.mas_reciente = r.mas_reciente.max(uso);
+            if meta.len() >= lim.min_bytes && lim.sin_uso(uso) {
+                r.hallazgos.push(Hallazgo { ruta, es_carpeta: false, bytes: meta.len(), ultimo_uso: uso });
+            }
+        }
+    }
+    r
+}
+
+/// Quita el prefijo `\\?\` que Windows agrega al canonizar una ruta, para mostrarla y abrirla normalmente.
+fn sin_prefijo_verbatim(p: &Path) -> std::path::PathBuf {
+    let texto = p.to_string_lossy();
+    match texto.strip_prefix(r"\\?\") {
+        Some(resto) if resto.chars().nth(1) == Some(':') => std::path::PathBuf::from(resto),
+        _ => p.to_path_buf(),
+    }
+}
+
+/// Deja solo las carpetas que existen y no están dentro de otra de la lista (para no contar dos veces).
+fn sin_anidadas(raices: Vec<std::path::PathBuf>) -> Vec<std::path::PathBuf> {
+    let mut canonicas: Vec<std::path::PathBuf> =
+        raices.iter().filter_map(|r| fs::canonicalize(r).ok()).map(|r| sin_prefijo_verbatim(&r)).collect();
+    canonicas.sort();
+    canonicas.dedup();
+    let todas = canonicas.clone();
+    canonicas.retain(|r| !todas.iter().any(|otra| otra != r && r.starts_with(otra)));
+    canonicas
+}
+
+fn carpeta_personal() -> Option<std::path::PathBuf> {
+    let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    std::env::var_os(variable).map(std::path::PathBuf::from).filter(|p| p.is_dir())
+}
+
+/// Las únicas carpetas que Kerni mira (y desde donde deja abrir algo): las personales de la persona.
+fn raices_del_usuario() -> Vec<std::path::PathBuf> {
+    let Some(casa) = carpeta_personal() else { return Vec::new() };
+    let mut raices: Vec<std::path::PathBuf> = CARPETAS_PERSONALES.iter().map(|n| casa.join(n)).collect();
+    // Con OneDrive, Escritorio, Documentos e Imágenes suelen vivir ahí.
+    if let Some(onedrive) = std::env::var_os("OneDrive").map(std::path::PathBuf::from) {
+        raices.extend(["Desktop", "Documents", "Pictures"].iter().map(|n| onedrive.join(n)));
+    }
+    sin_anidadas(raices.into_iter().filter(|r| r.is_dir()).collect())
+}
+
+fn mostrar_ruta(p: &Path, casa: Option<&Path>) -> String {
+    match casa.and_then(|c| p.strip_prefix(c).ok()) {
+        Some(resto) => format!("~{}{}", std::path::MAIN_SEPARATOR, resto.display()),
+        None => p.display().to_string(),
+    }
+}
+
+/// Parte pura y probable: recorre `raices` (una por hilo, en paralelo) y devuelve lo más pesado que no se usa
+/// desde hace `dias`. `max_entradas` y `tiempo` son el tope de trabajo de cada carpeta raíz.
+fn buscar_archivos_pesados(
+    raices: &[std::path::PathBuf],
+    ahora: SystemTime,
+    dias: u32,
+    min_bytes: u64,
+    casa: Option<&Path>,
+    max_entradas: u32,
+    tiempo: Duration,
+) -> BusquedaArchivos {
+    let lim = Limites { ahora, edad_minima: Duration::from_secs(dias as u64 * 86_400), min_bytes };
+    let por_raiz: Vec<(Vec<Hallazgo>, bool)> = std::thread::scope(|s| {
+        let hilos: Vec<_> = raices
+            .iter()
+            .map(|raiz| {
+                let lim = &lim;
+                s.spawn(move || {
+                    let mut pres = Presupuesto::nuevo(max_entradas, tiempo);
+                    // La carpeta personal en sí nunca se informa como "sin uso": solo lo que hay dentro.
+                    let r = analizar_dir(raiz, 0, lim, &mut pres);
+                    (r.hallazgos, !pres.agotado())
+                })
+            })
+            .collect();
+        hilos.into_iter().map(|h| h.join().unwrap_or((Vec::new(), false))).collect()
+    });
+    let completa = por_raiz.iter().all(|(_, ok)| *ok);
+    let mut todos: Vec<Hallazgo> = por_raiz.into_iter().flat_map(|(h, _)| h).collect();
+    todos.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    todos.truncate(MAX_RESULTADOS);
+    let elementos = todos
+        .into_iter()
+        .map(|h| {
+            let dias_sin_uso = ahora.duration_since(h.ultimo_uso).map_or(0, |d| (d.as_secs() / 86_400) as u32);
+            ArchivoPesado {
+                nombre: h.ruta.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                carpeta: h.ruta.parent().map(|p| mostrar_ruta(p, casa)).unwrap_or_default(),
+                ruta: h.ruta.display().to_string(),
+                es_carpeta: h.es_carpeta,
+                tamano_mb: h.bytes as f64 / MB,
+                dias_sin_uso,
+            }
+        })
+        .collect();
+    BusquedaArchivos { elementos, completa }
+}
+
+/// Busca archivos y carpetas pesados que no se usan hace rato. Solo lectura. Los parámetros se acotan
+/// aquí aunque la interfaz ya los acote: de 30 a 3650 días y de 50 MB a 100 GB.
+#[tauri::command]
+pub async fn archivos_pesados(dias_sin_uso: Option<u32>, min_mb: Option<u32>) -> Result<BusquedaArchivos, String> {
+    let dias = dias_sin_uso.unwrap_or(DIAS_SIN_USO_POR_DEFECTO).clamp(30, 3650);
+    let min_mb = min_mb.unwrap_or(MB_MINIMOS_POR_DEFECTO).clamp(50, 100_000);
+    let raices = raices_del_usuario();
+    if raices.is_empty() {
+        return Err("No encontré tus carpetas personales para revisar".to_string());
+    }
+    let casa = carpeta_personal().and_then(|c| fs::canonicalize(c).ok()).map(|c| sin_prefijo_verbatim(&c));
+    tauri::async_runtime::spawn_blocking(move || {
+        buscar_archivos_pesados(
+            &raices,
+            SystemTime::now(),
+            dias,
+            min_mb as u64 * 1024 * 1024,
+            casa.as_deref(),
+            MAX_ENTRADAS,
+            TIEMPO_MAXIMO,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+/// Devuelve la ruta limpia solo si existe y está DENTRO de una de las carpetas personales. Resuelve `..` y
+/// enlaces antes de comparar, así una ruta inventada o con rodeos no sale de ahí.
+fn ruta_permitida(ruta: &Path, raices: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
+    let real = sin_prefijo_verbatim(&fs::canonicalize(ruta).ok()?);
+    raices.iter().any(|r| real != *r && real.starts_with(r)).then_some(real)
+}
+
+/// Abre el Explorador de archivos con ese archivo seleccionado (o su carpeta). No borra ni modifica nada.
+#[tauri::command]
+pub fn mostrar_en_carpeta(ruta: String) -> Result<(), String> {
+    let permitida = ruta_permitida(Path::new(&ruta), &raices_del_usuario())
+        .ok_or_else(|| "Solo puedo mostrar cosas que estén dentro de tus carpetas personales".to_string())?;
+    abrir_en_explorador(&permitida)
+}
+
+#[cfg(windows)]
+fn abrir_en_explorador(ruta: &Path) -> Result<(), String> {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("explorer")
+        .raw_arg(format!("/select,\"{}\"", ruta.display()))
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+fn abrir_en_explorador(ruta: &Path) -> Result<(), String> {
+    let carpeta = if ruta.is_dir() { ruta } else { ruta.parent().unwrap_or(ruta) };
+    std::process::Command::new("xdg-open").arg(carpeta).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,5 +693,201 @@ mod tests {
         assert!(r.is_ok(), "{r:?}");
         let estado = hijo.wait().expect("el proceso debía terminar");
         assert!(!estado.success());
+    }
+
+    // ---------- archivos pesados sin uso ----------
+
+    /// Carpeta de prueba propia de cada test (se borra al final).
+    fn carpeta_de_prueba(nombre: &str) -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!("kerni-archivos-{}-{}", nombre, std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        base
+    }
+
+    /// Crea un archivo de `bytes` bytes cuya fecha de modificación y de acceso son de hace `dias` días.
+    fn archivo(ruta: &Path, bytes: usize, dias: u64) {
+        fs::create_dir_all(ruta.parent().unwrap()).unwrap();
+        fs::write(ruta, vec![b'x'; bytes]).unwrap();
+        let fecha = SystemTime::now() - Duration::from_secs(dias * 86_400);
+        let f = fs::OpenOptions::new().write(true).open(ruta).unwrap();
+        f.set_times(fs::FileTimes::new().set_accessed(fecha).set_modified(fecha)).unwrap();
+    }
+
+    fn buscar(base: &Path, dias: u32, min_bytes: u64) -> Vec<ArchivoPesado> {
+        buscar_archivos_pesados(&[base.to_path_buf()], SystemTime::now(), dias, min_bytes, Some(base), MAX_ENTRADAS, TIEMPO_MAXIMO).elementos
+    }
+
+    #[test]
+    fn lista_el_pesado_y_viejo_pero_no_el_reciente_ni_el_liviano() {
+        let base = carpeta_de_prueba("basico");
+        archivo(&base.join("viejo_grande.iso"), 5000, 200);
+        archivo(&base.join("reciente_grande.iso"), 5000, 2);
+        archivo(&base.join("viejo_chico.txt"), 100, 400);
+        let r = buscar(&base, 90, 1000);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].nombre, "viejo_grande.iso");
+        assert!(!r[0].es_carpeta);
+        assert!(r[0].dias_sin_uso >= 199 && r[0].dias_sin_uso <= 201);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn una_carpeta_entera_sin_uso_se_informa_sola() {
+        let base = carpeta_de_prueba("carpeta");
+        for n in 0..3 {
+            archivo(&base.join("proyecto_viejo").join(format!("a{n}.bin")), 2000, 300);
+        }
+        let r = buscar(&base, 90, 1000);
+        assert_eq!(r.len(), 1, "{r:?}");
+        assert!(r[0].es_carpeta);
+        assert_eq!(r[0].nombre, "proyecto_viejo");
+        assert!((r[0].tamano_mb - 6000.0 / MB).abs() < 1e-9);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn una_carpeta_con_algo_reciente_no_se_resume_y_solo_salen_los_archivos_viejos() {
+        let base = carpeta_de_prueba("mixta");
+        archivo(&base.join("obra").join("viejo.bin"), 3000, 300);
+        archivo(&base.join("obra").join("actual.txt"), 10, 1);
+        let r = buscar(&base, 90, 1000);
+        assert_eq!(r.len(), 1, "{r:?}");
+        assert_eq!(r[0].nombre, "viejo.bin");
+        assert!(!r[0].es_carpeta);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn ordena_por_tamano_y_limita_la_lista() {
+        let base = carpeta_de_prueba("orden");
+        for n in 0..(MAX_RESULTADOS + 5) {
+            archivo(&base.join(format!("f{n:02}.bin")), 1000 + n * 10, 300);
+        }
+        let r = buscar(&base, 90, 1000);
+        assert_eq!(r.len(), MAX_RESULTADOS);
+        assert!(r.windows(2).all(|w| w[0].tamano_mb >= w[1].tamano_mb));
+        assert_eq!(r[0].nombre, format!("f{:02}.bin", MAX_RESULTADOS + 4));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn la_ruta_mostrada_cambia_la_carpeta_personal_por_una_tilde() {
+        let base = carpeta_de_prueba("tilde");
+        archivo(&base.join("Descargas").join("pelicula.mkv"), 4000, 300);
+        let r = buscar(&base, 90, 1000);
+        assert!(r[0].carpeta.starts_with('~'), "{}", r[0].carpeta);
+        assert!(!r[0].carpeta.contains(&base.to_string_lossy().to_string()));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn si_se_acaba_el_presupuesto_no_se_informa_como_sin_uso_lo_que_no_se_reviso() {
+        let base = carpeta_de_prueba("presupuesto");
+        for n in 0..5 {
+            archivo(&base.join("grande").join(format!("a{n}.bin")), 2000, 300);
+        }
+        let b = buscar_archivos_pesados(&[base.clone()], SystemTime::now(), 90, 1000, Some(&base), 2, TIEMPO_MAXIMO);
+        assert!(b.elementos.iter().all(|x| !x.es_carpeta), "no debe resumir una carpeta a medio revisar: {:?}", b.elementos);
+        assert!(!b.completa, "tiene que avisar que quedó incompleto");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn no_sigue_enlaces_simbolicos() {
+        let base = carpeta_de_prueba("enlace");
+        let fuera = carpeta_de_prueba("enlace-fuera");
+        archivo(&fuera.join("enorme.bin"), 5000, 300);
+        std::os::unix::fs::symlink(&fuera, base.join("atajo")).unwrap();
+        assert!(buscar(&base, 90, 1000).is_empty());
+        let _ = fs::remove_dir_all(&base);
+        let _ = fs::remove_dir_all(&fuera);
+    }
+
+    #[test]
+    fn solo_deja_mostrar_rutas_dentro_de_las_carpetas_personales() {
+        let base = carpeta_de_prueba("permitida");
+        let fuera = carpeta_de_prueba("permitida-fuera");
+        archivo(&base.join("dentro.txt"), 10, 1);
+        archivo(&fuera.join("fuera.txt"), 10, 1);
+        let raices = sin_anidadas(vec![base.clone()]);
+        assert!(ruta_permitida(&base.join("dentro.txt"), &raices).is_some());
+        assert!(ruta_permitida(&fuera.join("fuera.txt"), &raices).is_none());
+        // un rodeo con ".." para salir de la carpeta no engaña
+        let rodeo = base.join("..").join(fuera.file_name().unwrap()).join("fuera.txt");
+        assert!(ruta_permitida(&rodeo, &raices).is_none());
+        // la carpeta personal en sí y lo que no existe tampoco
+        assert!(ruta_permitida(&base, &raices).is_none());
+        assert!(ruta_permitida(&base.join("no_existe.txt"), &raices).is_none());
+        let _ = fs::remove_dir_all(&base);
+        let _ = fs::remove_dir_all(&fuera);
+    }
+
+    #[test]
+    fn descarta_carpetas_anidadas_para_no_contar_dos_veces() {
+        let base = carpeta_de_prueba("anidadas");
+        fs::create_dir_all(base.join("a").join("b")).unwrap();
+        let r = sin_anidadas(vec![base.join("a"), base.join("a").join("b"), base.join("no_existe")]);
+        assert_eq!(r.len(), 1);
+        assert!(r[0].ends_with("a"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn quita_el_prefijo_verbatim_de_windows() {
+        assert_eq!(sin_prefijo_verbatim(Path::new(r"\\?\C:\Users\x")), std::path::PathBuf::from(r"C:\Users\x"));
+        assert_eq!(sin_prefijo_verbatim(Path::new(r"\\?\UNC\srv\share")), std::path::PathBuf::from(r"\\?\UNC\srv\share"));
+        assert_eq!(sin_prefijo_verbatim(Path::new("/home/x")), std::path::PathBuf::from("/home/x"));
+    }
+
+    /// Mira las carpetas personales REALES de esta PC (solo lectura). No corre sola: `cargo test escaneo_real -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn escaneo_real_del_usuario() {
+        let raices = raices_del_usuario();
+        let casa = carpeta_personal().and_then(|c| fs::canonicalize(c).ok()).map(|c| sin_prefijo_verbatim(&c));
+        let t = Instant::now();
+        let b = buscar_archivos_pesados(
+            &raices, SystemTime::now(), DIAS_SIN_USO_POR_DEFECTO, MB_MINIMOS_POR_DEFECTO as u64 * 1024 * 1024,
+            casa.as_deref(), MAX_ENTRADAS, TIEMPO_MAXIMO,
+        );
+        println!("raices: {}  resultados: {}  completa: {}  tardo: {:?}", raices.len(), b.elementos.len(), b.completa, t.elapsed());
+        for x in b.elementos.iter().take(8) {
+            println!("  {:>8.0} MB  {:>4} dias  {}{}  [{}]", x.tamano_mb, x.dias_sin_uso, x.nombre, if x.es_carpeta { " (carpeta)" } else { "" }, x.carpeta);
+        }
+    }
+
+    #[test]
+    fn no_recorre_node_modules_ni_target_de_rust_pero_si_cuenta_su_fecha() {
+        let base = carpeta_de_prueba("ajenas");
+        archivo(&base.join("web").join("node_modules").join("pesado.bin"), 5000, 300);
+        archivo(&base.join("rust").join("Cargo.toml"), 10, 300);
+        archivo(&base.join("rust").join("target").join("pesado.bin"), 5000, 300);
+        archivo(&base.join("target").join("suelto.bin"), 5000, 300); // sin Cargo.toml al lado: es una carpeta cualquiera
+        let r = buscar(&base, 90, 1000);
+        let nombres: Vec<&str> = r.iter().map(|x| x.nombre.as_str()).collect();
+        assert!(!nombres.contains(&"pesado.bin"), "{nombres:?}");
+        assert!(nombres.contains(&"target"), "{nombres:?}");
+        // un proyecto cuyo node_modules se tocó hace poco no se da por abandonado
+        let base2 = carpeta_de_prueba("ajenas2");
+        archivo(&base2.join("app").join("viejo.bin"), 5000, 300);
+        fs::create_dir_all(base2.join("app").join("node_modules")).unwrap(); // fecha de hoy
+        assert!(buscar(&base2, 90, 1000).iter().all(|x| !(x.es_carpeta && x.nombre == "app")));
+        let _ = fs::remove_dir_all(&base);
+        let _ = fs::remove_dir_all(&base2);
+    }
+
+    #[test]
+    fn varias_raices_se_revisan_juntas_y_se_ordenan_entre_si() {
+        let a = carpeta_de_prueba("multi-a");
+        let b = carpeta_de_prueba("multi-b");
+        archivo(&a.join("uno.bin"), 3000, 300);
+        archivo(&b.join("dos.bin"), 9000, 300);
+        let r = buscar_archivos_pesados(&[a.clone(), b.clone()], SystemTime::now(), 90, 1000, None, MAX_ENTRADAS, TIEMPO_MAXIMO);
+        assert!(r.completa);
+        assert_eq!(r.elementos.iter().map(|x| x.nombre.as_str()).collect::<Vec<_>>(), ["dos.bin", "uno.bin"]);
+        let _ = fs::remove_dir_all(&a);
+        let _ = fs::remove_dir_all(&b);
     }
 }

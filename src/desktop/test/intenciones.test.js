@@ -49,3 +49,20 @@ test('mensajes largos o de otro tema van al modelo', () => {
 test('sin lectura todavía, contesta el modelo', () => {
   assert.equal(responderLocal('disco', null), null);
 });
+
+test('pedir ver los archivos pesados sin uso propone la búsqueda (solo lectura) sin llamar al modelo, aunque no haya lectura', () => {
+  for (const q of ['mostrame los archivos pesados', 'carpetas grandes', 'qué ocupa más espacio', 'archivos que ya no uso', 'cosas sin usar', 'qué archivos ocupan espacio']) {
+    const r = responderLocal(q, null);
+    assert.ok(r, q);
+    assert.equal(r.proponer.accion, 'ver_archivos_pesados', q);
+    assert.match(r.texto, /no borro nada/);
+  }
+});
+
+test('lo de archivos pesados no se confunde con el disco ni con pedidos largos o ajenos', () => {
+  assert.equal(responderLocal('cuánto disco me queda', null), null);                     // sin lectura, el disco sigue yendo al modelo
+  assert.equal(responderLocal('cuánto disco me queda', lectura(300)).proponer, undefined);
+  assert.equal(responderLocal('hola, ¿cómo estás hoy?', null), null);
+  // un pedido largo o con causa va al modelo
+  assert.equal(responderLocal('por favor explicame con calma por qué mis archivos pesados siguen creciendo tanto', null), null);
+});

@@ -58,9 +58,10 @@ fn set_interactivo(interactivo: bool, estado: tauri::State<CursorInteractivo>) {
 fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str, texto_metricas: &str) -> tauri::Result<Menu<R>> {
     let alternar = MenuItem::with_id(app, "alternar", texto_alternar, true, None::<&str>)?;
     let metricas = MenuItem::with_id(app, "metricas", texto_metricas, true, None::<&str>)?;
+    let pesados = MenuItem::with_id(app, "pesados", "Archivos pesados sin uso…", true, None::<&str>)?;
     let limpiar = MenuItem::with_id(app, "limpiar", "Limpiar temporales…", true, None::<&str>)?;
     let salir = MenuItem::with_id(app, "salir", "Cerrar Kerni", true, None::<&str>)?;
-    Menu::with_items(app, &[&alternar, &metricas, &limpiar, &salir])
+    Menu::with_items(app, &[&alternar, &metricas, &pesados, &limpiar, &salir])
 }
 
 /// Avisa a la interfaz de una opción del menú. Las métricas están ocultas por defecto y se ven desde aquí;
@@ -83,6 +84,7 @@ fn al_elegir(app: &AppHandle, id: &str) {
             }
         }
         "metricas" => avisar_a_kerni(app, "alternar-metricas"),
+        "pesados" => avisar_a_kerni(app, "pedir-archivos"),
         "limpiar" => avisar_a_kerni(app, "pedir-limpiar"),
         "salir" => app.exit(0),
         _ => {}
@@ -136,6 +138,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         menu_contextual,
         sistema::metricas,
         sistema::terminar_proceso,
+        sistema::archivos_pesados,
+        sistema::mostrar_en_carpeta,
         linux::limpiar_temporales,
     ]
 }
@@ -147,6 +151,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         menu_contextual,
         sistema::metricas,
         sistema::terminar_proceso,
+        sistema::archivos_pesados,
+        sistema::mostrar_en_carpeta,
         sistema::limpiar_temporales,
     ]
 }

@@ -129,6 +129,26 @@ test('las métricas están 100% ocultas al arrancar y se ven desde el menú del 
   assert.doesNotMatch(main, /kerni\.metricas/);
 });
 
+test('archivos pesados sin uso: comandos registrados, panel, menú y acción de la tarjeta', () => {
+  for (const comando of ['archivos_pesados', 'mostrar_en_carpeta']) {
+    // los dos listados de comandos de lib.rs (Linux y el resto) los registran
+    assert.equal([...lib.matchAll(new RegExp('sistema::' + comando + ',', 'g'))].length, 2, comando);
+    assert.ok(main.includes("llamar('" + comando + "'"), 'main.js no llama a ' + comando);
+  }
+  for (const id of ['archivos', 'archivos-estado', 'archivos-lista', 'archivos-cerrar']) assert.match(html, new RegExp('id="' + id + '"'), id);
+  assert.match(html, /<section id="archivos"[^>]*\bhidden\b/);
+  assert.match(lib, /MenuItem::with_id\(app, "pesados"/);
+  assert.match(lib, /"pesados" => avisar_a_kerni\(app, "pedir-archivos"\)/);
+  assert.match(main, /listen\('pedir-archivos', buscarArchivosPesados\)/);
+  // la acción propuesta por el modelo tiene su texto de confirmación y su ejecución (si no, caería en "borrar temporales")
+  assert.match(main, /if \(a\.accion === 'ver_archivos_pesados'\) return/);
+  assert.match(main, /else if \(a\.accion === 'ver_archivos_pesados'\) \{\s*await buscarArchivosPesados\(\)/);
+  // solo lectura: la interfaz no tiene ningún comando para borrar lo que lista
+  assert.doesNotMatch(main, /llamar\('(borrar|eliminar|mover)/);
+  // lo que viene del disco se pinta con textContent (ya lo exige otro test: sin innerHTML)
+  assert.match(main, /nombre\.textContent = a\.esCarpeta/);
+});
+
 test('la transparencia en reposo está en el CSS y la activa solo el atributo data-reposo', () => {
   const css = leer('web', 'style.css');
   assert.match(css, /body\[data-reposo='1'\] #mascota \{ opacity: 0\.6/);

@@ -38,6 +38,17 @@ describe('validarPropuesta', () => {
     expect(r.ok).toBe(true);
   });
 
+  it('ver archivos pesados no necesita foto, no lleva datos y se devuelve tal cual (solo lectura)', () => {
+    const r = validarPropuesta({ accion: 'ver_archivos_pesados', motivo: 'El disco está casi lleno' }, undefined);
+    expect(r).toEqual({ ok: true, accion: { tipo: 'proponer_accion', accion: 'ver_archivos_pesados', motivo: 'El disco está casi lleno' } });
+  });
+
+  it('ver archivos pesados descarta rutas, pids o nombres que el modelo agregue: la app decide qué mirar', () => {
+    const r = validarPropuesta({ accion: 'ver_archivos_pesados', motivo: 'Ver qué pesa', ruta: 'C:\\Windows', pid: 4, nombre: 'x' }, undefined);
+    expect(r.ok).toBe(true);
+    expect(Object.keys(r.accion).sort()).toEqual(['accion', 'motivo', 'tipo']);
+  });
+
   it('rechaza acciones fuera de la lista', () => {
     const r = validarPropuesta({ accion: 'formatear_disco', motivo: 'x x x' }, SNAPSHOT);
     expect(r.ok).toBe(false);
