@@ -9,6 +9,7 @@
 //! - Ícono en la bandeja y menú con clic derecho para ocultar o cerrar.
 //! - Los comandos que tocan el sistema viven en `sistema.rs`.
 
+mod herramientas;
 mod sistema;
 
 #[cfg(target_os = "linux")]
@@ -17,7 +18,7 @@ mod linux;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, Runtime, WebviewWindow};
 
@@ -57,7 +58,14 @@ fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str, texto_me
     let pesados = MenuItem::with_id(app, "pesados", "Archivos pesados sin uso…", true, None::<&str>)?;
     let limpiar = MenuItem::with_id(app, "limpiar", "Limpiar temporales…", true, None::<&str>)?;
     let salir = MenuItem::with_id(app, "salir", "Cerrar Kerni", true, None::<&str>)?;
-    Menu::with_items(app, &[&alternar, &metricas, &pesados, &limpiar, &salir])
+    let equipo = MenuItem::with_id(app, "equipo", "Información del equipo", true, None::<&str>)?;
+    let inicio = MenuItem::with_id(app, "inicio", "Programas de inicio", true, None::<&str>)?;
+    let espacio = MenuItem::with_id(app, "espacio", "Espacio por carpeta", true, None::<&str>)?;
+    let red = MenuItem::with_id(app, "red", "Estado de la red", true, None::<&str>)?;
+    let actualizaciones = MenuItem::with_id(app, "actualizaciones", "Actualizaciones de Windows", true, None::<&str>)?;
+    let papelera = MenuItem::with_id(app, "papelera", "Vaciar la papelera…", true, None::<&str>)?;
+    let herramientas = Submenu::with_items(app, "Más herramientas", true, &[&equipo, &inicio, &espacio, &red, &actualizaciones, &papelera])?;
+    Menu::with_items(app, &[&alternar, &metricas, &pesados, &limpiar, &herramientas, &salir])
 }
 
 /// Avisa a la interfaz de una opción del menú. Las métricas están ocultas por defecto y se ven desde aquí;
@@ -82,6 +90,12 @@ fn al_elegir(app: &AppHandle, id: &str) {
         "metricas" => avisar_a_kerni(app, "alternar-metricas"),
         "pesados" => avisar_a_kerni(app, "pedir-archivos"),
         "limpiar" => avisar_a_kerni(app, "pedir-limpiar"),
+        "equipo" => avisar_a_kerni(app, "pedir-equipo"),
+        "inicio" => avisar_a_kerni(app, "pedir-inicio"),
+        "espacio" => avisar_a_kerni(app, "pedir-espacio"),
+        "red" => avisar_a_kerni(app, "pedir-red"),
+        "actualizaciones" => avisar_a_kerni(app, "pedir-actualizaciones"),
+        "papelera" => avisar_a_kerni(app, "pedir-papelera"),
         "salir" => app.exit(0),
         _ => {}
     }
@@ -135,6 +149,15 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         sistema::terminar_proceso,
         sistema::archivos_pesados,
         sistema::mostrar_en_carpeta,
+        sistema::espacio_por_carpeta,
+        herramientas::info_equipo,
+        herramientas::programas_inicio,
+        herramientas::cambiar_inicio,
+        herramientas::estado_red,
+        herramientas::actualizaciones_windows,
+        herramientas::papelera,
+        herramientas::vaciar_papelera,
+        herramientas::abrir_ajuste,
         linux::limpiar_temporales,
     ]
 }
@@ -148,6 +171,15 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         sistema::terminar_proceso,
         sistema::archivos_pesados,
         sistema::mostrar_en_carpeta,
+        sistema::espacio_por_carpeta,
+        herramientas::info_equipo,
+        herramientas::programas_inicio,
+        herramientas::cambiar_inicio,
+        herramientas::estado_red,
+        herramientas::actualizaciones_windows,
+        herramientas::papelera,
+        herramientas::vaciar_papelera,
+        herramientas::abrir_ajuste,
         sistema::limpiar_temporales,
     ]
 }

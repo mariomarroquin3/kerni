@@ -5,8 +5,27 @@ import { esProtegido, limpiarNombre } from './telemetria.js';
  * Acciones que Kerni puede proponer. El esquema es plano (un solo objeto) porque
  * la API de Anthropic exige `type: object` en la raíz del input_schema.
  */
+/** Acciones que el modelo puede proponer. Quitar programas de inicio NO está: lo pide la interfaz desde su propia lista. */
+export const ACCIONES = [
+  'terminar_proceso',
+  'limpiar_temporales',
+  'ver_archivos_pesados',
+  'ver_info_equipo',
+  'ver_programas_inicio',
+  'ver_espacio_carpetas',
+  'ver_estado_red',
+  'ver_actualizaciones',
+  'abrir_ajuste',
+  'vaciar_papelera',
+];
+/** Acciones que no llevan datos del sistema: la app decide qué y cuánto mirar. */
+export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => a !== 'terminar_proceso' && a !== 'abrir_ajuste');
+/** Lista cerrada (la misma que `direccion_de_ajuste` en Rust): el modelo nunca manda una dirección. */
+export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia'];
+
 export const ProponerAccionSchema = z.object({
-  accion: z.enum(['terminar_proceso', 'limpiar_temporales', 'ver_archivos_pesados']).describe('Qué se propone hacer.'),
+  accion: z.enum(ACCIONES).describe('Qué se propone hacer.'),
+  destino: z.enum(DESTINOS_AJUSTE).optional().describe('Solo para abrir_ajuste: qué pantalla de Configuración de Windows abrir.'),
   pid: z.number().int().positive().optional().describe('Solo para terminar_proceso: el pid exacto del bloque <sistema>.'),
   nombre: z.string().optional().describe('Solo para terminar_proceso: el nombre exacto del proceso, como aparece en <sistema>.'),
   motivo: z.string().min(3).max(300).describe('Una frase simple para la persona: por qué conviene.'),
@@ -21,10 +40,15 @@ export const ProponerAccionSchema = z.object({
 export function validarPropuesta(input, snapshot) {
   const parsed = ProponerAccionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues.map((i) => i.message).join('; ') };
-  const { accion, pid, nombre, motivo } = parsed.data;
+  const { accion, pid, nombre, motivo, destino } = parsed.data;
 
-  // Ninguna de estas dos lleva datos del sistema: la app decide qué y cuánto mirar. ver_archivos_pesados es solo lectura.
-  if (accion === 'limpiar_temporales' || accion === 'ver_archivos_pesados') return { ok: true, accion: { tipo: 'proponer_accion', accion, motivo } };
+  // Estas no llevan datos del sistema: la app decide qué y cuánto mirar. Casi todas son de solo lectura; limpiar_temporales
+  // y vaciar_papelera borran, y por eso la persona siempre ve una tarjeta antes.
+  if (ACCIONES_SIN_DATOS.includes(accion)) return { ok: true, accion: { tipo: 'proponer_accion', accion, motivo } };
+  if (accion === 'abrir_ajuste') {
+    if (!destino) return { ok: false, error: `abrir_ajuste necesita un destino: ${DESTINOS_AJUSTE.join(', ')}` };
+    return { ok: true, accion: { tipo: 'proponer_accion', accion, destino, motivo } };
+  }
 
   if (!pid || !nombre) return { ok: false, error: 'terminar_proceso necesita pid y nombre' };
   if (!snapshot) return { ok: false, error: 'no hay foto del sistema; no se puede verificar el proceso' };

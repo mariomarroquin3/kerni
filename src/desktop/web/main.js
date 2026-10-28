@@ -3,6 +3,7 @@ import { createCharacter } from './character.js';
 import { crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, resumenEnlace, responderLocal } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
+import { describirNueva, detallePapelera, panelActualizaciones, panelEquipo, panelEspacio, panelInicio, panelRed } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 const CADA_MS = 2000;
@@ -40,6 +41,28 @@ function demo(comando, args) {
       ],
     };
   }
+  if (comando === 'info_equipo') return { fabricante: 'Dell Inc.', modelo: 'Latitude 3120', so: 'Microsoft Windows 11 Home', version: '10.0.22631', cpu: 'Intel(R) Pentium(R) Silver N6000', nucleos: 4, ramMb: 3912 };
+  if (comando === 'programas_inicio') {
+    return [
+      { nombre: 'OneDrive', comando: '"C:/Program Files/Microsoft OneDrive/OneDrive.exe" /background', ambito: 'usuario', activo: true, puedeCambiar: true },
+      { nombre: 'Spotify', comando: 'C:/Users/demo/AppData/Roaming/Spotify/Spotify.exe', ambito: 'usuario', activo: true, puedeCambiar: true },
+      { nombre: 'Discord', comando: 'C:/Users/demo/AppData/Local/Discord/Update.exe', ambito: 'usuario', activo: false, puedeCambiar: true },
+      { nombre: 'SecurityHealth', comando: 'C:/Windows/system32/SecurityHealthSystray.exe', ambito: 'equipo', activo: true, puedeCambiar: false },
+    ];
+  }
+  if (comando === 'cambiar_inicio') return `${args.nombre} ${args.activar ? 'vuelve a abrirse' : 'ya no se abre'} al iniciar Windows (demo)`;
+  if (comando === 'espacio_por_carpeta') {
+    return { completa: true, elementos: [
+      { ruta: '~/Videos/clases', nombre: 'clases', carpeta: '~/Videos', esCarpeta: true, tamanoMb: 9200, diasSinUso: 3 },
+      { ruta: '~/Descargas/pelicula.mkv', nombre: 'pelicula.mkv', carpeta: '~/Descargas', esCarpeta: false, tamanoMb: 4300, diasSinUso: 310 },
+      { ruta: '~/Documentos/proyectos', nombre: 'proyectos', carpeta: '~/Documentos', esCarpeta: true, tamanoMb: 1850, diasSinUso: 20 },
+    ] };
+  }
+  if (comando === 'estado_red') return { internet: true, latenciaMs: 48, dns: true, adaptadores: [{ nombre: 'Wi-Fi', tipo: 'Wi-Fi', velocidad: '866 Mbps' }] };
+  if (comando === 'actualizaciones_windows') return [{ titulo: 'Actualización acumulativa 2026-10 para Windows 11', mb: 512, critica: true, reinicio: true }, { titulo: 'Actualización de definiciones de seguridad', mb: 28, critica: false, reinicio: false }];
+  if (comando === 'papelera') return { elementos: 7, mb: 120 };
+  if (comando === 'vaciar_papelera') return { elementos: 7, mb: 120 };
+  if (comando === 'abrir_ajuste' || comando === 'mostrar_en_carpeta') return undefined;
   if (comando === 'terminar_proceso') return `Cerré ${args.nombre} (demo)`;
   if (comando === 'limpiar_temporales') return { archivos: 128, liberadoMb: 412.5 };
   if (comando === 'archivos_pesados') {
@@ -235,6 +258,8 @@ async function actualizar() {
 
 // ---------- Acciones: siempre con confirmación ----------
 function describir(a) {
+  const nueva = describirNueva(a);
+  if (nueva) return nueva;
   if (a.accion === 'recordar') return `¿Querés que recuerde esto? "${a.valor}"`;
   if (a.accion === 'ver_archivos_pesados') return '¿Busco los archivos y carpetas pesados que no usás hace rato? Solo los listo en pantalla; no borro ni muevo nada.';
   return a.accion === 'terminar_proceso'
@@ -244,6 +269,15 @@ function describir(a) {
 
 /** `porKerni`: la propuesta es iniciativa de Kerni (no un botón que apretaste), así que se pone en alerta. */
 function proponer(accion, porKerni = false) {
+  // La tarjeta de la papelera dice cuánto hay, así que primero se mide (solo lectura).
+  if (accion.accion === 'vaciar_papelera' && accion.detalle === undefined) {
+    (async () => {
+      let detalle = '';
+      try { detalle = detallePapelera(await llamar('papelera')); } catch { /* sin dato: la tarjeta lo dice sin cifras */ }
+      proponer({ ...accion, detalle }, porKerni);
+    })();
+    return;
+  }
   pendiente = accion;
   alertaActiva = porKerni;
   actualizarModo();
@@ -263,6 +297,17 @@ async function ejecutar(a) {
     decir('¡Anotado! Me lo voy a acordar.');
   } else if (a.accion === 'ver_archivos_pesados') {
     await buscarArchivosPesados();
+  } else if (VISTAS[a.accion]) {
+    await VISTAS[a.accion]();
+  } else if (a.accion === 'abrir_ajuste') {
+    await llamar('abrir_ajuste', { destino: a.destino });
+    decir('Listo, te lo abrí en los ajustes de Windows.', 6000);
+  } else if (a.accion === 'vaciar_papelera') {
+    const r = await llamar('vaciar_papelera');
+    decir(r.elementos ? `Listo, vacié la papelera y liberé ${tamanoLegible(r.mb)}.` : 'La papelera ya estaba vacía.');
+  } else if (a.accion === 'cambiar_inicio') {
+    decir(await llamar('cambiar_inicio', { nombre: a.nombre, activar: a.activar }));
+    await verInicio();
   } else if (a.accion === 'terminar_proceso') {
     const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre });
     decir(msg);
@@ -349,6 +394,90 @@ async function buscarArchivosPesados() {
 }
 $('archivos-cerrar').addEventListener('click', () => { $('archivos').hidden = true; });
 
+// ---------- Otras herramientas: un panel con lo que se encontró; la persona decide qué hacer ----------
+const ACCIONES_DEL_PANEL = {
+  mostrar: (ruta) => llamar('mostrar_en_carpeta', { ruta }),
+  ajuste: (destino) => llamar('abrir_ajuste', { destino }),
+  // Cambiar el inicio siempre pasa por la tarjeta de confirmación.
+  cambiar_inicio: ({ nombre, activar }) => proponer({ accion: 'cambiar_inicio', nombre, activar, motivo: '' }, false),
+};
+
+function boton(b, secundario = true) {
+  const el = document.createElement('button');
+  el.type = 'button';
+  if (secundario) el.className = 'secundario';
+  el.textContent = b.texto;
+  el.addEventListener('click', () => Promise.resolve(ACCIONES_DEL_PANEL[b.tipo]?.(b.dato)).catch((err) => decir(String(err))));
+  return el;
+}
+
+/** Nombres y textos vienen del sistema: son datos no confiables, siempre textContent. */
+function mostrarPanel(titulo, { estado, filas, boton: extra }, hablar = true) {
+  $('panel-titulo').textContent = titulo;
+  $('panel-estado').textContent = estado;
+  const lista = $('panel-lista');
+  lista.replaceChildren();
+  for (const f of filas) {
+    const li = document.createElement('li');
+    const info = document.createElement('div');
+    info.className = 'archivo-info';
+    const t = document.createElement('b');
+    t.textContent = f.titulo;
+    info.append(t);
+    if (f.detalle) {
+      const d = document.createElement('small');
+      d.textContent = f.detalle;
+      info.append(d);
+    }
+    if (f.pista) {
+      const p = document.createElement('small');
+      p.className = 'pista';
+      p.textContent = f.pista.texto;
+      info.append(p);
+    }
+    li.append(info);
+    if (f.boton) li.append(boton(f.boton));
+    lista.append(li);
+  }
+  const bExtra = $('panel-extra');
+  bExtra.hidden = !extra;
+  if (extra) {
+    const nuevo = bExtra.cloneNode(false);
+    nuevo.textContent = extra.texto;
+    nuevo.hidden = false;
+    nuevo.addEventListener('click', () => Promise.resolve(ACCIONES_DEL_PANEL[extra.tipo]?.(extra.dato)).catch((err) => decir(String(err))));
+    bExtra.replaceWith(nuevo);
+  }
+  $('panel').hidden = false;
+  if (hablar) decir(estado, 20000);
+}
+
+async function conPanel(titulo, espera, leer, armar) {
+  $('panel-titulo').textContent = titulo;
+  $('panel-estado').textContent = espera;
+  $('panel-lista').replaceChildren();
+  $('panel').hidden = false;
+  try {
+    mostrarPanel(titulo, armar(await leer()));
+  } catch (err) {
+    $('panel-estado').textContent = `No pude hacerlo: ${err}`;
+  }
+}
+
+const verEquipo = () => conPanel('Tu equipo', 'Mirando tu equipo…', () => llamar('info_equipo'), panelEquipo);
+const verInicio = () => conPanel('Programas de inicio', 'Mirando qué se abre al iniciar…', () => llamar('programas_inicio'), panelInicio);
+const verEspacio = () => conPanel('Espacio por carpeta', 'Midiendo tus carpetas… puede tardar unos segundos.', () => llamar('espacio_por_carpeta'), panelEspacio);
+const verRed = () => conPanel('Estado de la red', 'Probando la conexión…', () => llamar('estado_red'), panelRed);
+const verActualizaciones = () => conPanel('Actualizaciones de Windows', 'Preguntándole a Windows Update… puede tardar un rato.', () => llamar('actualizaciones_windows'), panelActualizaciones);
+const VISTAS = {
+  ver_info_equipo: verEquipo,
+  ver_programas_inicio: verInicio,
+  ver_espacio_carpetas: verEspacio,
+  ver_estado_red: verRed,
+  ver_actualizaciones: verActualizaciones,
+};
+$('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
+
 /** Siempre con tarjeta de confirmación: nada se borra sin Aprobar. */
 function pedirLimpieza() {
   proponer({ accion: 'limpiar_temporales', motivo: 'Libera espacio sin tocar tus documentos.' });
@@ -402,6 +531,7 @@ $('chat').addEventListener('submit', async (e) => {
         mensaje,
         session_id: sessionId ?? undefined,
         ...(deviceId ? { device_id: deviceId } : {}),
+        ...(equipo ? { equipo: { fabricante: equipo.fabricante, modelo: equipo.modelo, so: equipo.so } } : {}),
         ...(ultimas ? { snapshot: snapshotParaBackend(ultimas) } : {}),
       }),
       signal: controller.signal,
@@ -454,6 +584,12 @@ if (enTauri) {
     await listen('pedir-limpiar', () => { if (!pendiente) pedirLimpieza(); });
     // La eligió la persona en el menú: se muestra directo (es solo lectura).
     await listen('pedir-archivos', buscarArchivosPesados);
+    await listen('pedir-equipo', verEquipo);
+    await listen('pedir-inicio', verInicio);
+    await listen('pedir-espacio', verEspacio);
+    await listen('pedir-red', verRed);
+    await listen('pedir-actualizaciones', verActualizaciones);
+    await listen('pedir-papelera', () => proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false));
     await listen('cursor-movio', ({ payload }) => {
       const dpr = window.devicePixelRatio || 1;
       const x = payload.x / dpr;
@@ -486,5 +622,8 @@ if (enTauri && deviceId) {
     }).catch(() => { /* sin backend o sin memoria: no pasa nada */ });
   }, 10 * 60_000);
 }
+// El modelo de la PC se lee una vez: sirve para que Kerni busque en el manual correcto. Si falla, el chat sigue igual.
+let equipo = null;
+(async () => { try { equipo = await llamar('info_equipo'); } catch { /* sin dato de equipo */ } })();
 decir('¡Hola! Soy Kerni y estoy cuidando tu compu.', 6000);
 setTimeout(() => personaje.saludar(), 600);

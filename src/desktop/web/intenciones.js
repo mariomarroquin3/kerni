@@ -21,6 +21,43 @@ const QUIERE_BORRAR_VIEJOS = /(archivos?|carpetas?|cosas)\s+(\w+\s+)?(viej\w*|an
 const PIDE_EXPLICAR = /\b(por ?qu[eé]|c[oó]mo|explic\w*)\b/i;
 
 const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
+
+// ---------- Las otras herramientas: pedidos cortos y claros que no necesitan al modelo ----------
+// Es la misma idea que `src/backend/src/intenciones.js` (que cubre las frases largas de la conversación), pero acá solo
+// mensajes cortos, para que funcionen al instante y sin llave. Se prueban sobre texto sin tildes ni mayúsculas.
+const norm = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const AJUSTES_NOMBRE = { almacenamiento: 'Almacenamiento', aplicaciones: 'Aplicaciones instaladas', inicio: 'Aplicaciones de inicio', actualizaciones: 'Windows Update', red: 'Red e internet', energia: 'Energía y batería' };
+const DESTINOS = [
+  ['almacenamiento', /\b(almacenamiento|storage|espacio\s+en\s+disco)\b/],
+  ['aplicaciones', /\b(aplicaciones|programas)\s+instalad\w+|\bdesinstalar\b/],
+  ['inicio', /\b(apps?|programas?|aplicaciones?)\s+de\s+inicio\b/],
+  ['actualizaciones', /\bwindows\s+update\b|\bactualizaciones\b/],
+  ['red', /\b(wifi|wi-fi|red|internet)\b/],
+  ['energia', /\b(energia|bateria|suspension)\b/],
+];
+const PIDE_ABRIR = /\b(abr\w+|llev\w+|mostr\w+|ir\s+a|and\w+\s+a)\b.{0,30}\b(configuracion|ajustes?|settings)\b/;
+const REGLAS_NUEVAS = [
+  { accion: 'vaciar_papelera', patron: /\b(vaci\w+|limpi\w+|borr\w+|elimin\w+)\s+(la\s+|mi\s+)?(papelera|reciclaje)\b/, texto: 'Puedo vaciar la papelera, pero no se puede deshacer. Mirá la tarjeta y decidí vos.', motivo: 'Liberar el espacio que ocupa la papelera.' },
+  { accion: 'ver_programas_inicio', patron: /\b(programas?|apps?|aplicaciones?)\s+de\s+(inicio|arranque)\b|\b(abre\w*|inicia\w*|arranca\w*|carga\w*)\s+(solos?\s+)?(al|cuando|con)\s+(inicia\w*|prende\w*|encender\w*|arranca\w*|windows)|\b(compu\w*|pc)\s+(tarda|demora)\s+(en\s+)?(prender|arrancar|iniciar|encender)/, texto: 'Dale, miro qué programas se abren solos al prender la compu.', motivo: 'Ver qué programas se abren solos al iniciar.' },
+  { accion: 'ver_actualizaciones', patron: /\b(hay|tengo|faltan?|pendientes?|revis\w+|busc\w+)\b.{0,30}\bactualizaci\w+/, texto: 'Busco si Windows tiene actualizaciones pendientes. Solo miro, no instalo nada.', motivo: 'Ver si hay actualizaciones de Windows pendientes.' },
+  { accion: 'ver_estado_red', patron: /\b(tengo|hay|funciona|anda|revis\w+|estado\s+de|como\s+esta)\b.{0,25}\b(internet|wifi|wi-fi|red|conexion)\b|\b(internet|wifi|wi-fi|conexion)\b.{0,20}\b(lent\w+|caid\w+|no\s+(funciona|anda|carga)|mal)\b/, texto: 'Reviso tu conexión con una prueba corta.', motivo: 'Revisar si hay internet y cómo está la conexión.' },
+  { accion: 'ver_info_equipo', patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/, texto: 'Dale, miro qué equipo tenés.', motivo: 'Ver el modelo y las características del equipo.' },
+  { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
+];
+
+/** @returns {null | { texto: string, proponer: object }} */
+export function accionLocalNueva(texto) {
+  const t = norm(texto);
+  if (!t || palabras(t) > MAX_PALABRAS) return null;
+  if (PIDE_ABRIR.test(t)) {
+    const destino = DESTINOS.find(([, patron]) => patron.test(t))?.[0];
+    if (destino) {
+      return { texto: `Te abro "${AJUSTES_NOMBRE[destino]}" en los ajustes de Windows.`, proponer: { accion: 'abrir_ajuste', destino, motivo: `Abrir ${AJUSTES_NOMBRE[destino]} en Windows.` } };
+    }
+  }
+  const regla = REGLAS_NUEVAS.find((r) => r.patron.test(t));
+  return regla ? { texto: regla.texto, proponer: { accion: regla.accion, motivo: regla.motivo } } : null;
+}
 const gb = (n) => (n >= 100 ? n.toFixed(0) : n.toFixed(1));
 
 /** Porcentaje usado del disco principal, redondeado. */
@@ -44,6 +81,8 @@ export function responderLocal(texto, m) {
       proponer: { accion: 'ver_archivos_pesados', motivo: 'Ver qué ocupa espacio sin usarse.' },
     };
   }
+  const nueva = accionLocalNueva(texto);
+  if (nueva) return nueva;
   if (!m) return null;
   if (palabras(texto) > MAX_PALABRAS) return null;
   if (!TEMA_DISCO.test(texto) || PIDE_MAS.test(texto)) return null;
