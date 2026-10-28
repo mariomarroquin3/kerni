@@ -27,7 +27,7 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/llm/chatCompletions.js` | Proveedor para APIs compatibles con OpenAI: **OpenRouter** y **Gemini**. Reintentos, errores claros, tool_calls sin id |
 | `src/backend/src/llm/proveedores.js` | Elige y arma el proveedor según `LLM_PROVIDER` o la primera llave que haya |
 | `src/backend/src/memoria/` | Memoria local en **SQLite** (`sqlite.js`), memoria reflexiva automática (`reflexion.js`), validación de recuerdos (`recuerdos.js`) y cliente de **Supabase** opcional (`supabase.js`, solo salud y RAG). Sin llaves de Supabase Kerni funciona de forma totalmente autónoma |
-| `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo con solapamiento), `conocimiento.js` (búsqueda híbrida vectorial + texto). Contenido en `conocimiento/` (`privado/` ignorado por git) |
+| `src/backend/src/rag/` | **RAG** con pgvector: `embeddings.js` (Gemini/OpenRouter, 768 dim), `fragmentos.js` (troceo con solapamiento), `conocimiento.js` (búsqueda híbrida vectorial + texto), `modelo.js` (manuales por modelo de equipo) y `respaldo.js` (respuesta con las guías cuando el modelo no puede). Contenido en `conocimiento/` (`privado/` ignorado por git) |
 | `src/backend/src/telemetria.js` | Esquema de la foto del sistema, procesos protegidos, formato para el modelo |
 | `src/backend/src/enlaces.js` | Revisión de enlaces (`revisar_enlace` y `POST /enlaces/revisar`): señales de la dirección y, con llave, la lista de Google Safe Browsing. Nunca abre el sitio |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
@@ -118,6 +118,8 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - **Umbral medido (2026-10-27, 41 fragmentos):** las preguntas del tema salen con similitud 0.74-0.81 en el mejor fragmento y una pregunta ajena (receta de pupusas) no pasa de 0.47; `SIMILITUD_MINIMA = 0.55` queda bien.
 - `npm run indexar` es idempotente (huella por fragmento): solo calcula embeddings de lo nuevo y borra lo que ya no está. Lee `.md`, `.txt` y **`.pdf`** (cada página es un título "Página N", así las respuestas pueden citar la página). Un PDF escaneado (solo imágenes) se omite con un aviso: necesita OCR antes. `npm run indexar -- --simular` cuenta documentos y fragmentos sin gastar embeddings, útil antes de meter manuales grandes. Si se agota el cupo a medio camino, volver a correrlo retoma donde quedó.
 - Cambiar de modelo de embeddings obliga a reindexar todo; cambiar la dimensión obliga además a cambiar la migración.
+- **Manuales por modelo** (`rag/modelo.js`): los manuales de un equipo viven en `privado/<marca>-<modelo>/`, así que la carpeta dice a qué modelo pertenece cada fragmento (sin migración ni reindexar). Si Kerni sabe qué equipo es (`equipo` del chat), un manual de OTRO modelo no se usa (la RAM soldada de una Latitude 3120 no le sirve a quien tiene una Inspiron) y el del modelo correcto sube un poco; las guías generales siempre valen. Si la pregunta nombra el modelo ("la Latitude 3120"), ese manual vale aunque el equipo sea otro. Sin saber el equipo no se descarta nada. Con el equipo conocido se piden 3 veces más candidatos para que el filtro no deje la lista corta.
+- **Respaldo sin modelo** (`rag/respaldo.js`, en `routes/chat.js`): si el modelo falla por **cupo agotado** (plan gratis de Gemini, ~20 pedidos por día) o por un fallo del servicio, Kerni responde con los dos fragmentos más parecidos de sus guías, con su fuente y página, y lo dice ("texto de mis guías, copiado tal cual"); si el pedido es claro (`intenciones.js`), añade además la tarjeta. No cubre llave inválida ni falta de red: la persona necesita saberlo. Si no hay guías relevantes, sigue el error de siempre. La búsqueda usa embeddings, que tienen su propio cupo (100 por minuto).
 - Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
 
 ## Revisar enlaces (`revisar_enlace`)
@@ -142,7 +144,7 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 
 ## Más herramientas (equipo, inicio, espacio, red, actualizaciones, papelera, ajustes)
 
-Siete acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmación; casi todas son de **solo lectura**. Rust (`herramientas.rs` y `sistema.rs`) las revalida y el backend (`acciones.js`) las valida; el front las muestra en un panel (`#panel`) con `textContent`.
+Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmación; casi todas son de **solo lectura**. Rust (`herramientas.rs` y `sistema.rs`) las revalida y el backend (`acciones.js`) las valida; el front las muestra en un panel (`#panel`) con `textContent`.
 
 | Acción | Qué hace | Cambia algo |
 |---|---|---|
@@ -151,12 +153,14 @@ Siete acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmaci�
 | `ver_espacio_carpetas` | Lo más grande de las carpetas personales, sin mirar la fecha (es `archivos_pesados` con 0 días) | No |
 | `ver_estado_red` | Conexión TCP corta a 1.1.1.1 / 8.8.8.8 (latencia), DNS y adaptadores activos. No manda datos | No |
 | `ver_actualizaciones` | Pregunta a Windows Update qué hay pendiente. **No descarga ni instala**; puede tardar minutos (87 s medidos aquí, tope de 5). Las definiciones del antivirus se listan pero no cuentan como pendientes | No |
+| `ver_reporte_soporte` | Junta equipo, memoria, disco, batería, programas de inicio, red y los 5 procesos que más memoria usan en un texto plano (**sin rutas ni nombre de usuario**) y ofrece **Copiar resumen** para mandárselo al técnico de la institución. No incluye las actualizaciones (tardan). Se arma en la interfaz con lo que ya sabe; nunca se envía solo | No |
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 
 - **Cambiar el inicio** (`cambiar_inicio`) no está en lo que el modelo puede proponer: lo pide la interfaz desde su propia lista (botón *Desactivar/Activar* en cada fila), siempre con tarjeta. Rust revalida el nombre contra la lista real y solo cambia los del **usuario**; no borra nada: escribe el mismo interruptor del Administrador de tareas, así que es reversible. Los del equipo piden administrador y la interfaz lo dice.
 - **El modelo de la PC viaja con el chat** (`equipo`: fabricante, modelo y sistema, limpiados y rotulados como dato en el prompt). Así Kerni busca en el manual correcto: con el modelo real, "¿cuánta RAM le puedo agregar?" responde con la guía de la Latitude 3120.
 - **Reconocimiento sin depender del modelo**: `src/backend/src/intenciones.js` (conversación, hasta 30 palabras) y `intenciones.js` del front (mensajes cortos, sin backend ni llave). Se prueban sobre texto sin tildes; ante la duda no proponen nada. Se agregan a la tarjeta solo si el modelo no propuso otra cosa.
+- **Aviso de días sin reiniciar**: `Metricas.encendidaS` (segundos desde el último arranque **completo**, `sysinfo::System::uptime`). Desde 7 días, una vez por sesión y como mucho una vez al día (`localStorage`), la burbuja avisa que conviene reiniciar y que **Apagar no siempre alcanza por el inicio rápido de Windows**. Kerni no reinicia nada. En la demo del navegador se prueba con `?dias=12`.
 - **Menú del clic con dos dedos**: submenú *Más herramientas*. La papelera, desde ahí, solo abre la tarjeta.
 - En Rust, lo que se pide a PowerShell son guiones fijos (nunca texto de la persona ni del modelo), con tiempo máximo y sin ventana de consola. Los nombres (por ejemplo el de un programa de inicio) viajan por variables de entorno, nunca dentro del guion, y se leen y escriben con PowerShell en UTF-8 (`reg.exe` rompía los nombres con tildes); `explorer` recibe solo direcciones de una lista cerrada. Fuera de Windows las que dependen de Windows devuelven un aviso.
 - No hay ninguna acción para borrar ni mover archivos sueltos: ver *Archivos pesados*.

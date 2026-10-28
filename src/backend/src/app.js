@@ -47,7 +47,7 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
     conocimiento: conocimiento.habilitado,
     ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
   }));
-  app.register(chatRoutes, { agent, limitador, memoria, provider, ...(now ? { now } : {}) });
+  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, ...(now ? { now } : {}) });
   app.register(memoriaRoutes, { memoria, limitador });
   app.register(enlacesRoutes, { revisorEnlaces });
   return app;

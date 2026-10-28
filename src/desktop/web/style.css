@@ -75,6 +75,7 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 #panel .archivo-info { min-width: 0; display: flex; flex-direction: column; }
 #panel .archivo-info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 #panel .archivo-info small { color: var(--suave); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#panel li.largo b { white-space: normal; font-weight: 400; font-size: 12px; }
 #panel .archivo-info .pista { white-space: normal; font-weight: 600; color: #ffc46b; }
 #archivos h2 { color: var(--texto); }
 #archivos ul { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow-y: auto; }

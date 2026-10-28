@@ -21,6 +21,12 @@ export function quitarBloquesInternos(texto) {
 }
 
 /** El modelo y el fabricante del equipo, para elegir el manual correcto. Es dato del sistema: se limpia y se rotula como tal. */
+/** "Dell Inc. Latitude 3120" (limpio) o '' si no se sabe. Es lo que usa la búsqueda para elegir el manual del modelo. */
+export function textoEquipo(equipo) {
+  if (!equipo || typeof equipo !== 'object') return '';
+  return [equipo.fabricante, equipo.modelo].map((s) => limpiarNombre(s ?? '')).filter(Boolean).join(' ');
+}
+
 export function lineaEquipo(equipo) {
   if (!equipo || typeof equipo !== 'object') return '';
   const partes = ['fabricante', 'modelo', 'so'].map((k) => limpiarNombre(equipo[k] ?? ''));
@@ -64,7 +70,8 @@ const DEFINICIONES = [
       + 'terminar_proceso requiere pid y nombre exactos del bloque <sistema>; limpiar_temporales borra archivos temporales viejos; '
       + 'ver_archivos_pesados solo LISTA los archivos y carpetas pesados que no se usan hace tiempo (no borra nada). '
       + 'Solo lectura, para ver datos: ver_info_equipo (modelo, sistema, procesador), ver_programas_inicio (lo que arranca con Windows), '
-      + 'ver_espacio_carpetas (qué carpeta ocupa más), ver_estado_red (internet y conexión), ver_actualizaciones (pendientes de Windows Update; no instala). '
+      + 'ver_espacio_carpetas (qué carpeta ocupa más), ver_estado_red (internet y conexión), ver_actualizaciones (pendientes de Windows Update; no instala), '
+      + 'ver_reporte_soporte (resumen del equipo para mandárselo al técnico). '
       + 'abrir_ajuste abre una pantalla de Configuración de Windows (pasá destino: almacenamiento, aplicaciones, inicio, actualizaciones, red o energia). '
       + 'vaciar_papelera borra para siempre lo que hay en la papelera.',
     parameters: toInputSchema(ProponerAccionSchema),
@@ -149,6 +156,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
     let busquedas = 0;
     let enlaces = 0;
 
+    let reintentoVacio = false;
     try {
       for (let i = 0; i < MAX_ITERATIONS; i++) {
         if (signal?.aborted) throw new Error('turno interrumpido');
@@ -163,6 +171,14 @@ export function createAgent({ provider, logger = console, clock = () => performa
           rechazado = true;
           respuesta = 'Uy, con eso no te puedo ayudar. ¿Mejor revisamos cómo anda tu compu?';
           break;
+        }
+
+        // Un modelo pequeño a veces termina en blanco después de leer una herramienta: se le da una segunda oportunidad
+        // (en vez de "me enredé") sin guardar el mensaje vacío, para que el historial siga siendo válido.
+        if (!paso.text && paso.kind !== 'tool_calls' && i > 0 && !reintentoVacio && !ultimo) {
+          reintentoVacio = true;
+          traza.push({ paso: i + 1, tipo: 'reintento', motivo: 'respuesta vacía después de una herramienta' });
+          continue;
         }
 
         history.push(paso.assistantMessage);
@@ -189,7 +205,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
             }
             busquedas++;
             const t1 = clock();
-            const fragmentos = await conocimiento.contexto(args.data.pregunta);
+            const fragmentos = await conocimiento.contexto(args.data.pregunta, { equipo: textoEquipo(equipo) });
             traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: true, encontrado: Boolean(fragmentos), ms: Math.round(clock() - t1) });
             // Lo recuperado es texto de referencia no confiable: ya viene saneado y entre <conocimiento>.
             return {

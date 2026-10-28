@@ -34,3 +34,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-28 | Heavy files also from the conversation (harness fallback) | [2026-10-28-heavy-files-from-chat.md](2026-10-28-heavy-files-from-chat.md) |
 | 2026-10-28 | Seven more tools: equipment, startup, space, network, updates, recycle bin, settings | [2026-10-28-seven-more-tools.md](2026-10-28-seven-more-tools.md) |
 | 2026-10-28 | Bug review of the new tools and proposals | [2026-10-28-bug-review-and-proposals.md](2026-10-28-bug-review-and-proposals.md) |
+| 2026-10-28 | RAG fallback, manuals by model, support report and reboot notice | [2026-10-28-rag-fallback-model-filter-support-report.md](2026-10-28-rag-fallback-model-filter-support-report.md) |

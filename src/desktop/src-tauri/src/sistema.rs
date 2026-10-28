@@ -78,6 +78,8 @@ pub struct Metricas {
     pub disco: Disco,
     pub procesos: Vec<Proceso>,
     pub bateria: Option<Bateria>,
+    /// Segundos desde el último arranque COMPLETO. Con el "inicio rápido" de Windows, Apagar no lo reinicia: solo Reiniciar.
+    pub encendida_s: u64,
 }
 
 #[cfg(windows)]
@@ -249,6 +251,7 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
         disco: Disco { libre_gb: libre, total_gb: total },
         procesos: elegidos,
         bateria: leer_bateria(),
+        encendida_s: System::uptime(),
     }
 }
 
@@ -720,6 +723,7 @@ mod tests {
     fn las_metricas_reales_son_coherentes() {
         let mut sys = System::new();
         let m = leer_metricas(&mut sys);
+        assert!(m.encendida_s > 0, "la PC lleva encendida más de 0 segundos");
         assert!(m.ram.total_mb > 0.0 && m.ram.usada_mb <= m.ram.total_mb);
         assert!(m.disco.total_gb > 0.0 && m.disco.libre_gb <= m.disco.total_gb);
         assert!((0.0..=100.0).contains(&m.cpu));

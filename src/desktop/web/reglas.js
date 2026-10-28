@@ -1,3 +1,5 @@
+import { DIAS_SIN_REINICIAR } from './herramientas.js';
+
 // Vigilante de RAM por reglas, sin modelo ni API key. Lógica pura (sin DOM)
 // para probarla con node --test. Lo alimenta main.js con cada lectura (2 s).
 
@@ -10,6 +12,20 @@ export const CRECIMIENTO_MB = 300;         // crecimiento en esa ventana que par
 export const ENFRIAMIENTO_MS = 5 * 60_000; // no repetir el aviso del mismo proceso
 
 const gb = (mb) => (mb / 1024).toFixed(1);
+
+/**
+ * Aviso de "llevás muchos días sin reiniciar". Con el inicio rápido de Windows, Apagar no reinicia del todo: solo Reiniciar lo hace,
+ * y una PC que lleva semanas encendida suele ir lenta. Kerni no reinicia nada: solo avisa.
+ * @returns {null | { dias: number, texto: string }}
+ */
+export function avisoReinicio(encendidaS, umbralDias = DIAS_SIN_REINICIAR) {
+  const dias = Math.floor(Number(encendidaS) / 86400);
+  if (!Number.isFinite(dias) || dias < umbralDias) return null;
+  return {
+    dias,
+    texto: `Tu compu lleva ${dias} días sin reiniciarse del todo. Reiniciarla suele dejarla más rápida. Ojo: Apagar no siempre alcanza por el inicio rápido de Windows, elegí Reiniciar. Guardá tu trabajo primero.`,
+  };
+}
 
 export function crearVigilanteRam({ ahora = () => Date.now() } = {}) {
   const racha = new Map();      // pid -> lecturas seguidas sobre el umbral

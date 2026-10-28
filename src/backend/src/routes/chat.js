@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { SnapshotSchema } from '../telemetria.js';
 import { esUuid } from '../memoria/memoria.js';
 import { crearMotorReflexion } from '../memoria/reflexion.js';
+import { detectarAccion } from '../intenciones.js';
+import { textoEquipo } from '../agent/agent.js';
+import { textoDeRespaldo } from '../rag/respaldo.js';
 
 /**
  * Chat por texto con la foto del sistema.
@@ -11,7 +14,7 @@ import { crearMotorReflexion } from '../memoria/reflexion.js';
 export const MAX_MENSAJE = 1000;
 export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 
-export async function chatRoutes(app, { agent, limitador, memoria, provider, now = () => Date.now() }) {
+export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, now = () => Date.now() }) {
   /** La memoria es un extra: si falla (disco, base bloqueada), el chat sigue sin ella. */
   const seguro = async (etiqueta, fn, vacio) => {
     try { return await fn(); } catch (err) { app.log.error({ err: err.message }, `memoria: falló ${etiqueta}`); return vacio; }
@@ -31,6 +34,24 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, now
     for (const [id, s] of sesiones) {
       if (!s.ocupada && now() - s.ultimoUso > SESION_INACTIVA_MS) sesiones.delete(id);
     }
+  }
+
+  /** Respuesta sin el modelo: lo más parecido de las guías (con su fuente) y, si el pedido es claro, la tarjeta de siempre. */
+  async function responderSinModelo({ mensaje, equipo, motivo }) {
+    const accion = detectarAccion(mensaje);
+    let fragmentos = [];
+    try {
+      fragmentos = conocimiento?.habilitado ? await conocimiento.buscarHibrido(mensaje, { k: 3, equipo: textoEquipo(equipo) }) : [];
+    } catch (err) {
+      app.log.error({ err: err.message }, 'respaldo: falló la búsqueda');
+    }
+    const respuesta = textoDeRespaldo(fragmentos, motivo, Boolean(accion));
+    if (!respuesta) return null;
+    return {
+      respuesta,
+      acciones: accion ? [{ ...accion }] : [],
+      traza: [{ tipo: 'respaldo', motivo, fragmentos: fragmentos.length, accion: accion?.accion ?? null }],
+    };
   }
 
   app.post('/chat', async (req, reply) => {
@@ -87,6 +108,12 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, now
       return { session_id: sessionId, respuesta, acciones, traza };
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo }, 'falló el turno');
+      // Sin cupo o con el servicio caído, lo que se pueda sin el modelo se hace igual: las guías y las tarjetas de siempre.
+      const motivo = err.codigo === 'sin_cupo' ? 'sin_cupo' : (['llave_invalida', 'sin_red'].includes(err.codigo) || err.status === 402) ? null : 'fallo';
+      if (motivo) {
+        const respaldo = await responderSinModelo({ mensaje, equipo, motivo });
+        if (respaldo) return { session_id: sessionId, ...respaldo };
+      }
       // Los errores de la API traen un mensaje pensado para la persona (llave inválida, cupo agotado, sin red).
       const claro = ['llave_invalida', 'sin_cupo', 'sin_red'].includes(err.codigo) || err.status === 402;
       return reply.code(claro ? 503 : 502).send({ error: claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.' });

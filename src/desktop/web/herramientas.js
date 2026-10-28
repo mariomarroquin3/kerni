@@ -14,6 +14,9 @@ export const AJUSTES = {
 };
 
 /** Acciones que solo muestran información: se ejecutan con la función de main.js que lleva su nombre. */
+/** Días sin reiniciar a partir de los cuales Kerni avisa. */
+export const DIAS_SIN_REINICIAR = 7;
+
 export const ACCIONES_PANEL = ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
@@ -23,6 +26,7 @@ export function describirNueva(a) {
     case 'ver_programas_inicio': return '¿Miro qué programas se abren solos cuando prendés la compu? Solo los listo; no cambio nada.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
+    case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
     case 'ver_actualizaciones': return '¿Busco si Windows tiene actualizaciones pendientes? Solo miro; no descargo ni instalo nada. Puede tardar un rato.';
     case 'abrir_ajuste': return `¿Abro "${AJUSTES[a.destino] ?? 'Configuración'}" en los ajustes de Windows?`;
     case 'vaciar_papelera': return a.detalle
@@ -55,6 +59,65 @@ export function panelEquipo(e) {
     ...(ram ? [{ titulo: ram, detalle: 'la RAM instalada' }] : []),
   ];
   return { estado: `Esto es lo que veo de tu equipo. Si me preguntás por manuales o mejoras, uso este modelo.`, filas };
+}
+
+const dosDecimales = (n) => (Math.round(n * 10) / 10).toFixed(1);
+
+/** "12 días" / "5 horas" / "40 minutos": cuánto lleva encendida la PC desde el último arranque completo. */
+export function tiempoEncendida(segundos) {
+  const dias = Math.floor(segundos / 86400);
+  if (dias >= 1) return `${dias} ${dias === 1 ? 'día' : 'días'}`;
+  const horas = Math.floor(segundos / 3600);
+  if (horas >= 1) return `${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+  const minutos = Math.max(1, Math.floor(segundos / 60));
+  return `${minutos} ${minutos === 1 ? 'minuto' : 'minutos'}`;
+}
+
+/**
+ * Resumen del equipo para pegarlo en un correo o chat de soporte. Solo texto: nombres de procesos y programas, nunca rutas ni el
+ * nombre de usuario. Si falta un dato, esa línea no aparece (no se inventa nada).
+ * @param {{ fecha?: Date, equipo?: object, metricas?: object, inicio?: object[], red?: object }} d
+ */
+export function armarReporte({ fecha = new Date(), equipo, metricas, inicio, red } = {}) {
+  const l = [];
+  const dd = (n) => String(n).padStart(2, '0');
+  l.push(`Resumen del equipo para soporte (armado por Kerni el ${dd(fecha.getDate())}/${dd(fecha.getMonth() + 1)}/${fecha.getFullYear()} ${dd(fecha.getHours())}:${dd(fecha.getMinutes())})`);
+  l.push('');
+  if (equipo) {
+    const nombre = [equipo.fabricante, equipo.modelo].filter(Boolean).join(' ');
+    if (nombre) l.push(`Equipo: ${nombre}`);
+    if (equipo.so) l.push(`Sistema: ${equipo.so}${equipo.version ? ` (versión ${equipo.version})` : ''}`);
+    if (equipo.cpu) l.push(`Procesador: ${equipo.cpu}${equipo.nucleos ? ` (${equipo.nucleos} núcleos)` : ''}`);
+  }
+  if (metricas) {
+    const { ram, disco } = metricas;
+    if (ram?.totalMb) l.push(`Memoria: ${dosDecimales(ram.totalMb / 1024)} GB instalada, ${dosDecimales(ram.usadaMb / 1024)} GB en uso (${Math.round((ram.usadaMb / ram.totalMb) * 100)} %)`);
+    if (disco?.totalGb) l.push(`Disco principal: ${dosDecimales(disco.libreGb)} GB libres de ${dosDecimales(disco.totalGb)} GB (${Math.round(((disco.totalGb - disco.libreGb) / disco.totalGb) * 100)} % usado)`);
+    if (metricas.bateria) l.push(`Batería: ${metricas.bateria.porcentaje} %${metricas.bateria.cargando ? ' (cargando)' : metricas.bateria.enchufada ? ' (enchufada)' : ''}`);
+    if (Number.isFinite(metricas.encendidaS)) l.push(`Encendida desde el último arranque completo: ${tiempoEncendida(metricas.encendidaS)}`);
+    const top = [...(metricas.procesos ?? [])].sort((a, b) => b.memoriaMb - a.memoriaMb).slice(0, 5);
+    if (top.length) l.push(`Procesos que más memoria usan: ${top.map((p) => `${p.nombre} (${dosDecimales(p.memoriaMb / 1024)} GB)`).join(', ')}`);
+  }
+  if (inicio) {
+    const activos = inicio.filter((p) => p.activo);
+    l.push(`Programas que se abren al iniciar Windows: ${activos.length} activos de ${inicio.length}${activos.length ? ` (${activos.map((p) => p.nombre).join(', ')})` : ''}`);
+  }
+  if (red) {
+    l.push(red.internet
+      ? `Red: con internet, respuesta de ${red.latenciaMs} ms${red.dns ? '' : ', pero no resuelve nombres (DNS)'}${red.adaptadores?.length ? `; conexión ${red.adaptadores.map((a) => `${a.tipo}${a.velocidad ? ` ${a.velocidad}` : ''}`).join(', ')}` : ''}`
+      : 'Red: sin internet en este momento');
+  }
+  l.push('');
+  l.push('No incluye las actualizaciones de Windows (tardan en revisarse); se piden aparte.');
+  return l.join('\n');
+}
+
+export function panelReporte(texto) {
+  return {
+    estado: 'Este es el resumen. Revisalo: no lleva rutas, contraseñas ni tu nombre de usuario. Se copia solo si tocás el botón.',
+    filas: texto.split('\n').filter(Boolean).map((linea) => ({ titulo: linea, largo: true })),
+    boton: { texto: 'Copiar resumen', tipo: 'copiar', dato: texto },
+  };
 }
 
 export function panelInicio(lista) {

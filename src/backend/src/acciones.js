@@ -15,6 +15,7 @@ export const ACCIONES = [
   'ver_espacio_carpetas',
   'ver_estado_red',
   'ver_actualizaciones',
+  'ver_reporte_soporte',
   'abrir_ajuste',
   'vaciar_papelera',
 ];

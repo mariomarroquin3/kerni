@@ -1,9 +1,9 @@
 import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
-import { crearVigilanteRam } from './reglas.js';
+import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, resumenEnlace, responderLocal } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
-import { describirNueva, detallePapelera, panelActualizaciones, panelEquipo, panelEspacio, panelInicio, panelRed } from './herramientas.js';
+import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 const CADA_MS = 2000;
@@ -33,6 +33,7 @@ function demo(comando, args) {
       cpu,
       bateria,
       ram: { usadaMb: 9800, totalMb: 16000 },
+      encendidaS: Number(new URLSearchParams(location.search).get('dias') ?? 2) * 86400,
       disco: { libreGb: 120, totalGb: 476 },
       procesos: [
         { pid: 4321, nombre: 'chrome.exe', cpu: panico ? 62 : 12, memoriaMb: 2400, protegido: false },
@@ -230,6 +231,7 @@ function pintarPanico(m, activo) {
 }
 
 let eraPanico = false;
+let avisoReinicioRevisado = false;
 async function actualizar() {
   try {
     const m = await llamar('metricas');
@@ -246,6 +248,18 @@ async function actualizar() {
     eraPanico = panico;
 
     // Vigilante de RAM por reglas: funciona sin backend ni API key.
+    if (!avisoReinicioRevisado && Number.isFinite(m.encendidaS)) {
+      avisoReinicioRevisado = true;
+      const aviso = avisoReinicio(m.encendidaS);
+      const hoy = new Date().toISOString().slice(0, 10);
+      let yaAvisado = false;
+      try { yaAvisado = localStorage.getItem('kerni.avisoReinicio') === hoy; } catch { /* sin almacenamiento: se avisa igual */ }
+      if (aviso && !yaAvisado) {
+        try { localStorage.setItem('kerni.avisoReinicio', hoy); } catch { /* idem */ }
+        // Después del saludo, para que no lo pise.
+        setTimeout(() => { if (!enPanico && !pendiente) decir(aviso.texto, 25000); }, 9000);
+      }
+    }
     const alerta = vigilanteRam.revisar(m);
     if (alerta && !panico && !pendiente) {
       decir(alerta.texto, 15000);
@@ -401,6 +415,10 @@ $('archivos-cerrar').addEventListener('click', () => { $('archivos').hidden = tr
 const ACCIONES_DEL_PANEL = {
   mostrar: (ruta) => llamar('mostrar_en_carpeta', { ruta }),
   ajuste: (destino) => llamar('abrir_ajuste', { destino }),
+  copiar: async (texto) => {
+    await navigator.clipboard.writeText(texto);
+    decir('Listo, copié el resumen. Pegalo en el correo o en el chat de soporte.', 8000);
+  },
   // Cambiar el inicio siempre pasa por la tarjeta de confirmación.
   cambiar_inicio: ({ nombre, activar }) => proponer({ accion: 'cambiar_inicio', nombre, activar, motivo: '' }, false),
 };
@@ -422,6 +440,7 @@ function mostrarPanel(titulo, { estado, filas, boton: extra }, hablar = true) {
   lista.replaceChildren();
   for (const f of filas) {
     const li = document.createElement('li');
+    if (f.largo) li.className = 'largo';
     const info = document.createElement('div');
     info.className = 'archivo-info';
     const t = document.createElement('b');
@@ -476,7 +495,15 @@ const verInicio = () => conPanel('Programas de inicio', 'Mirando qué se abre al
 const verEspacio = () => conPanel('Espacio por carpeta', 'Midiendo tus carpetas… puede tardar unos segundos.', () => llamar('espacio_por_carpeta'), panelEspacio);
 const verRed = () => conPanel('Estado de la red', 'Probando la conexión…', () => llamar('estado_red'), panelRed);
 const verActualizaciones = () => conPanel('Actualizaciones de Windows', 'Preguntándole a Windows Update… puede tardar unos minutos.', () => llamar('actualizaciones_windows'), panelActualizaciones);
+/** Junta lo que ya sabe la app (equipo, memoria, disco, inicio y red). Lo que no se pueda leer simplemente no aparece. */
+async function juntarReporte() {
+  const seguro = async (fn) => { try { return await fn(); } catch { return undefined; } };
+  const [info, inicio, red] = await Promise.all([seguro(() => llamar('info_equipo')), seguro(() => llamar('programas_inicio')), seguro(() => llamar('estado_red'))]);
+  return armarReporte({ equipo: info ?? equipo ?? undefined, metricas: ultimas ?? undefined, inicio, red });
+}
+const verReporte = () => conPanel('Resumen para soporte técnico', 'Juntando los datos de tu equipo…', juntarReporte, panelReporte);
 const VISTAS = {
+  ver_reporte_soporte: verReporte,
   ver_info_equipo: verEquipo,
   ver_programas_inicio: verInicio,
   ver_espacio_carpetas: verEspacio,
@@ -596,6 +623,7 @@ if (enTauri) {
     await listen('pedir-espacio', verEspacio);
     await listen('pedir-red', verRed);
     await listen('pedir-actualizaciones', verActualizaciones);
+    await listen('pedir-reporte', verReporte);
     await listen('pedir-papelera', () => proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false));
     await listen('cursor-movio', ({ payload }) => {
       const dpr = window.devicePixelRatio || 1;

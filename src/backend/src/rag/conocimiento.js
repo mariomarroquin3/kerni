@@ -1,5 +1,6 @@
 import { limpiarTexto, sanearParaBloque } from '../memoria/recuerdos.js';
 import { fragmentar, huella } from './fragmentos.js';
+import { priorizarPorModelo } from './modelo.js';
 
 export const K_POR_DEFECTO = 4;
 export const SIMILITUD_MINIMA = 0.55;
@@ -17,28 +18,30 @@ const vector = (v) => `[${v.join(',')}]`;
  */
 export function createConocimiento({ db, embeddings, logger = console }) {
   /** @returns {Promise<{fuente: string, titulo: string, contenido: string, similitud: number}[]>} */
-  async function buscar(pregunta, { k = K_POR_DEFECTO, minimo = SIMILITUD_MINIMA, hibrido = false } = {}) {
+  async function buscar(pregunta, { k = K_POR_DEFECTO, minimo = SIMILITUD_MINIMA, hibrido = false, equipo = '' } = {}) {
     const q = String(pregunta ?? '').trim();
     if (q.length < MIN_PREGUNTA) return [];
+    // Si se sabe qué equipo es, se piden más candidatos: los manuales de otros modelos se descartan después y no deben dejar la lista corta.
+    const pedir = equipo ? Math.min(k * 3, 12) : k;
     try {
       const [emb] = await embeddings.embed([q.slice(0, 1000)], ESPERA_CHAT);
-      if (hibrido) {
-        try {
-          return await db.rpc('kerni_buscar_conocimiento_hibrido', {
-            consulta_vector: vector(emb),
-            consulta_texto: q.slice(0, 200),
-            k,
-            minimo,
-          });
-        } catch {
-          // Fallback a la función vectorial estándar si aún no se aplicó la migración híbrida
-        }
-      }
-      return await db.rpc('kerni_buscar_conocimiento', { consulta: vector(emb), k, minimo });
+      const filas = await consultar(emb, q, { k: pedir, minimo, hibrido });
+      return priorizarPorModelo(filas, { pregunta: q, equipo, k });
     } catch (err) {
       logger.error?.({ err: err.message, codigo: err.codigo }, 'conocimiento: falló la búsqueda');
       return [];
     }
+  }
+
+  async function consultar(emb, q, { k, minimo, hibrido }) {
+    if (hibrido) {
+      try {
+        return await db.rpc('kerni_buscar_conocimiento_hibrido', { consulta_vector: vector(emb), consulta_texto: q.slice(0, 200), k, minimo });
+      } catch {
+        // Fallback a la función vectorial estándar si aún no se aplicó la migración híbrida
+      }
+    }
+    return db.rpc('kerni_buscar_conocimiento', { consulta: vector(emb), k, minimo });
   }
 
   const buscarHibrido = (pregunta, opts) => buscar(pregunta, { ...opts, hibrido: true });

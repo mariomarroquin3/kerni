@@ -33,6 +33,7 @@ const PROPUESTAS = {
   ver_espacio_carpetas: 'Ver qué carpetas ocupan más espacio.',
   ver_estado_red: 'Revisar si tenés internet y cómo está la conexión.',
   ver_actualizaciones: 'Ver si hay actualizaciones de Windows pendientes (no las instala).',
+  ver_reporte_soporte: 'Armar un resumen de tu equipo para mandárselo al soporte técnico.',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -52,6 +53,7 @@ const REGLAS = [
     accion: 'ver_info_equipo',
     patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/,
   },
+  { accion: 'ver_reporte_soporte', patron: /\b(reporte|informe|resumen|ficha)\b.{0,30}\b(soporte|tecnico|ti|informatica|sistemas|help\s*desk)\b|\b(soporte|tecnico)\b.{0,30}\b(reporte|informe|resumen)\b|\bpara\s+(el\s+)?(soporte|tecnico)\b.{0,20}\b(datos|informacion|reporte|resumen)/ },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },
 ];
 
