@@ -45,6 +45,9 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
   font-weight: 500;
 }
 #menu-contextual button:hover { background: rgba(255, 255, 255, 0.1); box-shadow: none; }
+#menu-mas { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; border-left: 2px solid rgba(255, 255, 255, 0.12); margin-left: 6px; }
+#menu-mas[hidden] { display: none; }
+#menu-contextual { max-height: calc(100vh - 16px); overflow-y: auto; }
 
 /* ---- Globo y tarjetas ---- */
 #globo, .tarjeta, #hud, #chat {

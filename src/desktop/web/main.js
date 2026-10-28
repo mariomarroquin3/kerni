@@ -641,6 +641,8 @@ const menuContextual = $('menu-contextual');
 const itemMetricasMenu = menuContextual.querySelector('[data-menu-accion="metricas"]');
 function ocultarMenuContextual() {
   menuContextual.hidden = true;
+  $('menu-mas').hidden = true;
+  $('menu-mas-boton').setAttribute('aria-expanded', 'false');
 }
 
 $('mascota').addEventListener('contextmenu', (e) => {
@@ -662,6 +664,13 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !menuContextual.hidden) ocultarMenuContextual();
 });
 menuContextual.addEventListener('click', async (e) => {
+  // "Más herramientas" solo despliega la lista: el menú se queda abierto.
+  if (e.target.closest('#menu-mas-boton')) {
+    const abrir = $('menu-mas').hidden;
+    $('menu-mas').hidden = !abrir;
+    $('menu-mas-boton').setAttribute('aria-expanded', String(abrir));
+    return;
+  }
   const item = e.target.closest('[data-menu-accion]');
   if (!item) return;
   ocultarMenuContextual();
@@ -676,16 +685,19 @@ menuContextual.addEventListener('click', async (e) => {
       case 'limpiar':
         if (!pendiente) pedirLimpieza();
         break;
-      case 'ocultar': {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        await getCurrentWindow().hide();
+      case 'equipo': await verEquipo(); break;
+      case 'reporte': await verReporte(); break;
+      case 'inicio': await verInicio(); break;
+      case 'espacio': await verEspacio(); break;
+      case 'red': await verRed(); break;
+      case 'actualizaciones': await verActualizaciones(); break;
+      // La papelera borra: desde el menú solo abre la tarjeta de confirmación.
+      case 'papelera':
+        if (!pendiente) proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false);
         break;
-      }
-      case 'cerrar': {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        await getCurrentWindow().close();
-        break;
-      }
+      // Cerrar y ocultar los hace Rust: la interfaz no tiene permiso para manejar la ventana.
+      case 'ocultar': await llamar('ocultar_kerni'); break;
+      case 'cerrar': await llamar('salir_de_kerni'); break;
     }
   } catch (err) {
     console.error('[menu-contextual] No se pudo ejecutar la opción:', err);

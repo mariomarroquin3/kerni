@@ -98,9 +98,31 @@ fn al_elegir(app: &AppHandle, id: &str) {
         "actualizaciones" => avisar_a_kerni(app, "pedir-actualizaciones"),
         "reporte" => avisar_a_kerni(app, "pedir-reporte"),
         "papelera" => avisar_a_kerni(app, "pedir-papelera"),
-        "salir" => app.exit(0),
+        "salir" => salir(app),
         _ => {}
     }
+}
+
+/// Cierra Kerni. Si por lo que sea el cierre normal se queda colgado (la ventana no tiene barra de título ni aparece en la barra de
+/// tareas, así que no hay otra forma de cerrarla), a los 3 segundos se sale a la fuerza: "Cerrar Kerni" siempre tiene que cerrar.
+fn salir(app: &AppHandle) {
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_secs(3));
+        std::process::exit(0);
+    });
+    app.exit(0);
+}
+
+/// Lo que llama el menú integrado (el del clic con dos dedos). Antes el JavaScript cerraba la ventana por su cuenta, pero la
+/// capability de Kerni no le da ese permiso (a propósito: la interfaz no necesita manejar la ventana), así que "Cerrar Kerni" fallaba.
+#[tauri::command]
+fn salir_de_kerni(app: AppHandle) {
+    salir(&app);
+}
+
+#[tauri::command]
+fn ocultar_kerni(ventana: WebviewWindow) -> Result<(), String> {
+    ventana.hide().map_err(|e| e.to_string())
 }
 
 /// Coloca la ventana en la esquina inferior derecha del área útil
@@ -137,6 +159,8 @@ fn emitir_cursor(ventana: &WebviewWindow) {
 fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         set_interactivo,
+        salir_de_kerni,
+        ocultar_kerni,
         sistema::metricas,
         sistema::terminar_proceso,
         sistema::archivos_pesados,
@@ -158,6 +182,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
 fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         set_interactivo,
+        salir_de_kerni,
+        ocultar_kerni,
         sistema::metricas,
         sistema::terminar_proceso,
         sistema::archivos_pesados,
