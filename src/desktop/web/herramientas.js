@@ -99,19 +99,27 @@ export function panelRed(r) {
   return { estado, filas };
 }
 
+const filaActualizacion = (u) => ({
+  titulo: u.titulo,
+  detalle: `hasta ${tamanoLegible(u.mb)}${u.reinicio ? ' · pide reiniciar' : ''}`,
+  ...(u.automatica
+    ? { pista: { nivel: 'revisar', texto: 'Se instala sola: son las definiciones del antivirus.' } }
+    : u.critica ? { pista: { nivel: 'respaldar', texto: 'Crítica: conviene instalarla pronto.' } } : {}),
+});
+
 export function panelActualizaciones(lista) {
-  if (!lista.length) return { estado: 'Windows está al día: no hay actualizaciones pendientes.', filas: [] };
-  const criticas = lista.filter((u) => u.critica).length;
-  const total = lista.reduce((s, u) => s + u.mb, 0);
-  const reinicio = lista.some((u) => u.reinicio);
+  // Las definiciones del antivirus se instalan solas varias veces al día: se muestran, pero no cuentan como algo pendiente de hacer.
+  const propias = lista.filter((u) => !u.automatica);
+  const solas = lista.length - propias.length;
+  const notaSolas = solas ? ` Además hay ${solas} del antivirus que se ${solas === 1 ? 'instala' : 'instalan'} sola${solas === 1 ? '' : 's'}.` : '';
+  if (!propias.length) return { estado: `Windows está al día: no hay actualizaciones pendientes para vos.${notaSolas}`, filas: lista.map(filaActualizacion) };
+  const criticas = propias.filter((u) => u.critica).length;
+  const total = propias.reduce((s, u) => s + u.mb, 0);
+  const reinicio = propias.some((u) => u.reinicio);
   return {
-    estado: `Hay ${lista.length} ${lista.length === 1 ? 'actualización pendiente' : 'actualizaciones pendientes'} (${tamanoLegible(total)})`
-      + `${criticas ? `, ${criticas} ${criticas === 1 ? 'crítica' : 'críticas'}` : ''}. ${reinicio ? 'Alguna pide reiniciar. ' : ''}No instalé nada: podés hacerlo desde Windows Update.`,
-    filas: lista.map((u) => ({
-      titulo: u.titulo,
-      detalle: `${tamanoLegible(u.mb)}${u.reinicio ? ' · pide reiniciar' : ''}`,
-      ...(u.critica ? { pista: { nivel: 'respaldar', texto: 'Crítica: conviene instalarla pronto.' } } : {}),
-    })),
+    estado: `Hay ${propias.length} ${propias.length === 1 ? 'actualización pendiente' : 'actualizaciones pendientes'} (hasta ${tamanoLegible(total)})`
+      + `${criticas ? `, ${criticas} ${criticas === 1 ? 'crítica' : 'críticas'}` : ''}. ${reinicio ? 'Alguna pide reiniciar. ' : ''}No instalé nada: podés hacerlo desde Windows Update.${notaSolas}`,
+    filas: lista.map(filaActualizacion),
     boton: { texto: 'Abrir Windows Update', tipo: 'ajuste', dato: 'actualizaciones' },
   };
 }

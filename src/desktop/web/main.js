@@ -262,19 +262,22 @@ function describir(a) {
   if (nueva) return nueva;
   if (a.accion === 'recordar') return `¿Querés que recuerde esto? "${a.valor}"`;
   if (a.accion === 'ver_archivos_pesados') return '¿Busco los archivos y carpetas pesados que no usás hace rato? Solo los listo en pantalla; no borro ni muevo nada.';
-  return a.accion === 'terminar_proceso'
-    ? `¿Cerrar ${a.nombre} (pid ${a.pid})? Si tiene trabajo sin guardar, se pierde.`
-    : '¿Borrar los archivos temporales con más de 24 horas?';
+  if (a.accion === 'terminar_proceso') return `¿Cerrar ${a.nombre} (pid ${a.pid})? Si tiene trabajo sin guardar, se pierde.`;
+  if (a.accion === 'limpiar_temporales') return '¿Borrar los archivos temporales con más de 24 horas?';
+  // Una acción que esta versión de la app no conoce (por ejemplo, un backend más nuevo): se dice tal cual, nunca se disfraza de otra.
+  return `¿Aprobás esto? ${a.motivo ?? a.accion}`;
 }
 
 /** `porKerni`: la propuesta es iniciativa de Kerni (no un botón que apretaste), así que se pone en alerta. */
+let propuestaSeq = 0;
 function proponer(accion, porKerni = false) {
-  // La tarjeta de la papelera dice cuánto hay, así que primero se mide (solo lectura).
+  const mia = ++propuestaSeq;
+  // La tarjeta de la papelera dice cuánto hay, así que primero se mide (solo lectura). Si mientras tanto salió otra tarjeta, no la pisa.
   if (accion.accion === 'vaciar_papelera' && accion.detalle === undefined) {
     (async () => {
       let detalle = '';
       try { detalle = detallePapelera(await llamar('papelera')); } catch { /* sin dato: la tarjeta lo dice sin cifras */ }
-      proponer({ ...accion, detalle }, porKerni);
+      if (mia === propuestaSeq) proponer({ ...accion, detalle }, porKerni);
     })();
     return;
   }
@@ -297,7 +300,7 @@ async function ejecutar(a) {
     decir('¡Anotado! Me lo voy a acordar.');
   } else if (a.accion === 'ver_archivos_pesados') {
     await buscarArchivosPesados();
-  } else if (VISTAS[a.accion]) {
+  } else if (Object.hasOwn(VISTAS, a.accion)) {
     await VISTAS[a.accion]();
   } else if (a.accion === 'abrir_ajuste') {
     await llamar('abrir_ajuste', { destino: a.destino });
@@ -407,7 +410,7 @@ function boton(b, secundario = true) {
   el.type = 'button';
   if (secundario) el.className = 'secundario';
   el.textContent = b.texto;
-  el.addEventListener('click', () => Promise.resolve(ACCIONES_DEL_PANEL[b.tipo]?.(b.dato)).catch((err) => decir(String(err))));
+  el.addEventListener('click', () => Promise.resolve(Object.hasOwn(ACCIONES_DEL_PANEL, b.tipo) ? ACCIONES_DEL_PANEL[b.tipo](b.dato) : undefined).catch((err) => decir(String(err))));
   return el;
 }
 
@@ -445,22 +448,26 @@ function mostrarPanel(titulo, { estado, filas, boton: extra }, hablar = true) {
     const nuevo = bExtra.cloneNode(false);
     nuevo.textContent = extra.texto;
     nuevo.hidden = false;
-    nuevo.addEventListener('click', () => Promise.resolve(ACCIONES_DEL_PANEL[extra.tipo]?.(extra.dato)).catch((err) => decir(String(err))));
+    nuevo.addEventListener('click', () => Promise.resolve(Object.hasOwn(ACCIONES_DEL_PANEL, extra.tipo) ? ACCIONES_DEL_PANEL[extra.tipo](extra.dato) : undefined).catch((err) => decir(String(err))));
     bExtra.replaceWith(nuevo);
   }
   $('panel').hidden = false;
   if (hablar) decir(estado, 20000);
 }
 
+let panelSeq = 0;
 async function conPanel(titulo, espera, leer, armar) {
+  const mia = ++panelSeq;
   $('panel-titulo').textContent = titulo;
   $('panel-estado').textContent = espera;
   $('panel-lista').replaceChildren();
+  $('panel-extra').hidden = true;
   $('panel').hidden = false;
   try {
-    mostrarPanel(titulo, armar(await leer()));
+    const resultado = armar(await leer());
+    if (mia === panelSeq) mostrarPanel(titulo, resultado);
   } catch (err) {
-    $('panel-estado').textContent = `No pude hacerlo: ${err}`;
+    if (mia === panelSeq) $('panel-estado').textContent = `No pude hacerlo: ${err}`;
   }
 }
 
@@ -468,7 +475,7 @@ const verEquipo = () => conPanel('Tu equipo', 'Mirando tu equipo…', () => llam
 const verInicio = () => conPanel('Programas de inicio', 'Mirando qué se abre al iniciar…', () => llamar('programas_inicio'), panelInicio);
 const verEspacio = () => conPanel('Espacio por carpeta', 'Midiendo tus carpetas… puede tardar unos segundos.', () => llamar('espacio_por_carpeta'), panelEspacio);
 const verRed = () => conPanel('Estado de la red', 'Probando la conexión…', () => llamar('estado_red'), panelRed);
-const verActualizaciones = () => conPanel('Actualizaciones de Windows', 'Preguntándole a Windows Update… puede tardar un rato.', () => llamar('actualizaciones_windows'), panelActualizaciones);
+const verActualizaciones = () => conPanel('Actualizaciones de Windows', 'Preguntándole a Windows Update… puede tardar unos minutos.', () => llamar('actualizaciones_windows'), panelActualizaciones);
 const VISTAS = {
   ver_info_equipo: verEquipo,
   ver_programas_inicio: verInicio,

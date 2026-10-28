@@ -51,7 +51,7 @@ fn ejecutar(cmd: &mut Command, limite: Duration) -> Result<String, String> {
         match hijo.try_wait() {
             Ok(Some(estado)) => {
                 let bytes = lector.join().unwrap_or_default();
-                let texto = String::from_utf8_lossy(&bytes).into_owned();
+                let texto = String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}').to_string();
                 return if estado.success() { Ok(texto) } else { Err(format!("El comando terminó con error ({estado})")) };
             }
             Ok(None) if inicio.elapsed() >= limite => {
@@ -80,17 +80,26 @@ fn base64(bytes: &[u8]) -> String {
 }
 
 /// PowerShell con un guion fijo (nunca armado con texto de la persona ni del modelo). Va codificado para no depender de comillas.
-#[cfg(windows)]
 fn ps(script: &str, limite: Duration) -> Result<String, String> {
+    ps_con_datos(script, limite, &[])
+}
+
+/// Igual, pero con datos pasados como variables de entorno (`$env:NOMBRE`): así un nombre con comillas, tildes o símbolos
+/// nunca se mezcla con el código del guion.
+#[cfg(windows)]
+fn ps_con_datos(script: &str, limite: Duration, datos: &[(&str, &str)]) -> Result<String, String> {
     let completo = format!("{PS_PREFIJO}{script}");
     let utf16: Vec<u8> = completo.encode_utf16().flat_map(u16::to_le_bytes).collect();
     let mut cmd = Command::new("powershell");
     cmd.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand"]).arg(base64(&utf16));
+    for (clave, valor) in datos {
+        cmd.env(clave, valor);
+    }
     ejecutar(&mut cmd, limite)
 }
 
 #[cfg(not(windows))]
-fn ps(_script: &str, _limite: Duration) -> Result<String, String> {
+fn ps_con_datos(_script: &str, _limite: Duration, _datos: &[(&str, &str)]) -> Result<String, String> {
     Err(SOLO_WINDOWS.to_string())
 }
 
@@ -194,14 +203,7 @@ pub async fn info_equipo() -> Result<InfoEquipo, String> {
 
 // ---------- Programas de inicio ----------
 
-const RUN_USUARIO: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
-const RUN_EQUIPO: &str = r"HKLM\Software\Microsoft\Windows\CurrentVersion\Run";
-const RUN_EQUIPO_32: &str = r"HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";
-const APROBADOS_USUARIO: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
-const APROBADOS_EQUIPO: &str = r"HKLM\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
-/// Lo que escribe el Administrador de tareas: primer byte 02 = activo, 03 = desactivado (el resto, ceros).
-const HEX_ACTIVO: &str = "020000000000000000000000";
-const HEX_INACTIVO: &str = "030000000000000000000000";
+const CLAVE_APROBADOS_USUARIO: &str = r"HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -214,65 +216,44 @@ pub struct ProgramaInicio {
     pub puede_cambiar: bool,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct EntradaReg {
-    pub nombre: String,
-    pub tipo: String,
-    pub valor: String,
-}
+/// Lee `Run` de usuario y de equipo y el interruptor de `StartupApproved`: primer byte par = activo, impar = desactivado.
+const GUION_INICIO: &str = "$base='Software\\Microsoft\\Windows\\CurrentVersion';\
+$f=@(@{c=\"HKCU:\\$base\\Run\";a=\"HKCU:\\$base\\Explorer\\StartupApproved\\Run\";m='usuario';p=$true},\
+@{c=\"HKLM:\\$base\\Run\";a=\"HKLM:\\$base\\Explorer\\StartupApproved\\Run\";m='equipo';p=$false},\
+@{c=\"HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\";a=\"HKLM:\\$base\\Explorer\\StartupApproved\\Run\";m='equipo';p=$false});\
+$auto=@('PSPath','PSParentPath','PSChildName','PSDrive','PSProvider');\
+$r=foreach($x in $f){$k=Get-ItemProperty -Path $x.c -ErrorAction SilentlyContinue;if(-not $k){continue};$ap=Get-ItemProperty -Path $x.a -ErrorAction SilentlyContinue;\
+foreach($n in $k.PSObject.Properties){if($auto -contains $n.Name){continue};$act=$true;\
+if($ap){$b=$ap.PSObject.Properties[$n.Name];if($b -and $b.Value -is [byte[]] -and $b.Value.Length -gt 0){$act=(($b.Value[0] -band 1) -eq 0)}};\
+[pscustomobject]@{nombre=$n.Name;comando=[string]$n.Value;ambito=$x.m;activo=$act;puedeCambiar=$x.p}}};\
+if($r){@($r)|ConvertTo-Json -Compress}else{'[]'}";
 
-/// Lee la salida de `reg query`: renglones "    nombre    REG_TIPO    valor". El nombre puede tener espacios.
-pub fn parsear_reg(salida: &str) -> Vec<EntradaReg> {
-    salida
-        .lines()
-        .filter(|l| l.starts_with("    "))
-        .filter_map(|l| {
-            let pos = l.find("    REG_")?;
-            let nombre = l[..pos].trim().to_string();
-            let resto = &l[pos + 4..];
-            let (tipo, valor) = resto.split_once("    ").unwrap_or((resto, ""));
-            (!nombre.is_empty()).then(|| EntradaReg { nombre, tipo: tipo.trim().to_string(), valor: valor.trim().to_string() })
-        })
-        .collect()
-}
-
-/// Un valor de StartupApproved está activo si el primer byte es par (02, 06); desactivado si es impar (03, 07).
-pub fn inicio_activo(hex: &str) -> bool {
-    hex.get(..2).and_then(|b| u8::from_str_radix(b, 16).ok()).map_or(true, |b| b & 1 == 0)
-}
-
-fn consultar_reg(clave: &str) -> Vec<EntradaReg> {
-    // Si la clave no existe `reg` falla: es lo mismo que "no hay nada".
-    ejecutar(Command::new("reg").args(["query", clave]), Duration::from_secs(10)).map(|s| parsear_reg(&s)).unwrap_or_default()
-}
-
-#[cfg(windows)]
-fn leer_inicio() -> Result<Vec<ProgramaInicio>, String> {
-    let mut todos = Vec::new();
-    for (clave, aprobados, ambito, puede_cambiar) in [
-        (RUN_USUARIO, APROBADOS_USUARIO, "usuario", true),
-        (RUN_EQUIPO, APROBADOS_EQUIPO, "equipo", false),
-        (RUN_EQUIPO_32, APROBADOS_EQUIPO, "equipo", false),
-    ] {
-        let estados = consultar_reg(aprobados);
-        for e in consultar_reg(clave).into_iter().filter(|e| e.tipo.starts_with("REG_SZ") || e.tipo.starts_with("REG_EXPAND_SZ")) {
-            let activo = estados.iter().find(|a| a.nombre.eq_ignore_ascii_case(&e.nombre)).map_or(true, |a| inicio_activo(&a.valor));
-            todos.push(ProgramaInicio {
-                nombre: limpiar_texto(&e.nombre, 80),
-                comando: limpiar_texto(&e.valor, 160),
+/// Un nombre que la limpieza cambiaría (muy largo o con caracteres raros) no se puede devolver tal cual al registro: se muestra, pero no se cambia.
+pub fn parsear_inicio(salida: &str) -> Vec<ProgramaInicio> {
+    let mut lista: Vec<ProgramaInicio> = lista_json(salida)
+        .iter()
+        .filter_map(|v| {
+            let bruto = v.get("nombre").and_then(Value::as_str)?;
+            let nombre = limpiar_texto(bruto, 80);
+            if nombre.is_empty() {
+                return None;
+            }
+            let ambito = if texto(v, "ambito", 10) == "usuario" { "usuario" } else { "equipo" };
+            Some(ProgramaInicio {
+                puede_cambiar: ambito == "usuario" && booleano(v, "puedeCambiar") && nombre == bruto,
+                nombre,
+                comando: texto(v, "comando", 160),
                 ambito: ambito.to_string(),
-                activo,
-                puede_cambiar,
-            });
-        }
-    }
-    todos.sort_by_key(|p| p.nombre.to_lowercase());
-    Ok(todos)
+                activo: v.get("activo").and_then(Value::as_bool).unwrap_or(true),
+            })
+        })
+        .collect();
+    lista.sort_by_key(|p| p.nombre.to_lowercase());
+    lista
 }
 
-#[cfg(not(windows))]
 fn leer_inicio() -> Result<Vec<ProgramaInicio>, String> {
-    Err(SOLO_WINDOWS.to_string())
+    Ok(parsear_inicio(&ps(GUION_INICIO, Duration::from_secs(20))?))
 }
 
 /// Lista lo que arranca con Windows y si está activo. Solo lectura.
@@ -281,35 +262,30 @@ pub async fn programas_inicio() -> Result<Vec<ProgramaInicio>, String> {
     tauri::async_runtime::spawn_blocking(leer_inicio).await.map_err(|e| e.to_string())?
 }
 
-/// Activa o desactiva un programa de inicio DEL USUARIO. Revalida contra la lista real: el nombre debe existir ahí.
+/// Activa o desactiva un programa de inicio DEL USUARIO. Revalida contra la lista real: el nombre debe existir ahí y ser del usuario.
 /// No borra nada: cambia el mismo interruptor que usa el Administrador de tareas, así que se puede deshacer.
+fn aplicar_cambio_inicio(nombre: &str, activar: bool) -> Result<String, String> {
+    let lista = leer_inicio()?;
+    let programa = lista
+        .iter()
+        .find(|p| p.nombre.eq_ignore_ascii_case(nombre.trim()))
+        .ok_or_else(|| "No encuentro ese programa en la lista de inicio".to_string())?;
+    if !programa.puede_cambiar {
+        return Err("Ese programa es del equipo y para cambiarlo hacen falta permisos de administrador. Podés hacerlo desde el Administrador de tareas".to_string());
+    }
+    // El nombre viaja por una variable de entorno, no dentro del guion; el valor son los 12 bytes que escribe el Administrador de tareas.
+    let guion = format!(
+        "$k='{CLAVE_APROBADOS_USUARIO}';if(-not(Test-Path $k)){{New-Item -Path $k -Force|Out-Null}};\
+         Set-ItemProperty -Path $k -Name $env:KERNI_NOMBRE -Value ([byte[]](@({},0,0,0,0,0,0,0,0,0,0,0))) -Type Binary -ErrorAction Stop",
+        if activar { 2 } else { 3 }
+    );
+    ps_con_datos(&guion, Duration::from_secs(15), &[("KERNI_NOMBRE", &programa.nombre)]).map_err(|_| "No pude cambiarlo".to_string())?;
+    Ok(format!("{} {} al iniciar Windows", programa.nombre, if activar { "vuelve a abrirse" } else { "ya no se abre" }))
+}
+
 #[tauri::command]
 pub async fn cambiar_inicio(nombre: String, activar: bool) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let lista = leer_inicio()?;
-        let programa = lista
-            .iter()
-            .find(|p| p.nombre.eq_ignore_ascii_case(nombre.trim()))
-            .ok_or_else(|| "No encuentro ese programa en la lista de inicio".to_string())?;
-        if !programa.puede_cambiar {
-            return Err("Ese programa es del equipo y para cambiarlo hacen falta permisos de administrador. Podés hacerlo desde el Administrador de tareas".to_string());
-        }
-        // El nombre real (tal como está en el registro) viene de la lista, no de lo que mandó la interfaz.
-        let real = consultar_reg(RUN_USUARIO)
-            .into_iter()
-            .find(|e| limpiar_texto(&e.nombre, 80).eq_ignore_ascii_case(&programa.nombre))
-            .map(|e| e.nombre)
-            .ok_or_else(|| "No encuentro ese programa en la lista de inicio".to_string())?;
-        let hex = if activar { HEX_ACTIVO } else { HEX_INACTIVO };
-        ejecutar(
-            Command::new("reg").args(["add", APROBADOS_USUARIO, "/v", &real, "/t", "REG_BINARY", "/d", hex, "/f"]),
-            Duration::from_secs(10),
-        )
-        .map_err(|_| "No pude cambiarlo".to_string())?;
-        Ok(format!("{} {} al iniciar Windows", programa.nombre, if activar { "vuelve a abrirse" } else { "ya no se abre" }))
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || aplicar_cambio_inicio(&nombre, activar)).await.map_err(|e| e.to_string())?
 }
 
 // ---------- Red (solo lectura) ----------
@@ -380,7 +356,12 @@ fn leer_adaptadores() -> Vec<Adaptador> {
 fn leer_red() -> EstadoRed {
     let publicas: Vec<SocketAddr> = ["1.1.1.1:443", "8.8.8.8:443"].iter().filter_map(|a| a.parse().ok()).collect();
     let latencia_ms = probar_conexion(&publicas, Duration::from_secs(3));
-    let dns = ("example.com", 443).to_socket_addrs().map(|mut a| a.next().is_some()).unwrap_or(false);
+    // Sin internet, resolver un nombre puede quedarse esperando muchos segundos: se le da un máximo de 4.
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(("example.com", 443).to_socket_addrs().map(|mut a| a.next().is_some()).unwrap_or(false));
+    });
+    let dns = rx.recv_timeout(Duration::from_secs(4)).unwrap_or(false);
     EstadoRed { internet: latencia_ms.is_some(), latencia_ms, dns, adaptadores: leer_adaptadores() }
 }
 
@@ -399,24 +380,35 @@ pub struct ActualizacionPendiente {
     pub mb: f64,
     pub critica: bool,
     pub reinicio: bool,
+    /// Las definiciones del antivirus se instalan solas varias veces al día: no son algo que la persona tenga que hacer.
+    pub automatica: bool,
+}
+
+pub fn es_automatica(titulo: &str) -> bool {
+    let t = titulo.to_lowercase();
+    ["security intelligence", "definition update", "inteligencia de seguridad", "definiciones de seguridad", "actualización de definiciones"].iter().any(|p| t.contains(p))
 }
 
 pub fn parsear_actualizaciones(salida: &str) -> Vec<ActualizacionPendiente> {
     lista_json(salida)
         .iter()
-        .map(|v| ActualizacionPendiente { titulo: texto(v, "titulo", 160), mb: numero(v, "mb"), critica: booleano(v, "critica"), reinicio: booleano(v, "reinicio") })
+        .map(|v| {
+            let titulo = texto(v, "titulo", 160);
+            ActualizacionPendiente { automatica: es_automatica(&titulo), titulo, mb: numero(v, "mb"), critica: booleano(v, "critica"), reinicio: booleano(v, "reinicio") }
+        })
         .filter(|a| !a.titulo.is_empty())
         .collect()
 }
 
-/// Pregunta a Windows Update qué hay pendiente. NO descarga ni instala nada: solo busca. Puede tardar un buen rato.
+/// Pregunta a Windows Update qué hay pendiente. NO descarga ni instala nada: solo busca. Puede tardar minutos
+/// (en esta PC 87 s; en un equipo más lento, más), por eso el tope es de 5 minutos.
 #[tauri::command]
 pub async fn actualizaciones_windows() -> Result<Vec<ActualizacionPendiente>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         let salida = ps(
             "$s=New-Object -ComObject Microsoft.Update.Session;$r=$s.CreateUpdateSearcher().Search(\"IsInstalled=0 and IsHidden=0\");\
              @($r.Updates|ForEach-Object{[pscustomobject]@{titulo=$_.Title;mb=[math]::Round($_.MaxDownloadSize/1MB);critica=($_.MsrcSeverity -eq 'Critical');reinicio=($_.InstallationBehavior.RebootBehavior -ne 0)}})|ConvertTo-Json -Compress",
-            Duration::from_secs(120),
+            Duration::from_secs(300),
         )?;
         Ok(parsear_actualizaciones(&salida))
     })
@@ -538,29 +530,30 @@ mod tests {
     }
 
     #[test]
-    fn parsea_reg_query_con_nombres_con_espacios() {
-        let salida = "\r\nHKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\r\n    OneDrive    REG_SZ    \"C:\\Program Files\\OneDrive.exe\" /background\r\n    Mi Programa Raro    REG_EXPAND_SZ    %APPDATA%\\x.exe\r\n    Vacio    REG_SZ    \r\n\r\n";
-        let r = parsear_reg(salida);
-        assert_eq!(r.len(), 3);
-        assert_eq!(r[0].nombre, "OneDrive");
-        assert_eq!(r[0].tipo, "REG_SZ");
-        assert!(r[0].valor.ends_with("/background"));
-        assert_eq!(r[1].nombre, "Mi Programa Raro");
-        assert_eq!(r[1].tipo, "REG_EXPAND_SZ");
-        assert_eq!(r[2].valor, "");
-        assert!(parsear_reg("HKEY_X\r\n\r\n").is_empty());
+    fn lee_los_programas_de_inicio_y_no_deja_cambiar_los_dudosos() {
+        let salida = "[{\"nombre\":\"Spotify\",\"comando\":\"C:\\\\x\\\\Spotify.exe\",\"ambito\":\"usuario\",\"activo\":true,\"puedeCambiar\":true},\
+{\"nombre\":\"Mi Programa Ñandú\",\"comando\":\"y\",\"ambito\":\"usuario\",\"activo\":false,\"puedeCambiar\":true},\
+{\"nombre\":\"SecurityHealth\",\"comando\":\"z\",\"ambito\":\"equipo\",\"activo\":true,\"puedeCambiar\":false},\
+{\"nombre\":\"Raro\\u0007\",\"comando\":\"z\",\"ambito\":\"usuario\",\"activo\":true,\"puedeCambiar\":true},\
+{\"nombre\":\"\",\"comando\":\"vacio\",\"ambito\":\"usuario\",\"activo\":true,\"puedeCambiar\":true}]";
+        let l = parsear_inicio(salida);
+        assert_eq!(l.len(), 4, "{l:?}");
+        let por = |n: &str| l.iter().find(|p| p.nombre == n).unwrap();
+        assert!(por("Spotify").puede_cambiar && por("Spotify").activo);
+        assert!(por("Mi Programa Ñandú").puede_cambiar && !por("Mi Programa Ñandú").activo); // las tildes y eñes sobreviven
+        assert!(!por("SecurityHealth").puede_cambiar); // del equipo: hace falta administrador
+        assert!(!por("Raro").puede_cambiar); // el nombre cambiaría al limpiarlo: no se devuelve tal cual al registro
+        assert!(l.windows(2).all(|w| w[0].nombre.to_lowercase() <= w[1].nombre.to_lowercase()));
+        assert!(parsear_inicio("").is_empty());
+        assert!(parsear_inicio("[]").is_empty());
+        assert!(aplicar_cambio_inicio("", true).is_err() || cfg!(windows));
     }
 
     #[test]
-    fn el_primer_byte_dice_si_el_inicio_esta_activo() {
-        assert!(inicio_activo("020000000000000000000000"));
-        assert!(inicio_activo("060000000000000000000000"));
-        assert!(!inicio_activo("030000000000000000000000"));
-        assert!(!inicio_activo("07FFFFFFFFFFFFFFFFFFFFFF"));
-        assert!(inicio_activo("")); // sin dato: Windows lo trata como activo
-        assert!(inicio_activo("zz"));
-        assert_eq!(HEX_ACTIVO.len(), HEX_INACTIVO.len());
-        assert!(inicio_activo(HEX_ACTIVO) && !inicio_activo(HEX_INACTIVO));
+    fn el_guion_de_inicio_no_lleva_texto_de_afuera() {
+        // El nombre del programa viaja por una variable de entorno: ni el guion de lectura ni el de escritura lo incluyen.
+        assert!(!GUION_INICIO.contains("KERNI_NOMBRE"));
+        assert!(GUION_INICIO.contains("StartupApproved"));
     }
 
     #[test]
@@ -577,10 +570,17 @@ mod tests {
     fn parsea_actualizaciones_pendientes() {
         let a = parsear_actualizaciones("[{\"titulo\":\"Actualización acumulativa 2026-10\",\"mb\":512,\"critica\":true,\"reinicio\":true},{\"titulo\":\"\",\"mb\":1}]");
         assert_eq!(a.len(), 1);
-        assert!(a[0].critica && a[0].reinicio);
+        assert!(a[0].critica && a[0].reinicio && !a[0].automatica);
         assert_eq!(a[0].mb, 512.0);
         assert_eq!(parsear_actualizaciones("{\"titulo\":\"Una sola\",\"mb\":3}").len(), 1);
         assert!(parsear_actualizaciones("").is_empty());
+    }
+
+    #[test]
+    fn las_definiciones_del_antivirus_se_marcan_como_automaticas() {
+        assert!(es_automatica("Security Intelligence Update for Microsoft Defender Antivirus - KB2267602 (Version 1.463.13.0)"));
+        assert!(es_automatica("Actualización de inteligencia de seguridad de Microsoft Defender"));
+        assert!(!es_automatica("2026-10 Cumulative Update for Windows 11 (KB5043080)"));
     }
 
     #[test]
@@ -638,5 +638,38 @@ mod tests {
         let red = leer_red();
         println!("{red:?}");
         println!("{:?}", medir_papelera());
+    }
+
+    /// Crea un programa de inicio temporal con tildes en el registro REAL del usuario, lo desactiva, lo reactiva y lo borra.
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "toca el registro real (con limpieza): cargo test -- --ignored"]
+    fn cambiar_inicio_real_con_nombre_con_tildes() {
+        let nombre = "Kerni prueba ñandú";
+        let run = r"HKCU:\Software\Microsoft\Windows\CurrentVersion\Run";
+        let limpiar = || {
+            let _ = ps_con_datos(
+                &format!("Remove-ItemProperty -Path '{run}' -Name $env:KERNI_NOMBRE -ErrorAction SilentlyContinue;Remove-ItemProperty -Path '{CLAVE_APROBADOS_USUARIO}' -Name $env:KERNI_NOMBRE -ErrorAction SilentlyContinue"),
+                Duration::from_secs(15),
+                &[("KERNI_NOMBRE", nombre)],
+            );
+        };
+        limpiar();
+        ps_con_datos(&format!("Set-ItemProperty -Path '{run}' -Name $env:KERNI_NOMBRE -Value 'C:\\no-existe.exe'"), Duration::from_secs(15), &[("KERNI_NOMBRE", nombre)]).unwrap();
+        let estado = || leer_inicio().unwrap().into_iter().find(|p| p.nombre == nombre);
+        let r = std::panic::catch_unwind(|| {
+            let inicial = estado().expect("debería aparecer en la lista, con sus tildes");
+            assert!(inicial.activo && inicial.puede_cambiar, "{inicial:?}");
+            aplicar_cambio_inicio(nombre, false).unwrap();
+            assert!(!estado().unwrap().activo, "debería quedar desactivado");
+            aplicar_cambio_inicio(nombre, true).unwrap();
+            assert!(estado().unwrap().activo, "debería quedar activo otra vez");
+            assert!(aplicar_cambio_inicio("programa que no existe", false).is_err());
+        });
+        limpiar();
+        assert!(estado().is_none(), "la limpieza debería haberlo borrado");
+        if let Err(e) = r {
+            std::panic::resume_unwind(e);
+        }
     }
 }

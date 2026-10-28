@@ -55,6 +55,14 @@ const REGLAS = [
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },
 ];
 
+// Contra los falsos positivos: si el texto coincide con la regla pero también con esto, no se propone nada.
+const EXCEPCIONES = {
+  ver_programas_inicio: /\b(inicio|iniciar|inicia|arranque)\s+(de\s+)?sesion\b|\bsesion\b/,
+  ver_actualizaciones: /\b(office|word|excel|powerpoint|chrome|firefox|android|iphone|ios|apps?|juegos?|antivirus|drivers?|controlador(es)?)\b/,
+  ver_info_equipo: /\bequipo\s+de\b/,
+  ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
+};
+
 /** @returns {boolean} la persona quiere ver qué archivos o carpetas pesados/viejos hay (y quizá cuáles borrar) */
 export function pideArchivosPesados(texto) {
   const t = norm(texto);
@@ -90,7 +98,7 @@ export function detectarAccion(texto) {
   const destino = destinoDeAjuste(t);
   if (destino) return { tipo: 'proponer_accion', accion: 'abrir_ajuste', destino, motivo: `Abrir la configuración de ${destino} en Windows.` };
   if (pideArchivosPesados(t)) return { tipo: 'proponer_accion', accion: 'ver_archivos_pesados', motivo: PROPUESTAS.ver_archivos_pesados };
-  const regla = REGLAS.find((r) => r.patron.test(t));
+  const regla = REGLAS.find((r) => r.patron.test(t) && !EXCEPCIONES[r.accion]?.test(t));
   return regla ? { tipo: 'proponer_accion', accion: regla.accion, motivo: PROPUESTAS[regla.accion] } : null;
 }
 

@@ -150,7 +150,7 @@ Siete acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmaci�
 | `ver_programas_inicio` | Lista lo que arranca con Windows (`Run` de usuario y de equipo + `StartupApproved`) y si está activo | No |
 | `ver_espacio_carpetas` | Lo más grande de las carpetas personales, sin mirar la fecha (es `archivos_pesados` con 0 días) | No |
 | `ver_estado_red` | Conexión TCP corta a 1.1.1.1 / 8.8.8.8 (latencia), DNS y adaptadores activos. No manda datos | No |
-| `ver_actualizaciones` | Pregunta a Windows Update qué hay pendiente. **No descarga ni instala**; puede tardar hasta 2 min | No |
+| `ver_actualizaciones` | Pregunta a Windows Update qué hay pendiente. **No descarga ni instala**; puede tardar minutos (87 s medidos aquí, tope de 5). Las definiciones del antivirus se listan pero no cuentan como pendientes | No |
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 
@@ -158,7 +158,7 @@ Siete acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmaci�
 - **El modelo de la PC viaja con el chat** (`equipo`: fabricante, modelo y sistema, limpiados y rotulados como dato en el prompt). Así Kerni busca en el manual correcto: con el modelo real, "¿cuánta RAM le puedo agregar?" responde con la guía de la Latitude 3120.
 - **Reconocimiento sin depender del modelo**: `src/backend/src/intenciones.js` (conversación, hasta 30 palabras) y `intenciones.js` del front (mensajes cortos, sin backend ni llave). Se prueban sobre texto sin tildes; ante la duda no proponen nada. Se agregan a la tarjeta solo si el modelo no propuso otra cosa.
 - **Menú del clic con dos dedos**: submenú *Más herramientas*. La papelera, desde ahí, solo abre la tarjeta.
-- En Rust, lo que se pide a PowerShell son guiones fijos (nunca texto de la persona ni del modelo), con tiempo máximo y sin ventana de consola; `reg.exe` y `explorer` reciben el nombre como argumento, sin shell. Fuera de Windows las que dependen de Windows devuelven un aviso.
+- En Rust, lo que se pide a PowerShell son guiones fijos (nunca texto de la persona ni del modelo), con tiempo máximo y sin ventana de consola. Los nombres (por ejemplo el de un programa de inicio) viajan por variables de entorno, nunca dentro del guion, y se leen y escriben con PowerShell en UTF-8 (`reg.exe` rompía los nombres con tildes); `explorer` recibe solo direcciones de una lista cerrada. Fuera de Windows las que dependen de Windows devuelven un aviso.
 - No hay ninguna acción para borrar ni mover archivos sueltos: ver *Archivos pesados*.
 
 ## Probar la app real de Tauri

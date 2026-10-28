@@ -74,7 +74,7 @@ test('actualizaciones: cuenta, marca las críticas y nunca dice que instaló alg
     { titulo: 'Acumulativa', mb: 512, critica: true, reinicio: true },
     { titulo: 'Definiciones', mb: 28, critica: false, reinicio: false },
   ]);
-  assert.match(p.estado, /2 actualizaciones pendientes \(540 MB\), 1 crítica/);
+  assert.match(p.estado, /2 actualizaciones pendientes \(hasta 540 MB\), 1 crítica/);
   assert.match(p.estado, /Alguna pide reiniciar/);
   assert.match(p.estado, /No instalé nada/);
   assert.match(p.filas[0].pista.texto, /Crítica/);
@@ -125,4 +125,23 @@ test('los textos fijos de las herramientas no usan diminutivos ni emojis', () =>
     assert.doesNotMatch(t, SIN_DIMINUTIVOS, t);
     assert.doesNotMatch(t, /(?![\u00A9\u00AE\u2122])\p{Extended_Pictographic}/u, t);
   }
+});
+
+test('mismos falsos positivos descartados que en el backend', () => {
+  for (const q of ['abrí el programa de inicio de sesión', 'hay actualizaciones de office', 'información del equipo de ventas', 'revisá la red del colegio', 'la red social está lenta']) {
+    assert.equal(accionLocalNueva(q), null, q);
+  }
+  assert.equal(accionLocalNueva('hay actualizaciones de windows').proponer.accion, 'ver_actualizaciones');
+});
+
+test('actualizaciones: las definiciones del antivirus se instalan solas y no cuentan como pendientes', () => {
+  const sola = { titulo: 'Security Intelligence Update for Microsoft Defender', mb: 1641, critica: false, reinicio: false, automatica: true };
+  const solo = panelActualizaciones([sola]);
+  assert.match(solo.estado, /al día/);
+  assert.match(solo.estado, /1 del antivirus que se instala sola/);
+  assert.match(solo.filas[0].pista.texto, /Se instala sola/);
+  assert.match(solo.filas[0].detalle, /^hasta 1\.6 GB/);
+  const mixto = panelActualizaciones([sola, { titulo: 'Acumulativa', mb: 512, critica: true, reinicio: true, automatica: false }]);
+  assert.match(mixto.estado, /Hay 1 actualización pendiente \(hasta 512 MB\), 1 crítica/);
+  assert.match(mixto.estado, /1 del antivirus que se instala sola/);
 });

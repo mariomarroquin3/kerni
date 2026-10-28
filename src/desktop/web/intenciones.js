@@ -45,6 +45,15 @@ const REGLAS_NUEVAS = [
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
 ];
 
+// Contra los falsos positivos ("inicio de sesión", "actualizaciones de Office", "equipo de ventas", "red social"):
+// si el texto coincide con la regla pero también con esto, que conteste el modelo. Igual que en el backend.
+const EXCEPCIONES = {
+  ver_programas_inicio: /\b(inicio|iniciar|inicia|arranque)\s+(de\s+)?sesion\b|\bsesion\b/,
+  ver_actualizaciones: /\b(office|word|excel|powerpoint|chrome|firefox|android|iphone|ios|apps?|juegos?|antivirus|drivers?|controlador(es)?)\b/,
+  ver_info_equipo: /\bequipo\s+de\b/,
+  ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
+};
+
 /** @returns {null | { texto: string, proponer: object }} */
 export function accionLocalNueva(texto) {
   const t = norm(texto);
@@ -55,7 +64,7 @@ export function accionLocalNueva(texto) {
       return { texto: `Te abro "${AJUSTES_NOMBRE[destino]}" en los ajustes de Windows.`, proponer: { accion: 'abrir_ajuste', destino, motivo: `Abrir ${AJUSTES_NOMBRE[destino]} en Windows.` } };
     }
   }
-  const regla = REGLAS_NUEVAS.find((r) => r.patron.test(t));
+  const regla = REGLAS_NUEVAS.find((r) => r.patron.test(t) && !EXCEPCIONES[r.accion]?.test(t));
   return regla ? { texto: regla.texto, proponer: { accion: regla.accion, motivo: regla.motivo } } : null;
 }
 const gb = (n) => (n >= 100 ? n.toFixed(0) : n.toFixed(1));

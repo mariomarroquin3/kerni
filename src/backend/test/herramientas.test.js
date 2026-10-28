@@ -120,3 +120,16 @@ describe('persona con las herramientas nuevas', () => {
     expect(PERSONA).toMatch(/Equipo de la persona/);
   });
 });
+
+describe('falsos positivos conocidos', () => {
+  it('no confunde inicio de sesión, actualizaciones de otros programas, equipos de trabajo ni redes sociales', () => {
+    for (const q of [
+      'abrí el programa de inicio de sesión',
+      'hay actualizaciones de office?',
+      'necesito la información del equipo de ventas',
+      'revisá la red del colegio',
+      'la red social está lenta hoy',
+    ]) expect(detectarAccion(q), q).toBeNull();
+    expect(detectarAccion('hay actualizaciones de windows')?.accion).toBe('ver_actualizaciones');
+  });
+});
