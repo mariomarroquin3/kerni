@@ -5,7 +5,7 @@
 //   npm run indexar -- --buscar "mi pregunta"    prueba la búsqueda sin indexar
 // Lee .md, .txt y .pdf (con texto; los escaneados necesitan OCR antes). Tus manuales propios van en conocimiento/privado/ (ignorado por git).
 import { readdirSync, statSync, existsSync } from 'node:fs';
-import { join, relative, resolve, extname, dirname } from 'node:path';
+import { join, relative, resolve, extname, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../src/config.js';
 import { createSupabase } from '../src/memoria/supabase.js';
@@ -20,11 +20,19 @@ const iBuscar = args.indexOf('--buscar');
 const carpeta = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--buscar');
 
 function archivos(dir) {
-  return readdirSync(dir).flatMap((nombre) => {
+  const nombres = readdirSync(dir);
+  return nombres.flatMap((nombre) => {
     const ruta = join(dir, nombre);
     if (statSync(ruta).isDirectory()) return archivos(ruta);
-    return EXTENSIONES.includes(extname(nombre).toLowerCase()) && nombre.toLowerCase() !== 'readme.md' ? [ruta] : [];
+    return EXTENSIONES.includes(extname(nombre).toLowerCase()) && nombre.toLowerCase() !== 'readme.md' && !(esPdfConMarkdown(nombre, nombres)) ? [ruta] : [];
   });
+}
+
+/** Un PDF que ya tiene su .md al lado (npm run pdf-a-md) se indexa por el .md, no dos veces. */
+function esPdfConMarkdown(nombre, hermanos) {
+  if (extname(nombre).toLowerCase() !== '.pdf') return false;
+  const md = `${basename(nombre, extname(nombre))}.md`.toLowerCase();
+  return hermanos.some((h) => h.toLowerCase() === md);
 }
 
 let conocimiento = null;
