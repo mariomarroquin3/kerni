@@ -10,6 +10,14 @@ const MAX_ITERATIONS = 4;
 // Kerni habla sin emojis (son tokens de más y se ven distinto en cada equipo). El prompt ya lo pide;
 // esto es la red de seguridad por si el modelo se le escapa uno. Se respetan (c), (r) y (tm).
 const EMOJIS = /(?![\u00A9\u00AE\u2122])[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
+/** Si el modelo repite el bloque <sistema> o <memoria> en su respuesta, la persona no tiene por qué verlo. */
+export function quitarBloquesInternos(texto) {
+  return String(texto)
+    .replace(/<(sistema|memoria|conocimiento|reflexiones)\b[\s\S]*?<\/\1>/gi, '')
+    .replace(/<\/?(sistema|memoria|conocimiento|reflexiones)\b[^>]*>/gi, '')
+    .trim();
+}
+
 export function quitarEmojis(texto) {
   return String(texto)
     .replace(EMOJIS, '')
@@ -212,7 +220,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
       logger.error?.({ err }, 'falló el turno');
       throw err;
     }
-    respuesta = quitarEmojis(respuesta);
+    respuesta = quitarEmojis(quitarBloquesInternos(respuesta));
     if (!respuesta) respuesta = 'Ay, me enredé todito. ¿Me lo contás de otra forma?';
     traza.push({ tipo: 'total', ms: Math.round(clock() - inicioTurno), rechazado });
     return { respuesta, acciones, traza };

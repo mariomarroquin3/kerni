@@ -48,6 +48,10 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 #archivos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #archivos .archivo-info { min-width: 0; display: flex; flex-direction: column; }
 #archivos .archivo-info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#archivos .archivo-info .pista { white-space: normal; font-weight: 600; }
+#archivos .pista-suele_sobrar { color: #7fd8a0; }
+#archivos .pista-respaldar { color: #ffc46b; }
+#archivos .pista-revisar { color: var(--suave); }
 #archivos .archivo-info small { color: var(--suave); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 button {
