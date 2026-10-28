@@ -175,27 +175,39 @@ pub fn run() {
             #[cfg(target_os = "linux")]
             ventana.set_focus()?;
 
-            // Revisa el cursor unas 15 veces por segundo:
-            // 1. Emite la posición física a JS para que compruebe con elementFromPoint.
-            // 2. Lee la respuesta de JS (set_interactivo) y actualiza los eventos del cursor.
-            // Al separar la detección en JS se evitan todos los problemas de escala
-            // DPI entre Rust (píxeles físicos) y WebView (píxeles CSS).
-            let handle = app.handle().clone();
-            std::thread::spawn(move || {
-                let mut ignorando: Option<bool> = None;
-                loop {
-                    std::thread::sleep(Duration::from_millis(66));
-                    let Some(ventana) = handle.get_webview_window("kerni") else { break };
-                    // Emitir posición del cursor para que JS determine la zona.
-                    emitir_cursor(&ventana);
-                    // Leer el resultado que JS envió en la iteración anterior.
-                    let interactivo = handle.state::<CursorInteractivo>().0.load(Ordering::Relaxed);
-                    if ignorando != Some(!interactivo) {
-                        let _ = ventana.set_ignore_cursor_events(!interactivo);
-                        ignorando = Some(!interactivo);
+            // En Linux, set_ignore_cursor_events deshabilita de forma permanente los clics
+            // en compositores Wayland/X11. Por defecto se deshabilita en Linux y solo se
+            // activa si la variable de entorno KERNI_CLICK_THROUGH es "1" o "true".
+            #[cfg(target_os = "linux")]
+            let activar_click_through = std::env::var("KERNI_CLICK_THROUGH")
+                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                .unwrap_or(false);
+            #[cfg(not(target_os = "linux"))]
+            let activar_click_through = true;
+
+            if activar_click_through {
+                // Revisa el cursor unas 15 veces por segundo:
+                // 1. Emite la posición física a JS para que compruebe con elementFromPoint.
+                // 2. Lee la respuesta de JS (set_interactivo) y actualiza los eventos del cursor.
+                // Al separar la detección en JS se evitan todos los problemas de escala
+                // DPI entre Rust (píxeles físicos) y WebView (píxeles CSS).
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    let mut ignorando: Option<bool> = None;
+                    loop {
+                        std::thread::sleep(Duration::from_millis(66));
+                        let Some(ventana) = handle.get_webview_window("kerni") else { break };
+                        // Emitir posición del cursor para que JS determine la zona.
+                        emitir_cursor(&ventana);
+                        // Leer el resultado que JS envió en la iteración anterior.
+                        let interactivo = handle.state::<CursorInteractivo>().0.load(Ordering::Relaxed);
+                        if ignorando != Some(!interactivo) {
+                            let _ = ventana.set_ignore_cursor_events(!interactivo);
+                            ignorando = Some(!interactivo);
+                        }
                     }
-                }
-            });
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
