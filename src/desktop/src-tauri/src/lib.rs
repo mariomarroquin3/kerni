@@ -87,15 +87,6 @@ fn al_elegir(app: &AppHandle, id: &str) {
     }
 }
 
-/// Clic derecho sobre Kerni (en el touchpad, clic con dos dedos): abre el menú nativo en la posición del cursor.
-/// `metricas_visibles` solo decide si la opción dice "Ver" u "Ocultar".
-#[tauri::command]
-fn menu_contextual(ventana: WebviewWindow, metricas_visibles: Option<bool>) -> Result<(), String> {
-    let texto_metricas = if metricas_visibles.unwrap_or(false) { "Ocultar métricas" } else { "Ver métricas" };
-    let menu = crear_menu(&ventana, "Ocultar a Kerni", texto_metricas).map_err(|e| e.to_string())?;
-    ventana.popup_menu(&menu).map_err(|e| e.to_string())
-}
-
 /// Coloca la ventana en la esquina inferior derecha del área útil
 /// (sin tapar la barra de tareas).
 fn a_la_esquina(ventana: &WebviewWindow) -> tauri::Result<()> {
@@ -130,7 +121,6 @@ fn emitir_cursor(ventana: &WebviewWindow) {
 fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         set_interactivo,
-        menu_contextual,
         sistema::metricas,
         sistema::terminar_proceso,
         sistema::archivos_pesados,
@@ -143,7 +133,6 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
 fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
         set_interactivo,
-        menu_contextual,
         sistema::metricas,
         sistema::terminar_proceso,
         sistema::archivos_pesados,

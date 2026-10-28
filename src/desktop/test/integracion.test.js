@@ -109,20 +109,24 @@ test('lo que dice el modelo se pinta con textContent, nunca con innerHTML', () =
   assert.doesNotMatch(main, /innerHTML|outerHTML|insertAdjacentHTML/);
 });
 
-test('las métricas están 100% ocultas al arrancar y se ven desde el menú del clic con dos dedos', () => {
+test('las métricas están ocultas al arrancar y el clic derecho abre el menú integrado', () => {
   // toda la sección (barras y botones) nace oculta
   assert.match(html, /<section id="hud"[^>]*\bhidden\b/);
   assert.match(html, /id="metricas"/);
   assert.match(html, /id="alternar-metricas"/);
-  // el menú nativo trae las opciones y avisa a la interfaz con eventos
+  // el menú nativo de la bandeja y el menú integrado del clic derecho comparten opciones
   const lib = leer('src-tauri', 'src', 'lib.rs');
   assert.match(lib, /MenuItem::with_id\(app, "metricas"/);
   assert.match(lib, /"metricas" => avisar_a_kerni\(app, "alternar-metricas"\)/);
   assert.match(lib, /"limpiar" => avisar_a_kerni\(app, "pedir-limpiar"\)/);
-  assert.match(lib, /fn menu_contextual\(ventana: WebviewWindow, metricas_visibles: Option<bool>\)/);
+  assert.match(html, /id="menu-contextual"[^>]*role="menu"/);
+  for (const accion of ['metricas', 'pesados', 'limpiar', 'ocultar', 'cerrar']) {
+    assert.match(html, new RegExp(`data-menu-accion="${accion}"`));
+  }
   assert.match(main, /listen\('alternar-metricas'/);
   assert.match(main, /listen\('pedir-limpiar'/);
-  assert.match(main, /llamar\('menu_contextual', \{ metricasVisibles:/);
+  assert.match(main, /menuContextual\.hidden = false/);
+  assert.doesNotMatch(main, /llamar\('menu_contextual'/);
   // la limpieza desde el menú sigue pasando por la tarjeta de confirmación
   assert.match(main, /function pedirLimpieza\(\) \{\s*proponer\(\{ accion: 'limpiar_temporales'/);
   // y no se recuerda entre sesiones: siempre vuelve a empezar oculta

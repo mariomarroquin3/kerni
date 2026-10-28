@@ -28,3 +28,6 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-27 | Guide and tooling to put the RAG on Supabase Cloud | [2026-10-27-supabase-cloud-guide.md](2026-10-27-supabase-cloud-guide.md) |
 | 2026-10-27 | Cloud launcher (Kerni-nube.bat) and PDF to Markdown converter | [2026-10-27-cloud-launcher-and-pdf-to-md.md](2026-10-27-cloud-launcher-and-pdf-to-md.md) |
 | 2026-10-28 | No diminutives, and hints about which old files can go | [2026-10-28-no-diminutives-and-delete-hints.md](2026-10-28-no-diminutives-and-delete-hints.md) |
+| 2026-10-28 | Fix Linux contextual menu popup warnings | [2026-10-28-linux-context-menu-popup.md](2026-10-28-linux-context-menu-popup.md) |
+| 2026-10-28 | Keep the Linux contextual menu open on right-click | [2026-10-28-linux-context-menu-flash.md](2026-10-28-linux-context-menu-flash.md) |
+| 2026-10-28 | Replace the GTK contextual popup with an in-window menu | [2026-10-28-linux-context-menu-html.md](2026-10-28-linux-context-menu-html.md) |

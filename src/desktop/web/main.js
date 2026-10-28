@@ -466,10 +466,60 @@ if (enTauri) {
   })();
 }
 
+const menuContextual = $('menu-contextual');
+const itemMetricasMenu = menuContextual.querySelector('[data-menu-accion="metricas"]');
+function ocultarMenuContextual() {
+  menuContextual.hidden = true;
+}
+
 $('mascota').addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (!enTauri) { alternarMetricas(); return; } // sin menú nativo en el navegador: el clic derecho alterna las métricas
-  llamar('menu_contextual', { metricasVisibles: !$('hud').hidden }).catch(() => {});
+  itemMetricasMenu.textContent = $('hud').hidden ? 'Ver métricas' : 'Ocultar métricas';
+  menuContextual.hidden = false;
+  const maxX = window.innerWidth - menuContextual.offsetWidth - 8;
+  const maxY = window.innerHeight - menuContextual.offsetHeight - 8;
+  menuContextual.style.left = `${Math.max(8, Math.min(e.clientX, maxX))}px`;
+  menuContextual.style.top = `${Math.max(8, Math.min(e.clientY, maxY))}px`;
+  itemMetricasMenu.focus();
+});
+
+document.addEventListener('pointerdown', (e) => {
+  if (!menuContextual.hidden && !menuContextual.contains(e.target)) ocultarMenuContextual();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !menuContextual.hidden) ocultarMenuContextual();
+});
+menuContextual.addEventListener('click', async (e) => {
+  const item = e.target.closest('[data-menu-accion]');
+  if (!item) return;
+  ocultarMenuContextual();
+  try {
+    switch (item.dataset.menuAccion) {
+      case 'metricas':
+        alternarMetricas();
+        break;
+      case 'pesados':
+        await buscarArchivosPesados();
+        break;
+      case 'limpiar':
+        if (!pendiente) pedirLimpieza();
+        break;
+      case 'ocultar': {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().hide();
+        break;
+      }
+      case 'cerrar': {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().close();
+        break;
+      }
+    }
+  } catch (err) {
+    console.error('[menu-contextual] No se pudo ejecutar la opción:', err);
+    decir('No pude completar esa opción. Probá de nuevo.', 6000);
+  }
 });
 
 actualizar();

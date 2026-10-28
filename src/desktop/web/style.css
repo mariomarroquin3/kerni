@@ -20,6 +20,32 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 
 .zona { pointer-events: auto; }
 
+/* El menú propio evita popups GTK sin padre en Linux. */
+#menu-contextual {
+  position: fixed;
+  z-index: 10;
+  min-width: 196px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: var(--borde-panel);
+  border-radius: 12px;
+  background: rgba(18, 24, 38, 0.98);
+  box-shadow: var(--sombra-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+#menu-contextual button {
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  background: transparent;
+  color: var(--texto);
+  font-weight: 500;
+}
+#menu-contextual button:hover { background: rgba(255, 255, 255, 0.1); box-shadow: none; }
+
 /* ---- Globo y tarjetas ---- */
 #globo, .tarjeta, #hud, #chat {
   background: var(--fondo);
