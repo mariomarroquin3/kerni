@@ -11,8 +11,14 @@ const TEMA_DISCO = /\b(disco|almacenamiento|espacio|c:|gb libres?|memoria del di
 // Si aparece cualquiera de estas, la persona quiere algo más que ver el número.
 const PIDE_MAS = /\b(por ?qu[eé]|como|cómo|que hago|qué hago|limpi\w*|liber\w*|borr\w*|ocup\w*|llen\w*|aument\w*|recomiend\w*|conviene|consejo)\b/i;
 
-// "archivos pesados", "carpetas grandes", "qué ocupa más espacio", "archivos que ya no uso": quiere VER lo que pesa y no se usa.
-const TEMA_PESADOS = /\b((archivos?|carpetas?|cosas)\s+(pesad\w*|grandes?|enormes?)|(pesad\w*|grandes?)\s+(archivos?|carpetas?)|qu[eé]\s+(archivos?|cosas)?\s*ocupa(n)?\s+(m[aá]s\s+)?(espacio|lugar)|(archivos?|cosas)\s+(que\s+)?(ya\s+)?no\s+uso|sin\s+usar)\b/i;
+// "archivos pesados", "carpetas grandes", "qué ocupa más espacio", "archivos que ya no uso", "archivos viejos", "qué puedo borrar": quiere VER lo que pesa y no se usa.
+const TEMA_PESADOS = /\b((archivos?|carpetas?|cosas)\s+(pesad\w*|grandes?|enormes?)|(pesad\w*|grandes?)\s+(archivos?|carpetas?)|qu[eé]\s+(archivos?|cosas)?\s*ocupa(n)?\s+(m[aá]s\s+)?(espacio|lugar)|(archivos?|cosas)\s+(que\s+)?(ya\s+)?no\s+uso|sin\s+usar|(archivos?|carpetas?|cosas)\s+(\w+\s+)?(viej\w*|antigu\w*|obsolet\w*)|(qu[eé]|cu[aá]les?)\s+(\w+\s+){0,4}(puedo|podr[ií]a|debo|conviene)\s+(borrar|eliminar))\b/i;
+
+// Pedido claro de saber qué archivos viejos se pueden borrar: se acepta más largo que el resto porque el modelo
+// no siempre propone la búsqueda, y si lo hace no ve los nombres. Sin "por qué/cómo": eso es explicación y va al modelo.
+const MAX_PALABRAS_BORRAR = 20;
+const QUIERE_BORRAR_VIEJOS = /(archivos?|carpetas?|cosas)\s+(\w+\s+)?(viej\w*|antigu\w*|obsolet\w*)|(qu[eé]|cu[aá]les?)\s+(\w+\s+){0,4}(puedo|podr[ií]a|debo|conviene)\s+(borrar|eliminar)/i;
+const PIDE_EXPLICAR = /\b(por ?qu[eé]|c[oó]mo|explic\w*)\b/i;
 
 const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
 const gb = (n) => (n >= 100 ? n.toFixed(0) : n.toFixed(1));
@@ -29,10 +35,12 @@ export function porcentajeDisco(m) {
  */
 export function responderLocal(texto, m) {
   if (!texto) return null;
-  if (palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto)) {
+  const pideVer = palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto);
+  const pideBorrarViejos = palabras(texto) <= MAX_PALABRAS_BORRAR && QUIERE_BORRAR_VIEJOS.test(texto) && !PIDE_EXPLICAR.test(texto);
+  if (pideVer || pideBorrarViejos) {
     // No hace falta la lectura del sistema: la búsqueda la hace la app, y solo después de que la persona apruebe.
     return {
-      texto: '¡Puedo buscarlos! Miro los archivos y carpetas más pesados que no usás hace rato. Solo te los muestro: yo no borro nada de ahí, lo decidís vos.',
+      texto: '¡Puedo buscarlos! Miro los archivos y carpetas más pesados que no usás hace rato, y te marco cuáles suelen sobrar y cuáles conviene respaldar. Yo no borro nada: lo decidís vos.',
       proponer: { accion: 'ver_archivos_pesados', motivo: 'Ver qué ocupa espacio sin usarse.' },
     };
   }
@@ -50,7 +58,7 @@ export function responderLocal(texto, m) {
       proponer: { accion: 'limpiar_temporales', motivo: `El disco está al ${pct}%.` },
     };
   }
-  return { texto: pct >= 70 ? `${base} Todavía hay lugarcito, pero vale la pena vigilarlo.` : `${base} ¡Vas muy bien!` };
+  return { texto: pct >= 70 ? `${base} Todavía queda lugar, pero vale la pena vigilarlo.` : `${base} ¡Vas muy bien!` };
 }
 
 // ---------- Revisar un enlace: "¿es seguro paypa1-login.com/verify?" ----------

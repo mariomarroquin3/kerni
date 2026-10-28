@@ -2,6 +2,7 @@ import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, mod
 import { createCharacter } from './character.js';
 import { crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, resumenEnlace, responderLocal } from './intenciones.js';
+import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 const CADA_MS = 2000;
@@ -259,7 +260,7 @@ async function ejecutar(a) {
       body: JSON.stringify({ device_id: deviceId, clave: a.clave, valor: a.valor }),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `error ${res.status}`);
-    decir('¡Anotadito! Me lo voy a acordar.');
+    decir('¡Anotado! Me lo voy a acordar.');
   } else if (a.accion === 'ver_archivos_pesados') {
     await buscarArchivosPesados();
   } else if (a.accion === 'terminar_proceso') {
@@ -269,7 +270,7 @@ async function ejecutar(a) {
     const r = await llamar('limpiar_temporales');
     decir(r.archivos
       ? `¡Ñam! Me comí ${r.archivos} archivos y liberé ${r.liberadoMb.toFixed(0)} MB.`
-      : 'No había temporales viejos que limpiar. ¡Tu compu está ordenadita!');
+      : 'No había temporales viejos que limpiar. ¡Tu compu está ordenada!');
   }
 }
 
@@ -297,7 +298,6 @@ $('rechazar').addEventListener('click', () => {
 });
 
 // ---------- Archivos pesados sin uso: solo lectura, Kerni lista y la persona decide ----------
-const tamanoLegible = (mb) => (mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`);
 function haceCuanto(dias) {
   if (dias < 60) return `hace ${dias} días`;
   if (dias < 365) return `hace ${Math.round(dias / 30)} meses`;
@@ -313,13 +313,14 @@ async function buscarArchivosPesados() {
   try {
     const { elementos: items, completa } = await llamar('archivos_pesados');
     // Si se acabó el tiempo antes de revisar todo, se dice: la lista puede estar corta.
-    const aviso = completa ? '' : ' Revisé hasta donde alcancé en el tiempo que tengo; puede haber más.';
     if (!items.length) {
-      estado.textContent = `No encontré nada pesado que lleve meses sin usarse.${aviso || ' ¡Todo en orden!'}`;
+      estado.textContent = resumenArchivos(items, completa);
+      decir(estado.textContent, 8000);
       return;
     }
-    const total = items.reduce((suma, a) => suma + a.tamanoMb, 0);
-    estado.textContent = `Encontré ${items.length} cosas que suman ${tamanoLegible(total)}. Solo las listo: vos decidís qué hacer con ellas.${aviso}`;
+    const resumen = resumenArchivos(items, completa);
+    estado.textContent = resumen;
+    decir(resumen, 20000);
     for (const a of items) {
       // Nombres y rutas vienen del disco: son datos no confiables, siempre textContent.
       const li = document.createElement('li');
@@ -329,7 +330,11 @@ async function buscarArchivosPesados() {
       nombre.textContent = a.esCarpeta ? `${a.nombre} (carpeta)` : a.nombre;
       const detalle = document.createElement('small');
       detalle.textContent = `${tamanoLegible(a.tamanoMb)} · sin tocar ${haceCuanto(a.diasSinUso)} · ${a.carpeta}`;
-      info.append(nombre, detalle);
+      const pista = pistaDeArchivo(a);
+      const etiqueta = document.createElement('small');
+      etiqueta.className = `pista pista-${pista.nivel}`;
+      etiqueta.textContent = `${NIVELES[pista.nivel]}: ${pista.texto}`;
+      info.append(nombre, detalle, etiqueta);
       const ver = document.createElement('button');
       ver.type = 'button';
       ver.className = 'secundario';
@@ -481,5 +486,5 @@ if (enTauri && deviceId) {
     }).catch(() => { /* sin backend o sin memoria: no pasa nada */ });
   }, 10 * 60_000);
 }
-decir('¡Holi! Soy Kerni y estoy cuidando tu compu.', 6000);
+decir('¡Hola! Soy Kerni y estoy cuidando tu compu.', 6000);
 setTimeout(() => personaje.saludar(), 600);
