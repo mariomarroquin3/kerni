@@ -32,7 +32,10 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/enlaces.js` | Revisión de enlaces (`revisar_enlace` y `POST /enlaces/revisar`): señales de la dirección y, con llave, la lista de Google Safe Browsing. Nunca abre el sitio |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
-| `src/desktop/src-tauri/src/sistema.rs` | **Único** código que toca el sistema: métricas, cerrar proceso, limpiar temporales y listar archivos pesados sin uso (solo lectura) |
+| `src/desktop/src-tauri/src/sistema.rs` | Código que toca el sistema: métricas, cerrar proceso, limpiar temporales, listar archivos pesados sin uso y espacio por carpeta (solo lectura) |
+| `src/desktop/src-tauri/src/herramientas.rs` | También toca el sistema: datos del equipo, programas de inicio, red, actualizaciones, papelera y ajustes de Windows (ver *Más herramientas*) |
+| `src/desktop/web/herramientas.js` | Cómo se muestran esos resultados y el texto de cada tarjeta (lógica pura, testeable) |
+| `src/backend/src/intenciones.js` | Pedidos que el harness reconoce solo ("qué programas se abren al iniciar", "vaciá la papelera") para proponer la tarjeta aunque el modelo no llame a la herramienta |
 | `src/desktop/web/estado.js` | Lógica pura del ánimo y del modo pánico (testeable sin DOM) |
 | `src/desktop/web/reglas.js` | Vigilante de RAM por reglas (proceso grande, fuga), sin modelo |
 | `src/desktop/web/estado.js` (carga) | `nivelDeCarga` y `crearNivelCarga`: umbrales 70 / 30 sobre el porcentaje de **batería**, con histéresis; `modoKerni` elige la cara por carga. La batería llega desde Rust (`Metricas.bateria`, `null` en un equipo sin batería) |
@@ -132,9 +135,31 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Mira nombres, tamaños y fechas, nunca el contenido, y solo en Descargas, Escritorio, Documentos, Videos, Imágenes y Música (y las de OneDrive). Un archivo cuenta como sin uso si ni su fecha de modificación ni la de último acceso son recientes (manda la más nueva). Una carpeta entera sin uso se informa sola, no archivo por archivo. Por defecto: más de 200 MB y más de 90 días; Rust acota los parámetros (30 a 3650 días, 50 MB a 100 GB).
 - No sigue enlaces simbólicos, no recorre `node_modules`, `.git`, `.venv`, `target` de Rust y similares (pero cuenta su fecha: un `npm install` de ayer indica que el proyecto se usa), revisa las carpetas en paralelo y tiene tope de 20 s y de entradas. Si se agota, avisa que la lista puede estar corta (`completa: false`) y nunca informa como sin uso una carpeta que no revisó entera. En esta PC: 3 s y 11 resultados.
 - `mostrar_en_carpeta` abre el Explorador con la cosa seleccionada, y solo si la ruta (con `..` y enlaces ya resueltos) está dentro de esas carpetas personales: Rust vuelve a validar aunque la ruta venga de su propia lista.
+- **También desde la conversación, aunque el modelo no llame a la herramienta**: `src/backend/src/intenciones.js` (`pideArchivosPesados`) hace que el harness añada la misma propuesta de solo lectura si el mensaje pide ver archivos pesados o viejos, o cuáles se pueden borrar, y el modelo solo lo comentó. La persona sigue aprobando en la tarjeta. No se añade si el modelo ya propuso algo, ni ante un "por qué/cómo" sin pedir qué borrar.
 - **Pistas por tipo** (`desktop/web/archivos.js`, solo extensión y archivo/carpeta, nunca el contenido): *Suele sobrar* (instaladores y comprimidos), *Respaldá antes* (fotos, videos, música, documentos) y *Revisá antes* (carpetas y tipos desconocidos; una carpeta nunca es "suele sobrar"). La burbuja resume cuántos y cuánto sin nombrar archivos y siempre manda a revisar antes de borrar. Preguntas como "qué archivos viejos puedo borrar" abren el escaneo sin pasar por el modelo; el modelo, si le toca, propone `ver_archivos_pesados` en vez de adivinar.
 - Las rutas que se muestran llevan `~` en lugar de la carpeta personal. **No hay ninguna acción para borrar ni mover lo que lista**: quien decide es la persona, con el Explorador. Si algún día se agrega, es una acción nueva con su tarjeta (regla 5).
 - Los nombres vienen del disco: son datos no confiables y se pintan con `textContent`.
+
+## Más herramientas (equipo, inicio, espacio, red, actualizaciones, papelera, ajustes)
+
+Siete acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmación; casi todas son de **solo lectura**. Rust (`herramientas.rs` y `sistema.rs`) las revalida y el backend (`acciones.js`) las valida; el front las muestra en un panel (`#panel`) con `textContent`.
+
+| Acción | Qué hace | Cambia algo |
+|---|---|---|
+| `ver_info_equipo` | Fabricante, modelo, sistema, procesador y RAM (PowerShell/CIM; en Linux `/sys/class/dmi`). Se lee una vez y se guarda | No |
+| `ver_programas_inicio` | Lista lo que arranca con Windows (`Run` de usuario y de equipo + `StartupApproved`) y si está activo | No |
+| `ver_espacio_carpetas` | Lo más grande de las carpetas personales, sin mirar la fecha (es `archivos_pesados` con 0 días) | No |
+| `ver_estado_red` | Conexión TCP corta a 1.1.1.1 / 8.8.8.8 (latencia), DNS y adaptadores activos. No manda datos | No |
+| `ver_actualizaciones` | Pregunta a Windows Update qué hay pendiente. **No descarga ni instala**; puede tardar hasta 2 min | No |
+| `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
+| `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
+
+- **Cambiar el inicio** (`cambiar_inicio`) no está en lo que el modelo puede proponer: lo pide la interfaz desde su propia lista (botón *Desactivar/Activar* en cada fila), siempre con tarjeta. Rust revalida el nombre contra la lista real y solo cambia los del **usuario**; no borra nada: escribe el mismo interruptor del Administrador de tareas, así que es reversible. Los del equipo piden administrador y la interfaz lo dice.
+- **El modelo de la PC viaja con el chat** (`equipo`: fabricante, modelo y sistema, limpiados y rotulados como dato en el prompt). Así Kerni busca en el manual correcto: con el modelo real, "¿cuánta RAM le puedo agregar?" responde con la guía de la Latitude 3120.
+- **Reconocimiento sin depender del modelo**: `src/backend/src/intenciones.js` (conversación, hasta 30 palabras) y `intenciones.js` del front (mensajes cortos, sin backend ni llave). Se prueban sobre texto sin tildes; ante la duda no proponen nada. Se agregan a la tarjeta solo si el modelo no propuso otra cosa.
+- **Menú del clic con dos dedos**: submenú *Más herramientas*. La papelera, desde ahí, solo abre la tarjeta.
+- En Rust, lo que se pide a PowerShell son guiones fijos (nunca texto de la persona ni del modelo), con tiempo máximo y sin ventana de consola; `reg.exe` y `explorer` reciben el nombre como argumento, sin shell. Fuera de Windows las que dependen de Windows devuelven un aviso.
+- No hay ninguna acción para borrar ni mover archivos sueltos: ver *Archivos pesados*.
 
 ## Probar la app real de Tauri
 
@@ -163,6 +188,7 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Confirmar que los modelos por defecto existen en cada cuenta (los ids de Gemini y OpenRouter cambian seguido).
 - [x] Personaje en Rive con cuatro modos (idle, sonriente, asustado, research) y saludo; la app cambia de modo según pánico, análisis y reacciones. Ver `personaje/kerni-rive/README.md`.
 - [x] Probado dentro de la ventana real de Tauri (`probar-tauri.mjs`), con `Kerni.bat` para abrirlo.
+- [x] Más herramientas: información del equipo, programas de inicio (con activar/desactivar), espacio por carpeta, estado de la red, actualizaciones pendientes, vaciar papelera y abrir ajustes de Windows. Probadas con lecturas reales en esta PC y con el modelo real; falta probarlas a mano en la ventana de Tauri.
 - [ ] Ícono propio (hoy se usa el de Bitoo).
 - [ ] Probar a mano el arrastre de la ventana (`data-tauri-drag-region="deep"`): el clic sobre Kerni ya no lo hace saludar porque el arrastre lo captura.
 - [ ] Modo pánico: **congelar** procesos no esenciales (suspender) en vez de solo cerrar. Requiere `NtSuspendProcess`.

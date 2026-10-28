@@ -5,7 +5,7 @@ import { crearMotorReflexion } from '../memoria/reflexion.js';
 
 /**
  * Chat por texto con la foto del sistema.
- *   POST /chat  { mensaje, snapshot?, session_id?, device_id? } → { session_id, respuesta, acciones, traza }
+ *   POST /chat  { mensaje, snapshot?, equipo?, session_id?, device_id? } → { session_id, respuesta, acciones, traza }
  * Con `device_id` y memoria conectada, Kerni retoma la charla anterior y recuerda lo guardado.
  */
 export const MAX_MENSAJE = 1000;
@@ -45,6 +45,12 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, now
       snapshot = parsed.data;
     }
 
+    // Datos del equipo (modelo, sistema): opcionales, solo texto corto. agent.js los limpia antes de usarlos.
+    const e = req.body?.equipo;
+    const equipo = e && typeof e === 'object'
+      ? { fabricante: String(e.fabricante ?? '').slice(0, 80), modelo: String(e.modelo ?? '').slice(0, 80), so: String(e.so ?? '').slice(0, 80) }
+      : undefined;
+
     // Una sola persona usa la app: la clave del límite es la sesión local.
     if (limitador && !limitador.permitir('local')) return reply.code(429).send({ error: 'Muchos mensajes seguidos; esperá un momento.' });
 
@@ -72,7 +78,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, now
     try {
       // La base de conocimiento ya no se busca aquí: el modelo la consulta con la herramienta buscar_conocimiento solo cuando hace falta.
       const recuerdos = deviceId ? await seguro('leer el contexto', () => memoria.contexto(deviceId), '') : '';
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, memoria: recuerdos, puedeRecordar: Boolean(deviceId) });
+      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId) });
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
         seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);

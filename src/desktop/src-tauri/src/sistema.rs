@@ -638,6 +638,22 @@ pub async fn archivos_pesados(dias_sin_uso: Option<u32>, min_mb: Option<u32>) ->
     .map_err(|e| e.to_string())
 }
 
+/// Lo que más espacio ocupa en las carpetas personales, sin importar desde cuándo no se toca (solo lectura).
+/// Es la misma búsqueda de `archivos_pesados` con "cero días sin uso": lista cada carpeta o archivo grande de primer nivel.
+#[tauri::command]
+pub async fn espacio_por_carpeta() -> Result<BusquedaArchivos, String> {
+    let raices = raices_del_usuario();
+    if raices.is_empty() {
+        return Err("No encontré tus carpetas personales para revisar".to_string());
+    }
+    let casa = carpeta_personal().and_then(|c| fs::canonicalize(c).ok()).map(|c| sin_prefijo_verbatim(&c));
+    tauri::async_runtime::spawn_blocking(move || {
+        buscar_archivos_pesados(&raices, SystemTime::now(), 0, 100 * 1024 * 1024, casa.as_deref(), MAX_ENTRADAS, TIEMPO_MAXIMO)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Devuelve la ruta limpia solo si existe y está DENTRO de una de las carpetas personales. Resuelve `..` y
 /// enlaces antes de comparar, así una ruta inventada o con rodeos no sale de ahí.
 fn ruta_permitida(ruta: &Path, raices: &[std::path::PathBuf]) -> Option<std::path::PathBuf> {
@@ -807,6 +823,18 @@ mod tests {
         assert_eq!(r[0].nombre, "viejo_grande.iso");
         assert!(!r[0].es_carpeta);
         assert!(r[0].dias_sin_uso >= 199 && r[0].dias_sin_uso <= 201);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn el_espacio_por_carpeta_cuenta_tambien_lo_que_se_uso_hoy() {
+        // espacio_por_carpeta es la misma búsqueda con "cero días sin uso": lista lo grande aunque sea reciente.
+        let base = carpeta_de_prueba("espacio");
+        archivo(&base.join("grande_de_hoy.iso"), 5000, 0);
+        archivo(&base.join("chico.txt"), 100, 0);
+        let r = buscar(&base, 0, 1000);
+        assert_eq!(r.len(), 1, "{r:?}");
+        assert_eq!(r[0].nombre, "grande_de_hoy.iso");
         let _ = fs::remove_dir_all(&base);
     }
 

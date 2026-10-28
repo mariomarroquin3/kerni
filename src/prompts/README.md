@@ -31,3 +31,5 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-28 | Fix Linux contextual menu popup warnings | [2026-10-28-linux-context-menu-popup.md](2026-10-28-linux-context-menu-popup.md) |
 | 2026-10-28 | Keep the Linux contextual menu open on right-click | [2026-10-28-linux-context-menu-flash.md](2026-10-28-linux-context-menu-flash.md) |
 | 2026-10-28 | Replace the GTK contextual popup with an in-window menu | [2026-10-28-linux-context-menu-html.md](2026-10-28-linux-context-menu-html.md) |
+| 2026-10-28 | Heavy files also from the conversation (harness fallback) | [2026-10-28-heavy-files-from-chat.md](2026-10-28-heavy-files-from-chat.md) |
+| 2026-10-28 | Seven more tools: equipment, startup, space, network, updates, recycle bin, settings | [2026-10-28-seven-more-tools.md](2026-10-28-seven-more-tools.md) |

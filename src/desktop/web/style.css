@@ -69,6 +69,13 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 #panico li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Lista de archivos pesados sin uso: se desplaza si es larga. */
+#archivos h2, #panel h2 { color: var(--texto); }
+#panel ul { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow-y: auto; }
+#panel li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#panel .archivo-info { min-width: 0; display: flex; flex-direction: column; }
+#panel .archivo-info b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#panel .archivo-info small { color: var(--suave); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#panel .archivo-info .pista { white-space: normal; font-weight: 600; color: #ffc46b; }
 #archivos h2 { color: var(--texto); }
 #archivos ul { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow-y: auto; }
 #archivos li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
