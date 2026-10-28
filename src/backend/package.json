@@ -16,6 +16,7 @@
     "probar-memoria": "node --env-file-if-exists=.env scripts/probar-memoria.js",
     "probar-supabase": "node --env-file-if-exists=.env scripts/probar-supabase.js",
     "manuales": "node scripts/descargar-manuales.js",
+    "pdf-a-md": "node scripts/pdf-a-md.js",
     "test:watch": "vitest"
   },
   "dependencies": {
