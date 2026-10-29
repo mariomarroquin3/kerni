@@ -36,3 +36,5 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-28 | Bug review of the new tools and proposals | [2026-10-28-bug-review-and-proposals.md](2026-10-28-bug-review-and-proposals.md) |
 | 2026-10-28 | RAG fallback, manuals by model, support report and reboot notice | [2026-10-28-rag-fallback-model-filter-support-report.md](2026-10-28-rag-fallback-model-filter-support-report.md) |
 | 2026-10-28 | Fix: Cerrar Kerni did nothing; tools in the in-window menu | [2026-10-28-fix-close-kerni.md](2026-10-28-fix-close-kerni.md) |
+| 2026-10-29 | Fix local IP detection on Windows and Linux | [2026-10-29-fix-local-ip-detection.md](2026-10-29-fix-local-ip-detection.md) |
+| 2026-10-29 | Fix network device request detection | [2026-10-29-fix-network-device-intent.md](2026-10-29-fix-network-device-intent.md) |
