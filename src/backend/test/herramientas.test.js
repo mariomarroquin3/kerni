@@ -41,6 +41,7 @@ describe('pedidos reconocidos por el harness', () => {
     ver_programas_inicio: ['qué programas se abren al iniciar', 'programas de inicio', 'la compu tarda en prender', 'apps que arrancan con windows'],
     ver_actualizaciones: ['hay actualizaciones pendientes?', 'tengo actualizaciones de windows', 'revisá si faltan actualizaciones'],
     ver_estado_red: ['tengo internet?', 'revisá mi wifi', 'el internet va lento', 'cómo está la conexión'],
+    ver_dispositivos_red: ['qué dispositivos están conectados a la red', 'hay dispositivos conectados a mi red', 'qué aparatos están conectados al wifi'],
     ver_info_equipo: ['qué pc tengo', 'qué modelo es mi compu', 'características de mi laptop', 'qué procesador tiene'],
     ver_espacio_carpetas: ['qué carpeta ocupa más', 'cuáles carpetas pesan más', 'espacio por carpeta'],
     ver_archivos_pesados: ['archivos pesados', 'qué archivos viejos puedo borrar'],
@@ -72,6 +73,10 @@ describe('el chat con las herramientas nuevas', () => {
     const solo = createTestApp({ respuestas: [texto('Dale, mirá la lista de programas.')] });
     const r = (await chat(solo.app, 'qué programas se abren al iniciar')).json();
     expect(r.acciones).toEqual([{ tipo: 'proponer_accion', accion: 'ver_programas_inicio', motivo: expect.any(String) }]);
+
+    const dispositivos = createTestApp({ respuestas: [texto('Te muestro qué dispositivos hay conectados.')] });
+    const rDispositivos = (await chat(dispositivos.app, 'qué dispositivos están conectados a la red')).json();
+    expect(rDispositivos.acciones).toEqual([{ tipo: 'proponer_accion', accion: 'ver_dispositivos_red', motivo: expect.any(String) }]);
 
     const propuso = createTestApp({ respuestas: [usarTool('proponer_accion', { accion: 'ver_estado_red', motivo: 'Para revisar.' }), texto('Mirá la tarjeta.')] });
     const r2 = (await chat(propuso.app, 'tengo internet?')).json();

@@ -1,16 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AJUSTES, describirNueva, detallePapelera, panelActualizaciones, panelEquipo, panelEspacio, panelInicio, panelRed } from '../web/herramientas.js';
+import { AJUSTES, describirNueva, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed } from '../web/herramientas.js';
 import { accionLocalNueva, responderLocal } from '../web/intenciones.js';
 
 const SIN_DIMINUTIVOS = /\b[a-záéíóúñ]{3,}(it|cit)[oa]s?\b/i;
 
 test('la tarjeta de cada acción nueva dice qué va a pasar, y la que borra avisa que no se deshace', () => {
-  for (const accion of ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones']) {
+  for (const accion of ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red']) {
     assert.match(describirNueva({ accion }), /^¿/, accion);
   }
   assert.match(describirNueva({ accion: 'ver_actualizaciones' }), /no descargo ni instalo/);
   assert.match(describirNueva({ accion: 'ver_estado_red' }), /no mando tus datos/);
+  assert.match(describirNueva({ accion: 'ver_dispositivos_red' }), /no entro ni hago nada/);
   assert.match(describirNueva({ accion: 'abrir_ajuste', destino: 'actualizaciones' }), /Windows Update/);
   assert.match(describirNueva({ accion: 'vaciar_papelera', detalle: '7 elementos (120 MB)' }), /7 elementos \(120 MB\).*no se puede deshacer/);
   assert.match(describirNueva({ accion: 'vaciar_papelera' }), /no se puede deshacer/);
@@ -68,6 +69,38 @@ test('red: distingue sin internet, sin DNS, lenta y bien', () => {
   assert.equal(bien.filas[0].titulo, 'Wi-Fi (Wi-Fi)');
 });
 
+test('dispositivos red: lista con IP y MAC, o dice que no hay', () => {
+  const d = panelDispositivosRed([
+    { ip: '192.168.1.1', mac: 'aa-bb-cc-dd-ee-ff', nombre: 'Router' },
+    { ip: '192.168.1.50', mac: '11:22:33:44:55:66', nombre: '' },
+  ], '192.168.1.50');
+  assert.match(d.estado, /Tu IP local es <b>192\.168\.1\.50<\/b>/);
+  assert.match(d.estado, /tabla ARP/);
+  // La IP local se marca con emoji y texto
+  assert.match(d.filas[1].titulo, /🖥/);
+  assert.match(d.filas[1].detalle, /Esta es tu IP local/);
+  // El gateway (.1) no se marca como local
+  assert.equal(d.filas[0].titulo, '192.168.1.1');
+  assert.match(d.filas[0].detalle, /Router/);
+  assert.match(panelDispositivosRed([]).estado, /La tabla ARP no muestra dispositivos/);
+});
+
+test('dispositivos red: no adivina que el gateway es la IP local', () => {
+  const d = panelDispositivosRed([
+    { ip: '192.168.1.1', mac: 'aa-bb-cc-dd-ee-ff', nombre: 'Router' },
+  ]);
+  assert.match(d.estado, /No pude identificar tu IP local con certeza/);
+  assert.doesNotMatch(d.estado, /Tu IP local es <b>192\.168\.1\.1<\/b>/);
+  assert.equal(d.filas[0].titulo, '192.168.1.1');
+  assert.doesNotMatch(d.filas[0].detalle, /Esta es tu IP local/);
+});
+
+test('dispositivos red: muestra la IP local aunque la tabla ARP esté vacía', () => {
+  const d = panelDispositivosRed([], '192.168.1.29');
+  assert.match(d.estado, /Tu IP local es <b>192\.168\.1\.29<\/b>/);
+  assert.deepEqual(d.filas, []);
+});
+
 test('actualizaciones: cuenta, marca las críticas y nunca dice que instaló algo', () => {
   assert.match(panelActualizaciones([]).estado, /al día/);
   const p = panelActualizaciones([
@@ -94,6 +127,7 @@ test('pedidos cortos reconocidos sin modelo', () => {
     ver_estado_red: ['tengo internet', 'revisá mi wifi'],
     ver_info_equipo: ['qué pc tengo', 'qué procesador tiene'],
     ver_espacio_carpetas: ['qué carpeta ocupa más', 'espacio por carpeta'],
+    ver_dispositivos_red: ['cuál es mi ip', 'mi ip', 'mi dirección ip', 'qué dispositivos están conectados a la red', 'hay dispositivos conectados a la red'],
   };
   for (const [accion, frases] of Object.entries(casos)) {
     for (const f of frases) assert.equal(accionLocalNueva(f)?.proponer.accion, accion, f);

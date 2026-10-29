@@ -109,6 +109,13 @@ test('lo que dice el modelo se pinta con textContent, nunca con innerHTML', () =
   assert.doesNotMatch(main, /innerHTML|outerHTML|insertAdjacentHTML/);
 });
 
+test('las respuestas automáticas locales solo se usan si el backend indica fallback', () => {
+  assert.match(main, /if \(!res\.ok\) \{\s*if \(data\.fallbackLocal\) \{[\s\S]*?const local = responderLocal\(mensaje, ultimas\)/);
+  assert.equal([...main.matchAll(/responderLocal\(mensaje, ultimas\)/g)].length, 1);
+  assert.match(main, /if \(data\.fallbackLocal\) \{\s*const enlace = enlaceParaRevisar\(mensaje\)/);
+  assert.equal([...main.matchAll(/enlaceParaRevisar\(mensaje\)/g)].length, 1);
+});
+
 test('las métricas están ocultas al arrancar y el clic derecho abre el menú integrado', () => {
   // toda la sección (barras y botones) nace oculta
   assert.match(html, /<section id="hud"[^>]*\bhidden\b/);
@@ -166,10 +173,14 @@ test('los textos de Kerni no llevan emojis (son tokens de más y se ven distinto
   assert.doesNotMatch(html, /\p{Extended_Pictographic}/u);
 });
 
-test('revisar enlaces: el chat llama al backend sin modelo y el CSP lo permite', () => {
-  assert.match(main, /enlaceParaRevisar\(mensaje\)/);
+test('revisar enlaces: el chat pasa por el modelo y solo usa revisión directa como fallback', () => {
+  const llamadaChat = main.indexOf("fetch(`${BACKEND}/chat`,");
+  const fallbackLocal = main.indexOf('if (data.fallbackLocal)');
+  const revisionDirecta = main.indexOf("fetch(`${BACKEND}/enlaces/revisar`,");
+  assert.ok(llamadaChat >= 0 && llamadaChat < fallbackLocal);
+  assert.ok(fallbackLocal < revisionDirecta);
   assert.match(main, /\$\{BACKEND\}\/enlaces\/revisar/);
-  assert.match(main, /decir\(resumenEnlace\(await res\.json\(\)\), 25000\)/);
+  assert.match(main, /decir\(resumenEnlace\(await revision\.json\(\)\), 25000\)/);
   // no se abre el enlace desde la interfaz: ni window.open ni location ni un iframe
   assert.doesNotMatch(main, /window\.open|location\.href\s*=|<iframe/);
 });

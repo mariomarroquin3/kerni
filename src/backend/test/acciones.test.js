@@ -53,6 +53,17 @@ describe('validarPropuesta', () => {
     const r = validarPropuesta({ accion: 'formatear_disco', motivo: 'x x x' }, SNAPSHOT);
     expect(r.ok).toBe(false);
   });
+
+  it('ver dispositivos red no necesita foto, no lleva datos y se devuelve tal cual (solo lectura)', () => {
+    const r = validarPropuesta({ accion: 'ver_dispositivos_red', motivo: 'Ver quién está en mi red' }, undefined);
+    expect(r).toEqual({ ok: true, accion: { tipo: 'proponer_accion', accion: 'ver_dispositivos_red', motivo: 'Ver quién está en mi red' } });
+  });
+
+  it('ver dispositivos red descarta datos extra que el modelo agregue', () => {
+    const r = validarPropuesta({ accion: 'ver_dispositivos_red', motivo: 'Ver red', ruta: 'C:\\Windows', pid: 4, nombre: 'x' }, undefined);
+    expect(r.ok).toBe(true);
+    expect(Object.keys(r.accion).sort()).toEqual(['accion', 'motivo', 'tipo']);
+  });
 });
 
 describe('telemetría', () => {

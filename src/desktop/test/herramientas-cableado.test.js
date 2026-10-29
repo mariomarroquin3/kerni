@@ -27,12 +27,18 @@ test('cada comando nuevo está en los dos listados de lib.rs y la interfaz lo ll
     papelera: 'herramientas',
     vaciar_papelera: 'herramientas',
     abrir_ajuste: 'herramientas',
+    ver_dispositivos_red: 'herramientas',
   };
   for (const [comando, modulo] of Object.entries(comandos)) {
     assert.equal([...lib.matchAll(new RegExp(`${modulo}::${comando},`, 'g'))].length, 2, comando);
     assert.ok(main.includes(`llamar('${comando}'`), `main.js no llama a ${comando}`);
   }
   assert.match(lib, /^mod herramientas;/m);
+});
+
+test('la interfaz lee la IP local con el nombre camelCase serializado por Rust', () => {
+  assert.match(rust, /#\[serde\(rename_all = "camelCase"\)\]\s*pub struct DispositivosRedResultado/);
+  assert.match(main, /panelDispositivosRed\(resultado\.dispositivos, resultado\.miIpLocal\)/);
 });
 
 test('el panel existe, nace oculto y tiene todos los ids que usa main.js', () => {
@@ -49,6 +55,7 @@ test('el menú "Más herramientas" avisa a la interfaz y la interfaz escucha cad
     ['inicio', 'pedir-inicio', 'verInicio'],
     ['espacio', 'pedir-espacio', 'verEspacio'],
     ['red', 'pedir-red', 'verRed'],
+    ['red_local', 'pedir-red-local', 'verDispositivosRed'],
     ['actualizaciones', 'pedir-actualizaciones', 'verActualizaciones'],
   ];
   for (const [item, evento, funcion] of opciones) {
@@ -62,7 +69,7 @@ test('el menú "Más herramientas" avisa a la interfaz y la interfaz escucha cad
 });
 
 test('cada acción que propone el modelo tiene su ejecución en la tarjeta', () => {
-  for (const a of ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones']) {
+  for (const a of ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red']) {
     assert.ok(acciones.includes(`'${a}'`), `el backend no conoce ${a}`);
     assert.match(main, new RegExp(`${a}: ver`), a);
   }
