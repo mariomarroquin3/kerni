@@ -33,9 +33,9 @@ export function fakeAnthropic(respuestas) {
   return { messages: { create } };
 }
 
-export function createTestApp({ respuestas = [], now, provider: proveedor } = {}) {
+export function createTestApp({ respuestas = [], now, provider: proveedor, sinProveedor = false } = {}) {
   const anthropic = fakeAnthropic(respuestas);
-  const provider = proveedor ?? createAnthropicProvider({ anthropic });
+  const provider = sinProveedor ? null : proveedor ?? createAnthropicProvider({ anthropic });
   const agent = createAgent({ provider, logger: { error() {} } });
   const app = buildApp({ config: {}, agent, provider, now });
   return { app, agent, anthropic };

@@ -51,6 +51,20 @@ describe('POST /chat', () => {
     expect(sistema).toMatch(/no inventes números/);
   });
 
+  it('sin proveedor usa una acción local conocida o marca el fallback automático', async () => {
+    const { app, anthropic } = createTestApp({ sinProveedor: true });
+    const accion = await post(app, { mensaje: 'qué dispositivos están conectados a la red' });
+    expect(accion.statusCode).toBe(200);
+    expect(accion.json().acciones).toEqual([
+      { tipo: 'proponer_accion', accion: 'ver_dispositivos_red', motivo: expect.any(String) },
+    ]);
+    expect(anthropic.messages.create.llamadas).toHaveLength(0);
+
+    const sinRespuestaFija = await post(app, { mensaje: 'contame algo que no tenga respuesta automática' });
+    expect(sinRespuestaFija.statusCode).toBe(503);
+    expect(sinRespuestaFija.json()).toMatchObject({ fallbackLocal: true });
+  });
+
   it('rechaza mensajes vacíos o muy largos y fotos inválidas', async () => {
     const { app } = createTestApp();
     expect((await post(app, { mensaje: '  ' })).statusCode).toBe(400);

@@ -149,6 +149,14 @@ describe('el chat sin modelo', () => {
     const { app } = appConFalla({ fragmentos: [] });
     const res = await chat(app, 'contame un chiste largo por favor');
     expect(res.statusCode).toBe(503);
+    expect(res.json().fallbackLocal).toBe(true);
+  });
+
+  it('si la cuenta no tiene créditos, marca que el front puede usar respuestas locales', async () => {
+    const { app } = appConFalla({ codigo: null, status: 402 });
+    const res = await chat(app, 'cuánto disco me queda');
+    expect(res.statusCode).toBe(503);
+    expect(res.json().fallbackLocal).toBe(true);
   });
 
   it('una llave inválida o la falta de red no se disfrazan de respaldo: la persona necesita saberlo', async () => {
