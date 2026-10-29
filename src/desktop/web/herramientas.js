@@ -203,7 +203,7 @@ export function panelDispositivosRed(dispositivos, miIpLocal) {
       ...(esLocal ? { pista: { nivel: 'info', texto: 'Tu dirección IP en la red local.' } } : {}),
     };
   });
-  const ipLocal = miIpLocal ? `Tu IP local es <b>${miIpLocal}</b>.` : 'No pude identificar tu IP local con certeza.';
+  const ipLocal = miIpLocal ? `Tu IP local es ${miIpLocal}.` : 'No pude identificar tu IP local con certeza.';
   const actividadArp = dispositivos.length
     ? `La tabla ARP muestra ${dispositivos.length} ${dispositivos.length === 1 ? 'dispositivo' : 'dispositivos'} que tu PC ha visto recientemente (caché, no escaneo activo).`
     : 'La tabla ARP no muestra dispositivos recientes (caché, no escaneo activo).';

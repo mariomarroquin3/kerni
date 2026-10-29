@@ -74,7 +74,7 @@ test('dispositivos red: lista con IP y MAC, o dice que no hay', () => {
     { ip: '192.168.1.1', mac: 'aa-bb-cc-dd-ee-ff', nombre: 'Router' },
     { ip: '192.168.1.50', mac: '11:22:33:44:55:66', nombre: '' },
   ], '192.168.1.50');
-  assert.match(d.estado, /Tu IP local es <b>192\.168\.1\.50<\/b>/);
+  assert.match(d.estado, /Tu IP local es 192\.168\.1\.50\./);
   assert.match(d.estado, /tabla ARP/);
   // La IP local se marca con emoji y texto
   assert.match(d.filas[1].titulo, /🖥/);
@@ -90,14 +90,14 @@ test('dispositivos red: no adivina que el gateway es la IP local', () => {
     { ip: '192.168.1.1', mac: 'aa-bb-cc-dd-ee-ff', nombre: 'Router' },
   ]);
   assert.match(d.estado, /No pude identificar tu IP local con certeza/);
-  assert.doesNotMatch(d.estado, /Tu IP local es <b>192\.168\.1\.1<\/b>/);
+  assert.doesNotMatch(d.estado, /Tu IP local es 192\.168\.1\.1\./);
   assert.equal(d.filas[0].titulo, '192.168.1.1');
   assert.doesNotMatch(d.filas[0].detalle, /Esta es tu IP local/);
 });
 
 test('dispositivos red: muestra la IP local aunque la tabla ARP esté vacía', () => {
   const d = panelDispositivosRed([], '192.168.1.29');
-  assert.match(d.estado, /Tu IP local es <b>192\.168\.1\.29<\/b>/);
+  assert.match(d.estado, /Tu IP local es 192\.168\.1\.29\./);
   assert.deepEqual(d.filas, []);
 });
 
