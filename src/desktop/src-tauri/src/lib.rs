@@ -63,9 +63,10 @@ fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str, texto_me
     let espacio = MenuItem::with_id(app, "espacio", "Espacio por carpeta", true, None::<&str>)?;
     let red = MenuItem::with_id(app, "red", "Estado de la red", true, None::<&str>)?;
     let actualizaciones = MenuItem::with_id(app, "actualizaciones", "Actualizaciones de Windows", true, None::<&str>)?;
+    let red_local = MenuItem::with_id(app, "red_local", "Dispositivos en la red", true, None::<&str>)?;
     let reporte = MenuItem::with_id(app, "reporte", "Resumen para soporte técnico", true, None::<&str>)?;
     let papelera = MenuItem::with_id(app, "papelera", "Vaciar la papelera…", true, None::<&str>)?;
-    let herramientas = Submenu::with_items(app, "Más herramientas", true, &[&equipo, &reporte, &inicio, &espacio, &red, &actualizaciones, &papelera])?;
+    let herramientas = Submenu::with_items(app, "Más herramientas", true, &[&equipo, &reporte, &inicio, &espacio, &red, &actualizaciones, &red_local, &papelera])?;
     Menu::with_items(app, &[&alternar, &metricas, &pesados, &limpiar, &herramientas, &salir])
 }
 
@@ -96,6 +97,7 @@ fn al_elegir(app: &AppHandle, id: &str) {
         "espacio" => avisar_a_kerni(app, "pedir-espacio"),
         "red" => avisar_a_kerni(app, "pedir-red"),
         "actualizaciones" => avisar_a_kerni(app, "pedir-actualizaciones"),
+        "red_local" => avisar_a_kerni(app, "pedir-red-local"),
         "reporte" => avisar_a_kerni(app, "pedir-reporte"),
         "papelera" => avisar_a_kerni(app, "pedir-papelera"),
         "salir" => salir(app),
@@ -174,6 +176,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         herramientas::papelera,
         herramientas::vaciar_papelera,
         herramientas::abrir_ajuste,
+        herramientas::ver_dispositivos_red,
         linux::limpiar_temporales,
     ]
 }
@@ -197,6 +200,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         herramientas::papelera,
         herramientas::vaciar_papelera,
         herramientas::abrir_ajuste,
+        herramientas::ver_dispositivos_red,
         sistema::limpiar_temporales,
     ]
 }

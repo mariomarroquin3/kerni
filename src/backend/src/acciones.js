@@ -16,6 +16,7 @@ export const ACCIONES = [
   'ver_estado_red',
   'ver_actualizaciones',
   'ver_reporte_soporte',
+  'ver_dispositivos_red',
   'abrir_ajuste',
   'vaciar_papelera',
 ];

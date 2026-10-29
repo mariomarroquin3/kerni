@@ -34,6 +34,7 @@ const PROPUESTAS = {
   ver_estado_red: 'Revisar si tenés internet y cómo está la conexión.',
   ver_actualizaciones: 'Ver si hay actualizaciones de Windows pendientes (no las instala).',
   ver_reporte_soporte: 'Armar un resumen de tu equipo para mandárselo al soporte técnico.',
+  ver_dispositivos_red: 'Ver los dispositivos conectados en tu red local.',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -46,8 +47,16 @@ const REGLAS = [
   },
   { accion: 'ver_actualizaciones', patron: /\b(hay|tengo|faltan?|pendientes?|revis\w+|busc\w+)\b.{0,30}\bactualizaci\w+/ },
   {
+    accion: 'ver_dispositivos_red',
+    patron: /\b(dispositivos?|aparatos?|equipos?)\b.{0,30}\b(conectad\w*|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\b(quien|quienes)\b.{0,25}\b(conectad\w*|esta|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\bescan\w+\s+(la\s+)?(red|wifi|wi-fi)\b|\b(hay|que|cuales)\b.{0,20}\b(dispositivos?|aparatos?|equipos?)\b.{0,20}\b(red|wifi|wi-fi)\b|\b(dispositivos?|aparatos?|equipos?)\s+(conectados?\s+)?(en\s+)?(la\s+)?red\b/,
+  },
+  {
     accion: 'ver_estado_red',
     patron: /\b(tengo|hay|funciona|anda|revis\w+|estado\s+de|como\s+esta)\b.{0,25}\b(internet|wifi|wi-fi|red|conexion)\b|\b(internet|wifi|wi-fi|conexion)\b.{0,20}\b(lent\w+|caid\w+|no\s+(funciona|anda|carga)|mal)\b/,
+  },
+  {
+    accion: 'ver_dispositivos_red',
+    patron: /\b(cual(es)?\s+)?(es\s+)?(mi|la)\s+ip\b|\bmi\s+direccion\s+ip\b|\bip\s+(local|publica|privada)?\b/,
   },
   {
     accion: 'ver_info_equipo',
@@ -63,6 +72,7 @@ const EXCEPCIONES = {
   ver_actualizaciones: /\b(office|word|excel|powerpoint|chrome|firefox|android|iphone|ios|apps?|juegos?|antivirus|drivers?|controlador(es)?)\b/,
   ver_info_equipo: /\bequipo\s+de\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
+  ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
 };
 
 /** @returns {boolean} la persona quiere ver qué archivos o carpetas pesados/viejos hay (y quizá cuáles borrar) */

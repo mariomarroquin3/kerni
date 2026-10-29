@@ -3,7 +3,7 @@ import { createCharacter } from './character.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, resumenEnlace, responderLocal } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
-import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
+import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 const CADA_MS = 2000;
@@ -495,6 +495,10 @@ const verInicio = () => conPanel('Programas de inicio', 'Mirando qué se abre al
 const verEspacio = () => conPanel('Espacio por carpeta', 'Midiendo tus carpetas… puede tardar unos segundos.', () => llamar('espacio_por_carpeta'), panelEspacio);
 const verRed = () => conPanel('Estado de la red', 'Probando la conexión…', () => llamar('estado_red'), panelRed);
 const verActualizaciones = () => conPanel('Actualizaciones de Windows', 'Preguntándole a Windows Update… puede tardar unos minutos.', () => llamar('actualizaciones_windows'), panelActualizaciones);
+const verDispositivosRed = () => conPanel('Dispositivos en la red', 'Escanando la red local…', async () => {
+    const resultado = await llamar('ver_dispositivos_red');
+    return panelDispositivosRed(resultado.dispositivos, resultado.miIpLocal);
+  }, (r) => r); // pasamos directo el resultado ya armado
 /** Junta lo que ya sabe la app (equipo, memoria, disco, inicio y red). Lo que no se pueda leer simplemente no aparece. */
 async function juntarReporte() {
   const seguro = async (fn) => { try { return await fn(); } catch { return undefined; } };
@@ -509,6 +513,7 @@ const VISTAS = {
   ver_espacio_carpetas: verEspacio,
   ver_estado_red: verRed,
   ver_actualizaciones: verActualizaciones,
+  ver_dispositivos_red: verDispositivosRed,
 };
 $('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
 
@@ -525,31 +530,6 @@ $('chat').addEventListener('submit', async (e) => {
   const mensaje = input.value.trim();
   if (!mensaje) return;
   input.value = '';
-
-  // "¿Es seguro este enlace?": lo revisa el backend sin modelo (sin gastar cupo). Si no responde, lo intenta el modelo.
-  const enlace = enlaceParaRevisar(mensaje);
-  if (enlace) {
-    decir('Revisando el enlace…', 8000);
-    try {
-      const res = await fetch(`${BACKEND}/enlaces/revisar`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ url: enlace }),
-      });
-      if (res.ok) {
-        decir(resumenEnlace(await res.json()), 25000);
-        return;
-      }
-    } catch { /* sin backend: sigue el camino normal y el chat avisa */ }
-  }
-
-  // Pedidos simples (ej. "cuánto disco me queda") se responden con reglas, sin backend.
-  const local = responderLocal(mensaje, ultimas);
-  if (local) {
-    decir(local.texto, 20000);
-    if (local.proponer && !pendiente) proponer(local.proponer, true);
-    return;
-  }
 
   input.disabled = true;
   pensando = true;
@@ -572,7 +552,33 @@ $('chat').addEventListener('submit', async (e) => {
     });
     clearTimeout(timeout);
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? `error ${res.status}`);
+    if (!res.ok) {
+      if (data.fallbackLocal) {
+        const enlace = enlaceParaRevisar(mensaje);
+        if (enlace) {
+          try {
+            const revision = await fetch(`${BACKEND}/enlaces/revisar`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ url: enlace }),
+            });
+            if (!revision.ok) throw new Error('No pude revisar ese enlace sin el modelo. Probá de nuevo más tarde.');
+            decir(resumenEnlace(await revision.json()), 25000);
+            return;
+          } catch (err) {
+            if (err instanceof TypeError) throw new Error('No pude conectar para revisar ese enlace sin el modelo.');
+            throw err;
+          }
+        }
+        const local = responderLocal(mensaje, ultimas);
+        if (local) {
+          decir(local.texto, 20000);
+          if (local.proponer && !pendiente) proponer(local.proponer, true);
+          return;
+        }
+      }
+      throw new Error(data.error ?? `error ${res.status}`);
+    }
     sessionId = data.session_id;
     decir(data.respuesta, 25000);
     // Solo la última propuesta espera aprobación; la persona decide, no el modelo.
@@ -622,6 +628,7 @@ if (enTauri) {
     await listen('pedir-inicio', verInicio);
     await listen('pedir-espacio', verEspacio);
     await listen('pedir-red', verRed);
+    await listen('pedir-red-local', verDispositivosRed);
     await listen('pedir-actualizaciones', verActualizaciones);
     await listen('pedir-reporte', verReporte);
     await listen('pedir-papelera', () => proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false));
@@ -690,6 +697,7 @@ menuContextual.addEventListener('click', async (e) => {
       case 'inicio': await verInicio(); break;
       case 'espacio': await verEspacio(); break;
       case 'red': await verRed(); break;
+      case 'red_local': await verDispositivosRed(); break;
       case 'actualizaciones': await verActualizaciones(); break;
       // La papelera borra: desde el menú solo abre la tarjeta de confirmación.
       case 'papelera':

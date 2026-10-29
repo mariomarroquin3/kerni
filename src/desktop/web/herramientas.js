@@ -17,7 +17,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones'];
+export const ACCIONES_PANEL = ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -28,6 +28,7 @@ export function describirNueva(a) {
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
     case 'ver_actualizaciones': return '¿Busco si Windows tiene actualizaciones pendientes? Solo miro; no descargo ni instalo nada. Puede tardar un rato.';
+    case 'ver_dispositivos_red': return '¿Reviso qué dispositivos hay conectados a tu red local? Solo los listo: no entro ni hago nada en ellos.';
     case 'abrir_ajuste': return `¿Abro "${AJUSTES[a.destino] ?? 'Configuración'}" en los ajustes de Windows?`;
     case 'vaciar_papelera': return a.detalle
       ? `¿Vaciar la papelera? Tiene ${a.detalle}. Se borra para siempre y no se puede deshacer.`
@@ -185,4 +186,28 @@ export function panelActualizaciones(lista) {
     filas: lista.map(filaActualizacion),
     boton: { texto: 'Abrir Windows Update', tipo: 'ajuste', dato: 'actualizaciones' },
   };
+}
+
+/**
+ * @param {{ ip: string, mac: string, nombre: string }[]} dispositivos
+ * @returns {{ estado: string, filas: Fila[] }}
+ */
+export function panelDispositivosRed(dispositivos, miIpLocal) {
+  const filas = dispositivos.map((d) => {
+    const esLocal = Boolean(miIpLocal && miIpLocal === d.ip);
+    const titulo = esLocal ? `🖥 ${d.ip} (tu PC)` : (d.ip || 'Sin IP');
+    const detalle = `${d.mac || 'MAC desconocida'}${esLocal ? ' · Esta es tu IP local' : ''}`;
+    return {
+      titulo,
+      detalle: d.nombre ? `${d.nombre} (${detalle})` : detalle,
+      ...(esLocal ? { pista: { nivel: 'info', texto: 'Tu dirección IP en la red local.' } } : {}),
+    };
+  });
+  const ipLocal = miIpLocal ? `Tu IP local es <b>${miIpLocal}</b>.` : 'No pude identificar tu IP local con certeza.';
+  const actividadArp = dispositivos.length
+    ? `La tabla ARP muestra ${dispositivos.length} ${dispositivos.length === 1 ? 'dispositivo' : 'dispositivos'} que tu PC ha visto recientemente (caché, no escaneo activo).`
+    : 'La tabla ARP no muestra dispositivos recientes (caché, no escaneo activo).';
+  const estado = `${ipLocal} ${actividadArp} ` +
+    'Dispositivos que no han hablado con tu PC en los últimos minutos no aparecen.';
+  return { estado, filas };
 }

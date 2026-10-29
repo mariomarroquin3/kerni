@@ -371,6 +371,144 @@ pub async fn estado_red() -> Result<EstadoRed, String> {
     tauri::async_runtime::spawn_blocking(leer_red).await.map_err(|e| e.to_string())
 }
 
+// ---------- Dispositivos en la red (solo lectura) ----------
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DispositivoRed {
+    pub ip: String,
+    pub mac: String,
+    pub nombre: String,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DispositivosRedResultado {
+    pub dispositivos: Vec<DispositivoRed>,
+    /// IP local de esta máquina (la de la interfaz activa, no loopback, no gateway)
+    pub mi_ip_local: Option<String>,
+}
+
+pub fn parsear_dispositivos_red(salida: &str) -> Vec<DispositivoRed> {
+    // Formatos soportados:
+    // Windows `arp -a -n`:
+    //   "  192.168.1.1           aa-bb-cc-dd-ee-ff     dynamic"
+    // Linux `ip neigh show`:
+    //   "192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
+    // Linux `arp -a -n`:
+    //   "? (192.168.1.1) at aa:bb:cc:dd:ee:ff [ether] on eth0"
+    let mut resultados = Vec::new();
+    for linea in salida.lines() {
+        let linea = linea.trim();
+        if linea.is_empty()
+            || linea.starts_with("Interface")
+            || linea.starts_with("---")
+            || linea.starts_with("Internet")
+            || linea.starts_with("Address")
+        {
+            continue;
+        }
+        let partes: Vec<&str> = linea.split_whitespace().collect();
+        if partes.len() < 2 {
+            continue;
+        }
+
+        // Detectar formato por la estructura de la línea
+        if linea.starts_with('?') || (partes.len() >= 2 && partes[0] == "?" && partes[1].starts_with('(')) {
+            // Linux `arp -a -n`: "? (192.168.1.1) at aa:bb:cc:dd:ee:ff [ether] on eth0"
+            // IP en partes[1] (con paréntesis), MAC en partes[3]
+            if let Some(ip_con_paren) = partes.get(1) {
+                let ip = ip_con_paren.trim_matches(|c| c == '(' || c == ')');
+                if ip.contains('.') && ip.split('.').count() == 4 {
+                    if let Some(mac_parte) = partes.get(3) {
+                        let mac_limpia = limpiar_texto(*mac_parte, 20).trim_end_matches(['[', ']']).to_string();
+                        if mac_limpia.chars().all(|c| c.is_ascii_hexdigit() || c == '-' || c == ':') {
+                            resultados.push(DispositivoRed { ip: ip.to_string(), mac: mac_limpia, nombre: String::new() });
+                        }
+                    }
+                }
+            }
+        } else if partes.len() >= 6 && partes[1] == "dev" && partes[3] == "lladdr" {
+            // Linux `ip neigh show`: "192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
+            let ip = partes[0];
+            if ip.contains('.') && ip.split('.').count() == 4 {
+                let mac_parte = partes[4];
+                let mac_limpia = limpiar_texto(mac_parte, 20).trim_end_matches(['[', ']']).to_string();
+                if mac_limpia.chars().all(|c| c.is_ascii_hexdigit() || c == '-' || c == ':') {
+                    resultados.push(DispositivoRed { ip: ip.to_string(), mac: mac_limpia, nombre: String::new() });
+                }
+            }
+        } else {
+            // Windows `arp -a -n` y fallback genérico: IP en primera posición, MAC en segunda
+            let primera = partes[0];
+            if primera.contains('.') && primera.split('.').count() == 4 && !primera.starts_with('(') {
+                if let Some(mac_parte) = partes.get(1) {
+                    let mac_limpia = limpiar_texto(*mac_parte, 20).trim_end_matches(['[', ']']).to_string();
+                    if mac_limpia.chars().all(|c| c.is_ascii_hexdigit() || c == '-' || c == ':') {
+                        resultados.push(DispositivoRed { ip: primera.to_string(), mac: mac_limpia, nombre: String::new() });
+                    }
+                }
+            }
+        }
+    }
+    resultados
+}
+
+/// Obtiene la IP local de la interfaz de red activa (no loopback, no IPv6).
+fn obtener_ip_local() -> Option<String> {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddrV4, UdpSocket};
+
+    let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).ok()?;
+    // UDP connect selects the route and source address without sending a packet.
+    socket
+        .connect(SocketAddrV4::new(Ipv4Addr::new(1, 1, 1, 1), 53))
+        .ok()?;
+    match socket.local_addr().ok()?.ip() {
+        IpAddr::V4(ip) if !ip.is_unspecified() && !ip.is_loopback() => Some(ip.to_string()),
+        _ => None,
+    }
+}
+
+/// Escanea la tabla ARP local: solo lectura, no envía nada a la red.
+/// Windows usa `arp -a -n`, Linux usa `ip neigh show` o `arp -a`.
+fn leer_dispositivos_red() -> Result<DispositivosRedResultado, String> {
+    let dispositivos = {
+        #[cfg(windows)]
+        {
+            use std::process::Command;
+            let mut cmd = Command::new("arp");
+            cmd.arg("-a").arg("-n");
+            let salida = ejecutar(&mut cmd, Duration::from_secs(10))?;
+            parsear_dispositivos_red(&salida)
+        }
+        #[cfg(target_os = "linux")]
+        {
+            use std::process::Command;
+            let mut cmd = Command::new("ip");
+            cmd.arg("neigh").arg("show");
+            let salida = ejecutar(&mut cmd, Duration::from_secs(10))
+                .or_else(|_| {
+                    let mut c = Command::new("arp");
+                    c.arg("-a").arg("-n");
+                    ejecutar(&mut c, Duration::from_secs(10))
+                })?;
+            parsear_dispositivos_red(&salida)
+        }
+        #[cfg(not(any(windows, target_os = "linux")))]
+        {
+            return Err(SOLO_WINDOWS.to_string());
+        }
+    };
+    let mi_ip_local = obtener_ip_local();
+    Ok(DispositivosRedResultado { dispositivos, mi_ip_local })
+}
+
+/// Lista los dispositivos que la PC ha visto recientemente en la red local. Solo lectura.
+#[tauri::command]
+pub async fn ver_dispositivos_red() -> Result<DispositivosRedResultado, String> {
+    tauri::async_runtime::spawn_blocking(leer_dispositivos_red).await.map_err(|e| e.to_string())?
+}
+
 // ---------- Actualizaciones de Windows (solo lectura) ----------
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -594,6 +732,51 @@ mod tests {
     }
 
     #[test]
+    fn parsea_dispositivos_red_arp() {
+        // Formato real de `arp -a -n` en Windows: IP y MAC en la misma línea
+        let salida_windows = "\
+Interface: 192.168.1.10 --- 0x12
+Internet Address      Physical Address      Type
+  192.168.1.1         aa-bb-cc-dd-ee-ff     dynamic
+  192.168.1.50        11-22-33-44-55-66     dynamic
+  192.168.1.200       ff:ee:dd:cc:bb:aa     dynamic";
+        let d = parsear_dispositivos_red(salida_windows);
+        assert!(d.len() >= 3, "Windows: debe encontrar al menos 3 dispositivos, encontró {}", d.len());
+        assert!(d.iter().all(|x| !x.ip.is_empty() && x.mac.chars().all(|c| c.is_ascii_hexdigit() || c == '-' || c == ':')));
+
+        // Linux `ip neigh show`
+        let salida_linux_ip = "\
+192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE
+192.168.1.50 dev eth0 lladdr 11:22:33:44:55:66 STALE
+fe80::1 dev eth0 lladdr 00:11:22:33:44:55 REACHABLE";
+        let d2 = parsear_dispositivos_red(salida_linux_ip);
+        assert!(d2.len() >= 2, "Linux ip: debe encontrar al menos 2 dispositivos IPv4, encontró {}", d2.len());
+        assert!(d2.iter().all(|x| x.ip.contains('.') && x.mac.contains(':')));
+
+        // Linux `arp -a -n`
+        let salida_linux_arp = "\
+? (192.168.1.1) at aa:bb:cc:dd:ee:ff [ether] on eth0
+? (192.168.1.50) at 11-22-33-44-55-66 [ether] on eth0";
+        let d3 = parsear_dispositivos_red(salida_linux_arp);
+        assert!(d3.len() >= 2, "Linux arp: debe encontrar al menos 2 dispositivos, encontró {}", d3.len());
+
+        // Entrada vacía o basura no debe dar falsos positivos
+        assert!(parsear_dispositivos_red("").is_empty());
+        assert!(parsear_dispositivos_red("solo texto sin ip").is_empty());
+    }
+
+    #[test]
+    fn resultado_red_serializa_ip_local_en_camel_case() {
+        let resultado = DispositivosRedResultado {
+            dispositivos: Vec::new(),
+            mi_ip_local: Some("192.168.1.29".to_string()),
+        };
+        let json = serde_json::to_value(resultado).unwrap();
+        assert_eq!(json["miIpLocal"], "192.168.1.29");
+        assert!(json.get("mi_ip_local").is_none());
+    }
+
+    #[test]
     fn solo_abre_ajustes_de_la_lista() {
         assert_eq!(direccion_de_ajuste("almacenamiento"), Some("ms-settings:storagesense"));
         assert_eq!(direccion_de_ajuste("actualizaciones"), Some("ms-settings:windowsupdate"));
@@ -638,6 +821,8 @@ mod tests {
         let red = leer_red();
         println!("{red:?}");
         println!("{:?}", medir_papelera());
+        let dispositivos = leer_dispositivos_red().unwrap_or_default();
+        println!("{} dispositivos en ARP", dispositivos.len());
     }
 
     /// Crea un programa de inicio temporal con tildes en el registro REAL del usuario, lo desactiva, lo reactiva y lo borra.
