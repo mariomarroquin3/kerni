@@ -75,6 +75,15 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     // Una sola persona usa la app: la clave del límite es la sesión local.
     if (limitador && !limitador.permitir('local')) return reply.code(429).send({ error: 'Muchos mensajes seguidos; esperá un momento.' });
 
+    if (!provider) {
+      const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_cupo' });
+      if (respaldo) return { session_id: randomUUID(), ...respaldo };
+      return reply.code(503).send({
+        error: 'No hay una llave de modelo configurada. Kerni probará las respuestas automáticas locales.',
+        fallbackLocal: true,
+      });
+    }
+
     const deviceId = esUuid(req.body?.device_id) && memoria?.habilitada ? req.body.device_id : null;
 
     limpiarInactivas();
@@ -109,14 +118,19 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo }, 'falló el turno');
       // Sin cupo o con el servicio caído, lo que se pueda sin el modelo se hace igual: las guías y las tarjetas de siempre.
-      const motivo = err.codigo === 'sin_cupo' ? 'sin_cupo' : (['llave_invalida', 'sin_red'].includes(err.codigo) || err.status === 402) ? null : 'fallo';
+      const motivo = err.codigo === 'sin_cupo' || err.status === 402
+        ? 'sin_cupo'
+        : ['llave_invalida', 'sin_red'].includes(err.codigo) ? null : 'fallo';
       if (motivo) {
         const respaldo = await responderSinModelo({ mensaje, equipo, motivo });
         if (respaldo) return { session_id: sessionId, ...respaldo };
       }
       // Los errores de la API traen un mensaje pensado para la persona (llave inválida, cupo agotado, sin red).
       const claro = ['llave_invalida', 'sin_cupo', 'sin_red'].includes(err.codigo) || err.status === 402;
-      return reply.code(claro ? 503 : 502).send({ error: claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.' });
+      return reply.code(claro ? 503 : 502).send({
+        error: claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.',
+        ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}),
+      });
     } finally {
       sesion.ocupada = false;
       sesion.ultimoUso = now();

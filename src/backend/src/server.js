@@ -17,12 +17,12 @@ let elegido;
 try {
   elegido = crearProveedor(config);
 } catch (err) {
-  console.error(err.message);
-  process.exit(1);
-}
-if (!elegido) {
-  console.error('No hay ninguna llave de modelo. Pegá una en src/backend/.env: ANTHROPIC_API_KEY, GEMINI_API_KEY u OPENROUTER_API_KEY.');
-  process.exit(1);
+  if (/necesita (?:ANTHROPIC_API_KEY|GEMINI_API_KEY|OPENROUTER_API_KEY)\./.test(err.message)) {
+    console.warn(`${err.message} Se inicia en modo de respuestas automáticas locales.`);
+  } else {
+    console.error(err.message);
+    process.exit(1);
+  }
 }
 
 // Directorio de datos local: %APPDATA%/Kerni en Windows, ~/.local/share/Kerni en Linux/Mac
@@ -53,9 +53,9 @@ if (supabaseDb) {
 // Revisión de enlaces: siempre disponible; con SAFE_BROWSING_API_KEY también consulta la lista de sitios peligrosos de Google.
 const revisorEnlaces = createRevisorEnlaces({ apiKey: config.safeBrowsing.apiKey });
 
-const agent = createAgent({ provider: elegido.provider, memoriaActiva: memoria.habilitada, conocimiento, revisorEnlaces });
-const app = buildApp({ config, agent, provider: elegido.provider, memoria, conocimiento, revisorEnlaces, logger: true });
-console.log(`Cerebro: ${elegido.provider.name} (${elegido.provider.model})`);
+const agent = createAgent({ provider: elegido?.provider, memoriaActiva: memoria.habilitada, conocimiento, revisorEnlaces });
+const app = buildApp({ config, agent, provider: elegido?.provider, memoria, conocimiento, revisorEnlaces, logger: true });
+console.log(elegido ? `Cerebro: ${elegido.provider.name} (${elegido.provider.model})` : 'Cerebro: sin llave; respuestas automáticas locales');
 console.log(`Memoria: SQLite local (${dataDir})${supabaseDb ? ' + salud en Supabase' : ''}`);
 console.log(revisorEnlaces.listasDisponibles ? 'Enlaces: dirección + lista de Google' : 'Enlaces: solo la dirección (sin SAFE_BROWSING_API_KEY)');
 console.log(conocimiento.habilitado ? 'Conocimiento (RAG): activo' : 'Conocimiento (RAG): apagado (falta Supabase o una llave de embeddings)');
