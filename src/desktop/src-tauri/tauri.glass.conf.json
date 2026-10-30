@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "kerni",
+        "title": "Kerni",
+        "width": 320,
+        "height": 620,
+        "transparent": true,
+        "decorations": false,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "maximizable": false,
+        "visible": false,
+        "windowEffects": {
+          "effects": ["acrylic"],
+          "color": [10, 15, 30, 180]
+        }
+      }
+    ]
+  }
+}
