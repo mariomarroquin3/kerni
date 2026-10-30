@@ -142,8 +142,97 @@ test('pedidos cortos reconocidos sin modelo', () => {
   assert.equal(responderLocal('haceme un reporte del equipo', null).proponer.accion, 'ver_reporte_soporte');
 });
 
+test('respuestas locales sin modelo: texto fijo y datos medidos', () => {
+  const m = {
+    cpu: 45.2,
+    ram: { usadaMb: 3200, totalMb: 8192 },
+    disco: { libreGb: 50, totalGb: 256 },
+    procesos: [
+      { nombre: 'Chrome', memoriaMb: 800, cpu: 12, pid: 1 },
+      { nombre: 'Spotify', memoriaMb: 200, cpu: 2, pid: 2 },
+      { nombre: 'Word', memoriaMb: 150, cpu: 1, pid: 3 },
+    ],
+    bateria: { porcentaje: 67, cargando: true, enchufada: false },
+  };
+
+  // --- Textos fijos: siempre responden, sin datos. ---
+  assert.ok(responderLocal('hola', null)?.texto?.startsWith('¡Hola'));
+  assert.ok(responderLocal('buenas', null)?.texto?.startsWith('¡Hola'));
+  assert.ok(responderLocal('buenos días', null)?.texto?.startsWith('¡Hola'));
+  assert.ok(responderLocal('buenas tardes', null)?.texto?.startsWith('¡Hola'));
+  assert.ok(responderLocal('buenas noches', null)?.texto?.startsWith('¡Hola'));
+  assert.ok(responderLocal('hey', null)?.texto?.startsWith('¡Hola'));
+  // Negativos saludo
+  assert.equal(responderLocal('hola, cómo estás', null), null);
+  assert.equal(responderLocal('buenos días, ¿qué hora es?', null), null);
+
+  // --- Positivos gracias ---
+  assert.ok(responderLocal('gracias', null)?.texto?.startsWith('De nada'));
+  assert.ok(responderLocal('muchas gracias', null)?.texto?.startsWith('De nada'));
+  assert.ok(responderLocal('mil gracias', null)?.texto?.startsWith('De nada'));
+  assert.ok(responderLocal('te agradezco', null)?.texto?.startsWith('De nada'));
+  // Negativos gracias
+  assert.equal(responderLocal('gracias, pero por qué va lenta mi pc', null), null);
+
+  // --- Positivo qué puedes ---
+  assert.ok(responderLocal('qué puedes hacer', null)?.texto?.length > 10);
+  // Negativo qué puedes
+  assert.equal(responderLocal('y qué haces cuando el disco se llena', null), null);
+
+  // --- Positivos hora ---
+  assert.match(responderLocal('qué hora es', null)?.texto, /El Salvador/);
+  assert.match(responderLocal('qué hora son', null)?.texto, /El Salvador/);
+  assert.match(responderLocal('hora actual', null)?.texto, /El Salvador/);
+  assert.match(responderLocal('hora en el salvador', null)?.texto, /El Salvador/);
+  // Negativo hora
+  assert.equal(responderLocal('a qué hora cierra el banco', null), null);
+  assert.equal(responderLocal('qué hora será en Nueva York', null), null);
+
+  // --- Positivos RAM ---
+  assert.match(responderLocal('cuánta ram uso', m)?.texto, /39 %/);
+  assert.match(responderLocal('cuánta ram estoy usando', m)?.texto, /39 %/);
+  assert.match(responderLocal('cómo está la ram', m)?.texto, /39 %/);
+  assert.match(responderLocal('cómo está la memoria', m)?.texto, /39 %/);
+  // Negativos RAM obligatorios (sin datos → null)
+  assert.equal(responderLocal('cuánta ram uso', null), null);
+  // Negativos RAM adicionales
+  assert.equal(responderLocal('cuánta ram usa chrome', null), null);
+  assert.equal(responderLocal('cuánta ram debería tener', null), null);
+  assert.equal(responderLocal('qué hago con la ram llena', null), null);
+
+  // --- Positivos CPU ---
+  assert.match(responderLocal('cuánta cpu uso', m)?.texto, /45 %/);
+  assert.match(responderLocal('cuánta cpu estoy usando', m)?.texto, /45 %/);
+  assert.match(responderLocal('cpu actual', m)?.texto, /45 %/);
+  assert.match(responderLocal('cómo está la cpu', m)?.texto, /45 %/);
+  // Negativo CPU
+  assert.equal(responderLocal('cuánta cpu necesito para jugar', m), null);
+
+  // --- Positivos top_mem ---
+  assert.match(responderLocal('que programa consume mas ram', m)?.texto, /800 MB/);
+  assert.match(responderLocal('que proceso usa mas memoria', m)?.texto, /800 MB/);
+  assert.match(responderLocal('que app ocupa mas ram', m)?.texto, /800 MB/);
+  // Negativos top_mem obligatorios
+  assert.equal(responderLocal('que tanta memoria usa chrome', m), null);
+  assert.equal(responderLocal('cuanta ram usa chrome', m), null);
+  assert.equal(responderLocal('programa para monitorear la cpu', m), null);
+
+  // --- Positivos top_cpu ---
+  assert.match(responderLocal('que programa consume mas cpu', m)?.texto, /12\.0 %/);
+  assert.match(responderLocal('que proceso usa mas cpu', m)?.texto, /12\.0 %/);
+  assert.match(responderLocal('que app ocupa mas cpu', m)?.texto, /12\.0 %/);
+
+  // --- Positivos batería ---
+  assert.match(responderLocal('como esta la bateria', m)?.texto, /67 %.*cargando/);
+  assert.match(responderLocal('cuanta bateria tengo', m)?.texto, /67 %/);
+  assert.match(responderLocal('cuanta bateria me queda', m)?.texto, /67 %/);
+  assert.match(responderLocal('cual es la bateria', m)?.texto, /67 %/);
+  // Negativo batería
+  assert.equal(responderLocal('como esta la bateria de mi hermana', m), null);
+});
+
 test('charla normal, preguntas largas o dudosas no abren nada solas', () => {
-  for (const q of ['hola', 'cuánta RAM tengo', 'la papelera de la cocina está llena', 'por qué mi internet es lento hoy en la noche cuando todos usan netflix en casa', 'abrí la configuración', '']) {
+  for (const q of ['la papelera de la cocina está llena', 'por qué mi internet es lento hoy en la noche cuando todos usan netflix en casa', 'abrí la configuración', '']) {
     assert.equal(accionLocalNueva(q), null, q);
   }
   assert.equal(responderLocal('qué información debe llevar un informe del equipo', null), null);

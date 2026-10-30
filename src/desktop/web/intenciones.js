@@ -5,6 +5,7 @@
 
 export const MAX_PALABRAS = 8;
 const MAX_PALABRAS_ACCION_LOCAL = 12;
+const MAX_PALABRAS_DATOS = 6;
 export const DISCO_APRETADO_PCT = 85;
 
 const TEMA_DISCO = /\b(disco|almacenamiento|espacio|c:|gb libres?|memoria del disco)\b/i;
@@ -48,6 +49,19 @@ const REGLAS_NUEVAS = [
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
 ];
 
+// ---------- Acciones que necesitan datos medidos del sistema ----------
+const PIDE_RAM       = /^(cuanta ram uso|cuanta ram estoy usando|como esta la ram|como esta la memoria)$/;
+const PIDE_CPU       = /^(cuanta cpu uso|cuanta cpu estoy usando|cpu actual|como esta la cpu)$/;
+const PIDE_TOP_MEM   = /^que (programa|proceso|app) (consume|usa|ocupa) mas (ram|memoria)$/;
+const PIDE_TOP_CPU   = /^que (programa|proceso|app) (consume|usa|ocupa) mas cpu$/;
+const PIDE_BATERIA   = /^(como esta la bateria|cuanta bateria tengo|cuanta bateria me queda|cual es la bateria)$/;
+
+// ---------- Respuestas de texto fijo ----------
+const PIDE_SALUDO    = /^(hola|buenas|buenos dias|buenas tardes|buenas noches|hey)$/;
+const PIDE_GRACIAS   = /^(gracias|muchas gracias|mil gracias|te agradezco)$/;
+const PIDE_QUE_PUES  = /^que puedes hacer$/;
+const PIDE_HORA      = /^(que hora es|que hora son|hora actual|hora en el salvador)$/;
+
 // Contra los falsos positivos ("inicio de sesión", "actualizaciones de Office", "equipo de ventas", "red social"):
 // si el texto coincide con la regla pero también con esto, que conteste el modelo. Igual que en el backend.
 const EXCEPCIONES = {
@@ -86,6 +100,8 @@ export function porcentajeDisco(m) {
  */
 export function responderLocal(texto, m) {
   if (!texto) return null;
+  const t = norm(texto).replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
+  const w = palabras(t);
   const pideVer = palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto);
   const pideBorrarViejos = palabras(texto) <= MAX_PALABRAS_BORRAR && QUIERE_BORRAR_VIEJOS.test(texto) && !PIDE_EXPLICAR.test(texto);
   if (pideVer || pideBorrarViejos) {
@@ -97,7 +113,52 @@ export function responderLocal(texto, m) {
   }
   const nueva = accionLocalNueva(texto);
   if (nueva) return nueva;
+
+  // Textos fijos: siempre disponibles, sin datos del sistema.
+  if (PIDE_SALUDO.test(t)) {
+    return { texto: '¡Hola! Soy Kerni y cuido tu computadora. ¿En qué te ayudo?' };
+  }
+  if (PIDE_GRACIAS.test(t)) {
+    return { texto: 'De nada. Acá estoy si necesitás algo más.' };
+  }
+  if (PIDE_QUE_PUES.test(t)) {
+    return { texto: 'Puedo mirar el estado de tu PC (CPU, memoria, disco, batería, red), descubrir qué dispositivos hay en tu red local, ver archivos pesados que ya no usás, abrir ajustes de Windows y ayudarte a armar un reporte para soporte técnico. Lo que cambie algo lo propongo y vos decidís.' };
+  }
+  if (PIDE_HORA.test(t)) {
+    const ahora = new Date().toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', timeZone: 'America/El_Salvador' });
+    return { texto: `En El Salvador son las ${ahora}` };
+  }
+
   if (!m) return null;
+
+  // Datos medidos: máximo 6 palabras.
+  if (w <= MAX_PALABRAS_DATOS) {
+    if (PIDE_RAM.test(t)) {
+      const pct = Math.round((m.ram.usadaMb / m.ram.totalMb) * 100);
+      return { texto: `Tu memoria RAM va al ${pct} %: usás ${Math.round(m.ram.usadaMb)} MB de ${Math.round(m.ram.totalMb)} MB.` };
+    }
+    if (PIDE_CPU.test(t)) {
+      return { texto: `Tu procesador está al ${Math.round(m.cpu)} % ahora mismo.` };
+    }
+    if (PIDE_TOP_MEM.test(t) && m.procesos?.length) {
+      const top = [...m.procesos].sort((a, b) => b.memoriaMb - a.memoriaMb).slice(0, 3);
+      const lista = top.map((p) => `${p.nombre} (${Math.round(p.memoriaMb)} MB)`).join(', ');
+      return { texto: `Los tres procesos que más memoria usan son: ${lista}.` };
+    }
+    if (PIDE_TOP_CPU.test(t) && m.procesos?.length) {
+      const top = [...m.procesos].sort((a, b) => b.cpu - a.cpu).slice(0, 3);
+      const lista = top.map((p) => `${p.nombre} (${p.cpu.toFixed(1)} %)`).join(', ');
+      return { texto: `Los tres procesos que más CPU usan son: ${lista}.` };
+    }
+    if (PIDE_BATERIA.test(t)) {
+      if (m.bateria) {
+        const nota = m.bateria.cargando ? ' (está cargando)' : m.bateria.enchufada ? ' (enchufada)' : '';
+        return { texto: `Tu batería está al ${m.bateria.porcentaje} %${nota}.` };
+      }
+      return { texto: 'No detecté batería: parece que es una computadora de escritorio.' };
+    }
+  }
+
   if (palabras(texto) > MAX_PALABRAS) return null;
   if (!TEMA_DISCO.test(texto) || PIDE_MAS.test(texto)) return null;
 
