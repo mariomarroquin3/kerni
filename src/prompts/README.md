@@ -4,6 +4,9 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 
 | Fecha | Tema | Archivo |
 |---|---|---|
+| 2026-10-30 | Prioritizing Kerni's compact layout | [2026-10-30-prioritizing-kerni-layout.md](2026-10-30-prioritizing-kerni-layout.md) |
+| 2026-10-30 | Glass context-menu regression fix | [2026-10-30-glass-context-menu-regression.md](2026-10-30-glass-context-menu-regression.md) |
+| 2026-10-30 | Liquid Glass style for Kerni (Stage 1) | [2026-10-30-liquid-glass-style.md](2026-10-30-liquid-glass-style.md) |
 | 2026-10-19 | Arranque de Kerni: backend, núcleo Rust y app (hito 1) | [2026-10-19-arranque-kerni.md](2026-10-19-arranque-kerni.md) |
 | 2026-10-19 | Personaje de Kerni en Rive (4 modos + saludo) | [2026-10-19-rive-kerni.md](2026-10-19-rive-kerni.md) |
 | 2026-10-19 | Sprites nuevos, integración con Tauri y lanzador | [2026-10-19-integracion-tauri.md](2026-10-19-integracion-tauri.md) |
