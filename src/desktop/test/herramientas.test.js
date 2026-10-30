@@ -125,7 +125,8 @@ test('pedidos cortos reconocidos sin modelo', () => {
     ver_programas_inicio: ['qué programas se abren al iniciar', 'programas de inicio'],
     ver_actualizaciones: ['hay actualizaciones pendientes'],
     ver_estado_red: ['tengo internet', 'revisá mi wifi'],
-    ver_info_equipo: ['qué pc tengo', 'qué procesador tiene'],
+    ver_reporte_soporte: ['haceme un reporte del equipo', 'quiero un informe para soporte técnico', 'armame un resumen de mi computadora para el técnico'],
+    ver_info_equipo: ['qué pc tengo', 'qué procesador tiene', 'qué modelo de laptop tenía', 'cual modelo de mi computadora tengo', 'qué tipo de laptop tengo'],
     ver_espacio_carpetas: ['qué carpeta ocupa más', 'espacio por carpeta'],
     ver_dispositivos_red: ['cuál es mi ip', 'mi ip', 'mi dirección ip', 'qué dispositivos están conectados a la red', 'hay dispositivos conectados a la red'],
   };
@@ -137,12 +138,15 @@ test('pedidos cortos reconocidos sin modelo', () => {
   assert.equal(ajuste.proponer.destino, 'almacenamiento');
   assert.ok(Object.keys(AJUSTES).includes(ajuste.proponer.destino));
   assert.equal(responderLocal('qué pc tengo', null).proponer.accion, 'ver_info_equipo'); // no hace falta la lectura del sistema
+  assert.equal(responderLocal('qué tipo de laptop tengo', null).proponer.accion, 'ver_info_equipo');
+  assert.equal(responderLocal('haceme un reporte del equipo', null).proponer.accion, 'ver_reporte_soporte');
 });
 
 test('charla normal, preguntas largas o dudosas no abren nada solas', () => {
   for (const q of ['hola', 'cuánta RAM tengo', 'la papelera de la cocina está llena', 'por qué mi internet es lento hoy en la noche cuando todos usan netflix en casa', 'abrí la configuración', '']) {
     assert.equal(accionLocalNueva(q), null, q);
   }
+  assert.equal(responderLocal('qué información debe llevar un informe del equipo', null), null);
 });
 
 test('los textos fijos de las herramientas no usan diminutivos ni emojis', () => {

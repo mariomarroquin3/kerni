@@ -1,10 +1,10 @@
-// Respuestas fijas del chat, sin modelo ni API key. Lógica pura (sin DOM).
+// Enrutamiento y respuestas locales conservadoras. Lógica pura (sin DOM).
 //
-// Es deliberadamente conservadora, como el FAQ de Bitoo: solo contesta
-// pedidos cortos y claros de "ver" un dato. Todo lo que pida explicación,
-// causa o consejo ("¿por qué se llena mi disco?") sigue yendo al modelo.
+// Los datos medidos y pedidos breves, explícitos y deterministas se resuelven
+// aquí. Las preguntas abiertas, explicaciones y consejos siguen yendo al modelo.
 
 export const MAX_PALABRAS = 8;
+const MAX_PALABRAS_ACCION_LOCAL = 12;
 export const DISCO_APRETADO_PCT = 85;
 
 const TEMA_DISCO = /\b(disco|almacenamiento|espacio|c:|gb libres?|memoria del disco)\b/i;
@@ -40,11 +40,11 @@ const REGLAS_NUEVAS = [
   { accion: 'vaciar_papelera', patron: /\b(vaci\w+|limpi\w+|borr\w+|elimin\w+)\s+(la\s+|mi\s+)?(papelera|reciclaje)\b/, texto: 'Puedo vaciar la papelera, pero no se puede deshacer. Mirá la tarjeta y decidí vos.', motivo: 'Liberar el espacio que ocupa la papelera.' },
   { accion: 'ver_programas_inicio', patron: /\b(programas?|apps?|aplicaciones?)\s+de\s+(inicio|arranque)\b|\b(abre\w*|inicia\w*|arranca\w*|carga\w*)\s+(solos?\s+)?(al|cuando|con)\s+(inicia\w*|prende\w*|encender\w*|arranca\w*|windows)|\b(compu\w*|pc)\s+(tarda|demora)\s+(en\s+)?(prender|arrancar|iniciar|encender)/, texto: 'Dale, miro qué programas se abren solos al prender la compu.', motivo: 'Ver qué programas se abren solos al iniciar.' },
   { accion: 'ver_actualizaciones', patron: /\b(hay|tengo|faltan?|pendientes?|revis\w+|busc\w+)\b.{0,30}\bactualizaci\w+/, texto: 'Busco si Windows tiene actualizaciones pendientes. Solo miro, no instalo nada.', motivo: 'Ver si hay actualizaciones de Windows pendientes.' },
-  { accion: 'ver_dispositivos_red', patron: /\b(dispositivos?|aparatos?|equipos?)\b.{0,30}\b(conectad\w*|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\b(quien|quienes)\b.{0,25}\b(conectad\w*|esta|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\b(escan\w+)\s+(la\s+)?(red|wifi|wi-fi)\b|\b(hay|que|cuales)\b.{0,20}\b(dispositivos?|aparatos?|equipos?)\b.{0,20}\b(red|wifi|wi-fi)\b|\b(dispositivos?|aparatos?|equipos?)\s+(conectados?\s+)?(en\s+)?(la\s+)?red\b/, texto: 'Busco los dispositivos conectados en tu red local.', motivo: 'Ver los dispositivos conectados en la red local.' },
+  { accion: 'ver_dispositivos_red', patron: /\b(dispositivos?|aparatos?|equipos?)\b.{0,20}\b(conectad\w*|estan\s+conectad\w*)\b.{0,10}\b(red|wifi|wi-fi)\b|\b(quien|quienes)\b.{0,15}\b(conectad\w*|esta|estan)\b.{0,10}\b(red|wifi|wi-fi)\b|\b(escan\w+)\s+(la\s+)?(red|wifi|wi-fi)\b|\b(hay|que|cuales)\b.{0,15}\b(dispositivos?|aparatos?|equipos?)\b.{0,15}\b(red|wifi|wi-fi)\b|\b(dispositivos?|aparatos?|equipos?)\s+(conectados?\s+)?(en\s+)?(la\s+)?red\b/, texto: 'Busco los dispositivos conectados en tu red local.', motivo: 'Ver los dispositivos conectados en la red local.' },
   { accion: 'ver_estado_red', patron: /\b(tengo|hay|funciona|anda|revis\w+|estado\s+de|como\s+esta)\b.{0,25}\b(internet|wifi|wi-fi|red|conexion)\b|\b(internet|wifi|wi-fi|conexion)\b.{0,20}\b(lent\w+|caid\w+|no\s+(funciona|anda|carga)|mal)\b/, texto: 'Reviso tu conexión con una prueba corta.', motivo: 'Revisar si hay internet y cómo está la conexión.' },
   { accion: 'ver_dispositivos_red', patron: /\b(cual(es)?\s+)?(es\s+)?(mi|la)\s+ip\b|\bmi\s+direccion\s+ip\b|\bip\s+(local|publica|privada)?\b/, texto: 'Busco tu IP en la red local.', motivo: 'Ver tu IP local en la red.' },
-  { accion: 'ver_info_equipo', patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/, texto: 'Dale, miro qué equipo tenés.', motivo: 'Ver el modelo y las características del equipo.' },
-  { accion: 'ver_reporte_soporte', patron: /\b(reporte|informe|resumen|ficha)\b.{0,30}\b(soporte|tecnico|ti|informatica|sistemas)\b|\b(soporte|tecnico)\b.{0,30}\b(reporte|informe|resumen)\b/, texto: 'Dale, armo un resumen de tu equipo para el soporte técnico.', motivo: 'Armar un resumen del equipo para mandarlo a soporte técnico.' },
+  { accion: 'ver_info_equipo', patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(que|cual(es)?)\s+(modelo|marca)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(que|cual(es)?)\s+(tipo|clase)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/, texto: 'Dale, miro qué equipo tenés.', motivo: 'Ver el modelo y las características del equipo.' },
+  { accion: 'ver_reporte_soporte', patron: /\b(haz|hace|arm|prepar|gener|cre|sac|dame|quiero|necesito)\w*\b.{0,30}\b(reporte|informe|resumen|ficha)\b.{0,30}\b(soporte|tecnic\w*|equipo|pc|computadora|compu\w*|laptop)\b|\b(reporte|informe|resumen|ficha)\s+(de|del|para)\s+(el\s+)?(mi\s+)?(equipo|pc|computadora|compu\w*|laptop|soporte|tecnic\w*|ti|informatica|sistemas)\b|\b(soporte|tecnic\w*)\b.{0,30}\b(reporte|informe|resumen)\b|\bpara\s+(el\s+)?(soporte|tecnico)\b.{0,20}\b(datos|informacion|reporte|resumen)/, texto: 'Dale, armo un resumen de tu equipo para el soporte técnico.', motivo: 'Armar un resumen del equipo para mandarlo a soporte técnico.' },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
 ];
 
@@ -54,6 +54,7 @@ const EXCEPCIONES = {
   ver_programas_inicio: /\b(inicio|iniciar|inicia|arranque)\s+(de\s+)?sesion\b|\bsesion\b/,
   ver_actualizaciones: /\b(office|word|excel|powerpoint|chrome|firefox|android|iphone|ios|apps?|juegos?|antivirus|drivers?|controlador(es)?)\b/,
   ver_info_equipo: /\bequipo\s+de\b/,
+  ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
 };
@@ -61,7 +62,7 @@ const EXCEPCIONES = {
 /** @returns {null | { texto: string, proponer: object }} */
 export function accionLocalNueva(texto) {
   const t = norm(texto);
-  if (!t || palabras(t) > MAX_PALABRAS) return null;
+  if (!t || palabras(t) > MAX_PALABRAS_ACCION_LOCAL) return null;
   if (PIDE_ABRIR.test(t)) {
     const destino = DESTINOS.find(([, patron]) => patron.test(t))?.[0];
     if (destino) {

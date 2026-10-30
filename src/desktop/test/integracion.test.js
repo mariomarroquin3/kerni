@@ -109,11 +109,17 @@ test('lo que dice el modelo se pinta con textContent, nunca con innerHTML', () =
   assert.doesNotMatch(main, /innerHTML|outerHTML|insertAdjacentHTML/);
 });
 
-test('las respuestas automáticas locales solo se usan si el backend indica fallback', () => {
-  assert.match(main, /if \(!res\.ok\) \{\s*if \(data\.fallbackLocal\) \{[\s\S]*?const local = responderLocal\(mensaje, ultimas\)/);
+test('las solicitudes locales claras evitan el modelo y las respuestas locales sirven de fallback explícito', () => {
+  const localAntesDelModelo = main.indexOf('if (responderAutomatico(mensaje)) return;');
+  const llamadaChat = main.indexOf("fetch(`${BACKEND}/chat`,");
+  assert.ok(localAntesDelModelo >= 0 && localAntesDelModelo < llamadaChat);
+  assert.match(main, /function responderAutomatico\(mensaje\) \{\s*const local = responderLocal\(mensaje, ultimas\)/);
   assert.equal([...main.matchAll(/responderLocal\(mensaje, ultimas\)/g)].length, 1);
+  assert.match(main, /if \(accion === 'ver_archivos_pesados'\) \{\s*void buscarArchivosPesados\(\);\s*\} else if \(Object\.hasOwn\(VISTAS, accion\)\) \{\s*void VISTAS\[accion\]\(\);/);
+  assert.match(main, /else if \(accion === 'abrir_ajuste'\) \{\s*void ACCIONES_DEL_PANEL\.ajuste\(local\.proponer\.destino\)\.catch/);
+  assert.match(main, /else \{\s*proponer\(local\.proponer, true\);/);
   assert.match(main, /if \(data\.fallbackLocal\) \{\s*const enlace = enlaceParaRevisar\(mensaje\)/);
-  assert.equal([...main.matchAll(/enlaceParaRevisar\(mensaje\)/g)].length, 1);
+  assert.match(main, /if \(responderAutomatico\(mensaje\)\) return;/);
 });
 
 test('las métricas están ocultas al arrancar y el clic derecho abre el menú integrado', () => {
