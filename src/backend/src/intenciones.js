@@ -60,7 +60,7 @@ const REGLAS = [
   },
   {
     accion: 'ver_info_equipo',
-    patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/,
+    patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(que|cual(es)?)\s+(modelo|marca)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(que|cual(es)?)\s+(tipo|clase)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/,
   },
   { accion: 'ver_reporte_soporte', patron: /\b(reporte|informe|resumen|ficha)\b.{0,30}\b(soporte|tecnico|ti|informatica|sistemas|help\s*desk)\b|\b(soporte|tecnico)\b.{0,30}\b(reporte|informe|resumen)\b|\bpara\s+(el\s+)?(soporte|tecnico)\b.{0,20}\b(datos|informacion|reporte|resumen)/ },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },

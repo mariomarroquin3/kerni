@@ -42,7 +42,7 @@ describe('pedidos reconocidos por el harness', () => {
     ver_actualizaciones: ['hay actualizaciones pendientes?', 'tengo actualizaciones de windows', 'revisá si faltan actualizaciones'],
     ver_estado_red: ['tengo internet?', 'revisá mi wifi', 'el internet va lento', 'cómo está la conexión'],
     ver_dispositivos_red: ['qué dispositivos están conectados a la red', 'hay dispositivos conectados a mi red', 'qué aparatos están conectados al wifi'],
-    ver_info_equipo: ['qué pc tengo', 'qué modelo es mi compu', 'características de mi laptop', 'qué procesador tiene'],
+    ver_info_equipo: ['qué pc tengo', 'qué modelo es mi compu', 'qué modelo de laptop tenía', 'cual modelo de mi computadora tengo', 'qué tipo de laptop tengo', 'características de mi laptop', 'qué procesador tiene'],
     ver_espacio_carpetas: ['qué carpeta ocupa más', 'cuáles carpetas pesan más', 'espacio por carpeta'],
     ver_archivos_pesados: ['archivos pesados', 'qué archivos viejos puedo borrar'],
   };
