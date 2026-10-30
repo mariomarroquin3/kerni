@@ -23,3 +23,15 @@ When asked which devices are connected to the network, Kerni opened the general 
 ### Follow-up verification
 - `cd src/backend && npm test -- test/chat.test.js test/respaldo.test.js` (32 passed)
 - `cd src/desktop && node --test test/integracion.test.js test/herramientas.test.js` (38 passed)
+
+## Follow-up: recognize laptop model questions locally
+- The user reported that "qué modelo de laptop tenía" reached the cloud RAG fallback when the model quota was exhausted.
+- Extended the local desktop intent and backend action detection to recognize model/brand questions phrased as "qué modelo de laptop tengo/tenía", keeping both rules in sync.
+- Added regression cases for the reported phrase and a similar computer-model question.
+- Verified with `cd src/desktop && node --test test/herramientas.test.js` (16 passed) and `cd src/backend && npm test -- --run test/herramientas.test.js` (21 passed); `git diff --check` passed.
+
+## Follow-up: route deterministic requests locally
+- The user clarified that some tasks (such as building a support report from local measurements) do not need an LLM, while open-ended questions should still use it.
+- The desktop now checks the existing conservative local responder before submitting to `/chat`; direct, short tool requests and measured disk facts stay local, and ambiguous/explanatory questions continue to the model.
+- Added explicit report/informe phrasing. Explicit read-only views open directly; actions that change the system still require their confirmation card. The no-provider/quota fallback still uses the same local responder.
+- Verified with `cd src/desktop && npm test` (102 passed) and `cd src/backend && npm test` (280 passed).
