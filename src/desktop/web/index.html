@@ -8,39 +8,41 @@
   </head>
   <body data-animo="normal">
     <main id="app">
-      <div id="globo" class="zona" hidden></div>
+      <div id="mensajes">
+        <div id="globo" class="zona glass" hidden></div>
 
-      <div id="tarjetas">
-        <section id="panico" class="tarjeta zona" hidden>
-          <h2>¡Modo pánico!</h2>
-          <p>La CPU lleva rato al tope. Estos son los que más consumen:</p>
-          <ul id="panico-lista"></ul>
-        </section>
-        <section id="confirmar" class="tarjeta zona" hidden>
-          <p id="confirmar-texto"></p>
-          <p id="confirmar-motivo" class="motivo"></p>
-          <div class="botones">
-            <button id="aprobar" type="button">Aprobar</button>
-            <button id="rechazar" type="button" class="secundario">No</button>
-          </div>
-        </section>
-        <section id="archivos" class="tarjeta zona" hidden>
-          <h2>Archivos pesados sin uso</h2>
-          <p id="archivos-estado" class="motivo"></p>
-          <ul id="archivos-lista"></ul>
-          <div class="botones">
-            <button id="archivos-cerrar" type="button" class="secundario">Cerrar</button>
-          </div>
-        </section>
-        <section id="panel" class="tarjeta zona" hidden>
-          <h2 id="panel-titulo"></h2>
-          <p id="panel-estado" class="motivo"></p>
-          <ul id="panel-lista"></ul>
-          <div class="botones">
-            <button id="panel-extra" type="button" hidden></button>
-            <button id="panel-cerrar" type="button" class="secundario">Cerrar</button>
-          </div>
-        </section>
+        <div id="tarjetas">
+          <section id="panico" class="tarjeta zona glass" hidden>
+            <h2>¡Modo pánico!</h2>
+            <p>La CPU lleva rato al tope. Estos son los que más consumen:</p>
+            <ul id="panico-lista"></ul>
+          </section>
+          <section id="confirmar" class="tarjeta zona glass" hidden>
+            <p id="confirmar-texto"></p>
+            <p id="confirmar-motivo" class="motivo"></p>
+            <div class="botones">
+              <button id="aprobar" type="button">Aprobar</button>
+              <button id="rechazar" type="button" class="secundario">No</button>
+            </div>
+          </section>
+          <section id="archivos" class="tarjeta zona glass" hidden>
+            <h2>Archivos pesados sin uso</h2>
+            <p id="archivos-estado" class="motivo"></p>
+            <ul id="archivos-lista"></ul>
+            <div class="botones">
+              <button id="archivos-cerrar" type="button" class="secundario">Cerrar</button>
+            </div>
+          </section>
+          <section id="panel" class="tarjeta zona glass" hidden>
+            <h2 id="panel-titulo"></h2>
+            <p id="panel-estado" class="motivo"></p>
+            <ul id="panel-lista"></ul>
+            <div class="botones">
+              <button id="panel-extra" type="button" hidden></button>
+              <button id="panel-cerrar" type="button" class="secundario">Cerrar</button>
+            </div>
+          </section>
+        </div>
       </div>
 
       <div id="mascota" class="zona" data-tauri-drag-region="deep">
@@ -61,7 +63,7 @@
         </svg>
       </div>
 
-      <section id="hud" class="zona" hidden aria-label="Salud del equipo">
+      <section id="hud" class="zona glass" hidden aria-label="Salud del equipo">
         <div id="metricas">
           <div class="medidor"><span>CPU</span><div class="barra"><i id="barra-cpu"></i></div><b id="txt-cpu">–</b></div>
           <div class="medidor"><span>RAM</span><div class="barra"><i id="barra-ram"></i></div><b id="txt-ram">–</b></div>
@@ -73,12 +75,12 @@
         </div>
       </section>
 
-      <form id="chat" class="zona" autocomplete="off">
+      <form id="chat" class="zona glass" autocomplete="off">
         <input id="mensaje" type="text" maxlength="1000" placeholder="Preguntale a Kerni…" />
         <button type="submit">Enviar</button>
       </form>
     </main>
-    <div id="menu-contextual" class="zona" role="menu" aria-label="Opciones de Kerni" hidden>
+    <div id="menu-contextual" class="zona glass" role="menu" aria-label="Opciones de Kerni" hidden>
       <button type="button" role="menuitem" data-menu-accion="metricas"></button>
       <button type="button" role="menuitem" data-menu-accion="pesados">Archivos pesados sin uso…</button>
       <button type="button" role="menuitem" data-menu-accion="limpiar">Limpiar temporales…</button>

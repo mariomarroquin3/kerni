@@ -9,6 +9,7 @@
   --cuerpo: #5eead4;
   --sombra-panel: 0 4px 24px rgba(0, 0, 0, 0.25), 0 1px 4px rgba(0, 0, 0, 0.15);
   --borde-panel: 1px solid rgba(255, 255, 255, 0.1);
+  --glass-alpha: 0.45;
   --radio: 14px;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
@@ -19,6 +20,23 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 #app { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; padding: 10px; }
 
 .zona { pointer-events: auto; }
+
+#mensajes {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  max-height: calc(100vh - 377px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+/* La altura reservada deja encoger a Kerni hasta 110 px antes de desplazar los mensajes. */
+#app:has(#hud[hidden]) #mensajes,
+#app:has(#confirmar:not([hidden])) #mensajes {
+  max-height: calc(100vh - 214px);
+}
+#app:has(#confirmar:not([hidden])) #hud { display: none; }
 
 /* El menú propio evita popups GTK sin padre en Linux. */
 #menu-contextual {
@@ -31,10 +49,6 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
   padding: 6px;
   border: var(--borde-panel);
   border-radius: 12px;
-  background: rgba(18, 24, 38, 0.98);
-  box-shadow: var(--sombra-panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 #menu-contextual button {
   width: 100%;
@@ -58,11 +72,32 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
   font-size: 13px;
   line-height: 1.4;
   box-shadow: var(--sombra-panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
-#globo { max-height: 150px; overflow-y: auto; user-select: text; }
+#globo.glass, .tarjeta.glass, #hud.glass, #chat.glass, #menu-contextual.glass {
+  background-color: rgba(10, 15, 30, var(--glass-alpha));
+  background-image:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.12), transparent 42%, rgba(255, 255, 255, 0.03)),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.35);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+/* El WebView GTK no desenfoca el escritorio y el filtro aumentó el CPU en la prueba. */
+html.modo-ligero .glass {
+  background-color: rgba(10, 15, 30, var(--glass-alpha));
+  background-image: none;
+}
+html.modo-ligero .glass, html.modo-ligero .tarjeta {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#globo { flex: 0 0 auto; user-select: text; }
 #tarjetas { display: flex; flex-direction: column; gap: 8px; }
+#tarjetas, #chat, #hud { flex-shrink: 0; }
 .tarjeta p { margin: 0 0 6px; }
 .tarjeta h2 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: var(--peligro); letter-spacing: 0.01em; }
 .motivo { color: var(--suave); font-size: 12px; }
@@ -139,10 +174,22 @@ body[data-reposo='1'] #hud { opacity: 0.55; }
 #chat button[type='submit'] { border-radius: 10px; padding: 8px 16px; white-space: nowrap; }
 
 /* ---- Mascota ---- */
-#mascota { align-self: center; width: 120px; height: 120px; cursor: grab; position: relative; }
+#mascota {
+  align-self: center;
+  flex: 0 1 120px;
+  width: auto;
+  height: auto;
+  min-width: 110px;
+  min-height: 110px;
+  max-width: 120px;
+  max-height: 120px;
+  aspect-ratio: 1;
+  cursor: grab;
+  position: relative;
+}
 #kerni-rive { display: none; width: 100%; height: 100%; }
 /* Con el rig de Rive cargado, el SVG provisional se esconde y la mascota crece. */
-#mascota.rive-listo { width: 210px; height: 210px; }
+#mascota.rive-listo { flex-basis: 210px; max-width: 210px; max-height: 210px; }
 #mascota.rive-listo #kerni-rive { display: block; }
 #mascota.rive-listo #kerni { display: none; }
 #kerni { width: 100%; height: 100%; overflow: visible; }
@@ -176,6 +223,7 @@ body[data-animo='panico'] #kerni .antena-bola { fill: var(--peligro); animation:
 
 @media (prefers-reduced-motion: reduce) {
   #kerni, #kerni .ojo, #kerni .antena-bola { animation: none !important; }
+  button, #mensaje { transition: none !important; }
 }
 
 [hidden] { display: none !important; }
