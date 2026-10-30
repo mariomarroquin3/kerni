@@ -517,6 +517,25 @@ const VISTAS = {
 };
 $('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
 
+function responderAutomatico(mensaje) {
+  const local = responderLocal(mensaje, ultimas);
+  if (!local) return false;
+  decir(local.texto, 20000);
+  if (local.proponer && !pendiente) {
+    const accion = local.proponer.accion;
+    if (accion === 'ver_archivos_pesados') {
+      void buscarArchivosPesados();
+    } else if (Object.hasOwn(VISTAS, accion)) {
+      void VISTAS[accion]();
+    } else if (accion === 'abrir_ajuste') {
+      void ACCIONES_DEL_PANEL.ajuste(local.proponer.destino).catch((err) => decir(String(err)));
+    } else {
+      proponer(local.proponer, true);
+    }
+  }
+  return true;
+}
+
 /** Siempre con tarjeta de confirmación: nada se borra sin Aprobar. */
 function pedirLimpieza() {
   proponer({ accion: 'limpiar_temporales', motivo: 'Libera espacio sin tocar tus documentos.' });
@@ -530,6 +549,9 @@ $('chat').addEventListener('submit', async (e) => {
   const mensaje = input.value.trim();
   if (!mensaje) return;
   input.value = '';
+
+  // Solicitudes breves y deterministas usan las reglas/datos locales. Las dudas y preguntas abiertas van al modelo.
+  if (responderAutomatico(mensaje)) return;
 
   input.disabled = true;
   pensando = true;
@@ -570,12 +592,7 @@ $('chat').addEventListener('submit', async (e) => {
             throw err;
           }
         }
-        const local = responderLocal(mensaje, ultimas);
-        if (local) {
-          decir(local.texto, 20000);
-          if (local.proponer && !pendiente) proponer(local.proponer, true);
-          return;
-        }
+        if (responderAutomatico(mensaje)) return;
       }
       throw new Error(data.error ?? `error ${res.status}`);
     }
