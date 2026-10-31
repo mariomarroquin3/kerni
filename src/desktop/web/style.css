@@ -9,7 +9,7 @@
   --cuerpo: #5eead4;
   --sombra-panel: 0 4px 24px rgba(0, 0, 0, 0.25), 0 1px 4px rgba(0, 0, 0, 0.15);
   --borde-panel: 1px solid rgba(255, 255, 255, 0.1);
-  --glass-alpha: 0.45;
+  --glass-alpha: 0.70;
   --radio: 14px;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
