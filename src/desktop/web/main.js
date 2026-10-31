@@ -760,7 +760,7 @@ $('chat').addEventListener('submit', async (e) => {
     const timeout = setTimeout(() => controller.abort(), 60000);
     const res = await fetch(`${BACKEND}/chat`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream, application/json' },
       body: JSON.stringify({
         mensaje,
         session_id: sessionId ?? undefined,
@@ -771,8 +771,49 @@ $('chat').addEventListener('submit', async (e) => {
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    const data = await res.json();
-    if (!res.ok) {
+
+    let data;
+    if (res.headers.get('content-type')?.includes('text/event-stream') && res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acumulado = '';
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const bloques = buffer.split('\n\n');
+        buffer = bloques.pop() ?? '';
+        for (const bloque of bloques) {
+          let evento = 'message';
+          let datos = '';
+          for (const linea of bloque.split('\n')) {
+            if (linea.startsWith('event:')) evento = linea.slice(6).trim();
+            else if (linea.startsWith('data:')) datos = linea.slice(5).trim();
+          }
+          if (!datos) continue;
+          try {
+            const parsed = JSON.parse(datos);
+            if (evento === 'delta') {
+              acumulado += parsed.text;
+              const globo = $('globo');
+              globo.textContent = acumulado;
+              globo.hidden = false;
+            } else if (evento === 'status' && parsed.herramienta === 'buscar_conocimiento') {
+              $('chat-estado').textContent = 'Kerni está consultando sus guías…';
+            } else if (evento === 'done') {
+              data = parsed;
+            } else if (evento === 'error') {
+              data = { error: parsed.error, fallbackLocal: parsed.fallbackLocal };
+            }
+          } catch {}
+        }
+      }
+    } else {
+      data = await res.json();
+    }
+
+    if (!res.ok || data?.error) {
       if (data.fallbackLocal) {
         const enlace = enlaceParaRevisar(mensaje);
         if (enlace) {
