@@ -4,6 +4,7 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 
 | Fecha | Tema | Archivo |
 |---|---|---|
+| 2026-10-31 | Restore contextual menu navigation | [2026-10-31-restore-context-menu-navigation.md](2026-10-31-restore-context-menu-navigation.md) |
 | 2026-10-31 | Reorganize the contextual menu | [2026-10-31-reorganize-context-menu.md](2026-10-31-reorganize-context-menu.md) |
 | 2026-10-31 | Memory controls, Windows UI checks, and chat status | [2026-10-31-memory-ui-and-windows-checks.md](2026-10-31-memory-ui-and-windows-checks.md) |
 | 2026-10-30 | Prioritizing Kerni's compact layout | [2026-10-30-prioritizing-kerni-layout.md](2026-10-30-prioritizing-kerni-layout.md) |

@@ -9,7 +9,7 @@
   <body data-animo="normal">
     <main id="app">
       <div id="mensajes">
-        <div id="globo" class="zona glass" hidden></div>
+        <div id="globo" class="zona glass" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 
         <div id="tarjetas">
           <section id="panico" class="tarjeta zona glass" hidden>
@@ -40,6 +40,26 @@
             <div class="botones">
               <button id="panel-extra" type="button" hidden></button>
               <button id="panel-cerrar" type="button" class="secundario">Cerrar</button>
+            </div>
+          </section>
+          <section id="memoria-panel" class="tarjeta zona glass" aria-labelledby="memoria-titulo" hidden>
+            <header class="memoria-cabecera">
+              <h2 id="memoria-titulo">Lo que Kerni recuerda</h2>
+              <button id="memoria-cerrar" type="button" class="secundario">Cerrar</button>
+            </header>
+            <p class="motivo">Estos datos se guardan en esta PC. El aprendizaje automático crea reflexiones; los recuerdos aprobados se administran aparte.</p>
+            <label class="memoria-ajuste">
+              <input id="aprendizaje-auto" type="checkbox" />
+              <span>Crear reflexiones automáticamente</span>
+            </label>
+            <p id="memoria-estado" role="status" aria-live="polite"></p>
+            <h3>Recuerdos guardados</h3>
+            <ul id="hechos-lista"></ul>
+            <h3>Reflexiones aprendidas</h3>
+            <ul id="reflexiones-lista"></ul>
+            <div class="botones memoria-acciones">
+              <button id="memoria-actualizar" type="button" class="secundario">Actualizar</button>
+              <button id="memoria-olvidar-todo" type="button" class="secundario">Borrar todo…</button>
             </div>
           </section>
         </div>
@@ -76,16 +96,22 @@
       </section>
 
       <form id="chat" class="zona glass" autocomplete="off">
-        <input id="mensaje" type="text" maxlength="1000" placeholder="Preguntale a Kerni…" />
+        <input id="mensaje" type="text" maxlength="1000" placeholder="Preguntale a Kerni…" aria-describedby="chat-estado" />
         <button type="submit">Enviar</button>
+        <span id="chat-estado" class="solo-lectores" role="status" aria-live="polite" aria-atomic="true"></span>
       </form>
     </main>
     <div id="menu-contextual" class="zona glass" role="menu" aria-label="Opciones de Kerni" hidden>
-      <button type="button" role="menuitem" data-menu-accion="metricas"></button>
-      <button type="button" role="menuitem" data-menu-accion="pesados">Archivos pesados sin uso…</button>
-      <button type="button" role="menuitem" data-menu-accion="limpiar">Limpiar temporales…</button>
-      <button type="button" role="menuitem" id="menu-mas-boton" aria-expanded="false" aria-controls="menu-mas">Más herramientas ▾</button>
+      <div id="menu-principal" role="group" aria-label="Opciones principales">
+        <button type="button" role="menuitem" data-menu-accion="metricas"></button>
+        <button type="button" role="menuitem" data-menu-accion="pesados">Archivos pesados sin uso…</button>
+        <button type="button" role="menuitem" data-menu-accion="limpiar">Limpiar temporales…</button>
+        <button type="button" role="menuitem" id="menu-mas-boton" aria-expanded="false" aria-controls="menu-mas">Más herramientas…</button>
+        <button type="button" role="menuitem" data-menu-accion="ocultar">Ocultar a Kerni</button>
+        <button type="button" role="menuitem" data-menu-accion="cerrar">Cerrar Kerni</button>
+      </div>
       <div id="menu-mas" role="group" aria-label="Más herramientas" hidden>
+        <button type="button" role="menuitem" data-menu-volver>← Volver al menú</button>
         <button type="button" role="menuitem" data-menu-accion="equipo">Información del equipo</button>
         <button type="button" role="menuitem" data-menu-accion="reporte">Resumen para soporte técnico</button>
         <button type="button" role="menuitem" data-menu-accion="inicio">Programas de inicio</button>
@@ -94,9 +120,8 @@
         <button type="button" role="menuitem" data-menu-accion="red_local">Dispositivos en la red</button>
         <button type="button" role="menuitem" data-menu-accion="actualizaciones">Actualizaciones de Windows</button>
         <button type="button" role="menuitem" data-menu-accion="papelera">Vaciar la papelera…</button>
+        <button type="button" role="menuitem" data-menu-accion="memoria">Memoria y aprendizaje…</button>
       </div>
-      <button type="button" role="menuitem" data-menu-accion="ocultar">Ocultar a Kerni</button>
-      <button type="button" role="menuitem" data-menu-accion="cerrar">Cerrar Kerni</button>
     </div>
     <script type="module" src="./main.js"></script>
   </body>
