@@ -517,10 +517,156 @@ const VISTAS = {
 };
 $('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
 
+function rutaMemoria(ruta) {
+  const separador = ruta.includes('?') ? '&' : '?';
+  return `${BACKEND}${ruta}${separador}${new URLSearchParams({ device_id: deviceId })}`;
+}
+
+async function pedirMemoria(ruta, opciones = {}) {
+  if (!deviceId) throw new Error('No pude identificar esta PC para consultar su memoria.');
+  const respuesta = await fetch(rutaMemoria(ruta), opciones);
+  const datos = await respuesta.json().catch(() => null);
+  if (!respuesta.ok) throw new Error(datos?.error ?? `No pude completar la solicitud (error ${respuesta.status}).`);
+  if (!datos) throw new Error('El backend respondió con datos que no pude leer.');
+  return datos;
+}
+
+function filaMemoria(lista, titulo, contenido, etiqueta, borrar) {
+  const tituloTexto = String(titulo ?? 'Sin título');
+  const fila = document.createElement('li');
+  const info = document.createElement('div');
+  info.className = 'memoria-info';
+  const nombre = document.createElement('b');
+  nombre.textContent = tituloTexto;
+  const valor = document.createElement('span');
+  valor.textContent = String(contenido ?? 'Sin detalle');
+  info.append(nombre, valor);
+  const botonBorrar = document.createElement('button');
+  botonBorrar.type = 'button';
+  botonBorrar.className = 'secundario memoria-panel-boton';
+  botonBorrar.textContent = 'Borrar';
+  botonBorrar.setAttribute('aria-label', `Borrar ${etiqueta}: ${tituloTexto}`);
+  botonBorrar.addEventListener('click', async () => {
+    botonBorrar.disabled = true;
+    $('memoria-estado').textContent = `Borrando ${etiqueta}…`;
+    try {
+      await borrar();
+      await cargarMemoria(`${etiqueta} borrado.`);
+    } catch (err) {
+      $('memoria-estado').textContent = `No pude borrar ${etiqueta}: ${err.message}`;
+      botonBorrar.disabled = false;
+    }
+  });
+  fila.append(info, botonBorrar);
+  lista.append(fila);
+}
+
+async function cargarMemoria(mensaje = 'Cargando recuerdos…') {
+  const estado = $('memoria-estado');
+  const hechosLista = $('hechos-lista');
+  const reflexionesLista = $('reflexiones-lista');
+  $('aprendizaje-auto').disabled = true;
+  $('memoria-olvidar-todo').disabled = true;
+  estado.textContent = mensaje;
+  hechosLista.replaceChildren();
+  reflexionesLista.replaceChildren();
+  try {
+    const [memoria, reflexiones, ajustes] = await Promise.all([
+      pedirMemoria('/memoria'),
+      pedirMemoria('/memoria/reflexiones?limite=100'),
+      pedirMemoria('/memoria/reflexiones/ajustes'),
+    ]);
+    if (!memoria.habilitada) {
+      estado.textContent = 'La memoria no está habilitada en este momento.';
+      return;
+    }
+    $('aprendizaje-auto').disabled = false;
+    $('memoria-olvidar-todo').disabled = false;
+    $('aprendizaje-auto').checked = Boolean(ajustes.aprendizaje_auto);
+    for (const hecho of memoria.hechos ?? []) {
+      filaMemoria(hechosLista, hecho.clave, hecho.valor, 'recuerdo', () => pedirMemoria(
+        `/memoria/hechos/${encodeURIComponent(hecho.clave)}`,
+        { method: 'DELETE' },
+      ));
+    }
+    for (const reflexion of reflexiones.reflexiones ?? []) {
+      filaMemoria(reflexionesLista, reflexion.categoria, reflexion.contenido, 'reflexión', () => pedirMemoria(
+        `/memoria/reflexiones/${encodeURIComponent(reflexion.id)}`,
+        { method: 'DELETE' },
+      ));
+    }
+    if (!hechosLista.childElementCount) {
+      const vacio = document.createElement('li');
+      vacio.textContent = 'Todavía no hay recuerdos guardados.';
+      hechosLista.append(vacio);
+    }
+    if (!reflexionesLista.childElementCount) {
+      const vacio = document.createElement('li');
+      vacio.textContent = 'Todavía no hay reflexiones aprendidas.';
+      reflexionesLista.append(vacio);
+    }
+    estado.textContent = mensaje.endsWith('…')
+      ? `${memoria.hechos?.length ?? 0} recuerdos y ${reflexiones.reflexiones?.length ?? 0} reflexiones.`
+      : mensaje;
+  } catch (err) {
+    estado.textContent = `No pude cargar la memoria: ${err.message}`;
+    console.error('[memoria] No se pudo cargar:', err);
+  }
+}
+
+async function verMemoria() {
+  $('panel').hidden = true;
+  $('memoria-panel').hidden = false;
+  await cargarMemoria();
+}
+
+$('memoria-cerrar').addEventListener('click', () => { $('memoria-panel').hidden = true; });
+$('memoria-actualizar').addEventListener('click', () => { void cargarMemoria(); });
+$('aprendizaje-auto').addEventListener('change', async (e) => {
+  const control = e.currentTarget;
+  const nuevo = control.checked;
+  control.disabled = true;
+  $('memoria-estado').textContent = 'Guardando el ajuste…';
+  try {
+    const resultado = await pedirMemoria('/memoria/reflexiones/ajustes', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, aprendizaje_auto: nuevo }),
+    });
+    control.checked = Boolean(resultado.aprendizaje_auto);
+    $('memoria-estado').textContent = nuevo
+      ? 'El aprendizaje automático está activado.'
+      : 'El aprendizaje automático está desactivado.';
+  } catch (err) {
+    control.checked = !nuevo;
+    $('memoria-estado').textContent = `No pude guardar el ajuste: ${err.message}`;
+    console.error('[memoria] No se pudo guardar el ajuste:', err);
+  } finally {
+    control.disabled = false;
+  }
+});
+$('memoria-olvidar-todo').addEventListener('click', async () => {
+  const confirma = window.confirm('¿Borrar todo lo que Kerni guarda de esta PC? Se eliminarán los recuerdos, las reflexiones, el historial de conversación y el historial resumido de salud. Esta acción no se puede deshacer.');
+  if (!confirma) return;
+  const boton = $('memoria-olvidar-todo');
+  boton.disabled = true;
+  $('memoria-estado').textContent = 'Borrando la memoria…';
+  try {
+    await pedirMemoria('/memoria', { method: 'DELETE' });
+    await cargarMemoria('Se borraron los recuerdos, las reflexiones y los historiales.');
+  } catch (err) {
+    $('memoria-estado').textContent = `No pude borrar la memoria: ${err.message}`;
+    console.error('[memoria] No se pudo borrar todo:', err);
+  } finally {
+    boton.disabled = false;
+  }
+});
+
 function responderAutomatico(mensaje) {
   const local = responderLocal(mensaje, ultimas);
   if (!local) return false;
   decir(local.texto, 20000);
+  $('chat-estado').textContent = 'Kerni respondió con información local.';
   if (local.proponer && !pendiente) {
     const accion = local.proponer.accion;
     if (accion === 'ver_archivos_pesados') {
@@ -555,6 +701,8 @@ $('chat').addEventListener('submit', async (e) => {
 
   input.disabled = true;
   pensando = true;
+  $('chat').setAttribute('aria-busy', 'true');
+  $('chat-estado').textContent = 'Kerni está pensando…';
   actualizarModo();
   decir('Mmm, dejame pensar…', 30000);
   try {
@@ -598,6 +746,7 @@ $('chat').addEventListener('submit', async (e) => {
     }
     sessionId = data.session_id;
     decir(data.respuesta, 25000);
+    $('chat-estado').textContent = 'Kerni respondió.';
     // Solo la última propuesta espera aprobación; la persona decide, no el modelo.
     const propuesta = data.acciones.filter((a) => a.tipo === 'proponer_accion').at(-1);
     const recuerdo = data.acciones.find((a) => a.tipo === 'proponer_recuerdo');
@@ -606,11 +755,14 @@ $('chat').addEventListener('submit', async (e) => {
   } catch (err) {
     if (err.name === 'AbortError' || err.name === 'TimeoutError') {
       decir('Uy, me tardé demasiado pensando. ¿Probamos de nuevo?');
+      $('chat-estado').textContent = 'La respuesta tardó demasiado.';
     } else {
       decir(err instanceof TypeError ? 'Ay, no logro hablar con mi cerebro. ¿Está encendido el backend?' : String(err.message ?? err));
+      $('chat-estado').textContent = 'Kerni no pudo completar la respuesta.';
     }
   } finally {
     pensando = false;
+    $('chat').setAttribute('aria-busy', 'false');
     actualizarModo();
     input.disabled = false;
     input.focus();
@@ -663,8 +815,17 @@ if (enTauri) {
 
 const menuContextual = $('menu-contextual');
 const itemMetricasMenu = menuContextual.querySelector('[data-menu-accion="metricas"]');
+function posicionarMenuContextual(x, y) {
+  const { width, height } = menuContextual.getBoundingClientRect();
+  const maxX = window.innerWidth - width - 8;
+  const maxY = window.innerHeight - height - 8;
+  menuContextual.style.left = `${Math.max(8, Math.min(x, maxX))}px`;
+  menuContextual.style.top = `${Math.max(8, Math.min(y, maxY))}px`;
+}
+
 function ocultarMenuContextual() {
   menuContextual.hidden = true;
+  $('menu-principal').hidden = false;
   $('menu-mas').hidden = true;
   $('menu-mas-boton').setAttribute('aria-expanded', 'false');
 }
@@ -673,11 +834,11 @@ $('mascota').addEventListener('contextmenu', (e) => {
   e.preventDefault();
   if (!enTauri) { alternarMetricas(); return; } // sin menú nativo en el navegador: el clic derecho alterna las métricas
   itemMetricasMenu.textContent = $('hud').hidden ? 'Ver métricas' : 'Ocultar métricas';
+  $('menu-principal').hidden = false;
+  $('menu-mas').hidden = true;
+  $('menu-mas-boton').setAttribute('aria-expanded', 'false');
   menuContextual.hidden = false;
-  const maxX = window.innerWidth - menuContextual.offsetWidth - 8;
-  const maxY = window.innerHeight - menuContextual.offsetHeight - 8;
-  menuContextual.style.left = `${Math.max(8, Math.min(e.clientX, maxX))}px`;
-  menuContextual.style.top = `${Math.max(8, Math.min(e.clientY, maxY))}px`;
+  posicionarMenuContextual(e.clientX, e.clientY);
   itemMetricasMenu.focus();
 });
 
@@ -688,11 +849,26 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !menuContextual.hidden) ocultarMenuContextual();
 });
 menuContextual.addEventListener('click', async (e) => {
-  // "Más herramientas" solo despliega la lista: el menú se queda abierto.
+  if (e.target.closest('[data-menu-volver]')) {
+    $('menu-mas').hidden = true;
+    $('menu-principal').hidden = false;
+    $('menu-mas-boton').setAttribute('aria-expanded', 'false');
+    const x = Number.parseFloat(menuContextual.style.left);
+    const y = Number.parseFloat(menuContextual.style.top);
+    requestAnimationFrame(() => posicionarMenuContextual(x, y));
+    $('menu-mas-boton').focus();
+    return;
+  }
+  // Las herramientas ocupan una vista propia y desplazable, sin alargar el menú principal.
   if (e.target.closest('#menu-mas-boton')) {
-    const abrir = $('menu-mas').hidden;
-    $('menu-mas').hidden = !abrir;
-    $('menu-mas-boton').setAttribute('aria-expanded', String(abrir));
+    $('menu-principal').hidden = true;
+    $('menu-mas').hidden = false;
+    $('menu-mas').scrollTop = 0;
+    $('menu-mas-boton').setAttribute('aria-expanded', 'true');
+    const x = Number.parseFloat(menuContextual.style.left);
+    const y = Number.parseFloat(menuContextual.style.top);
+    requestAnimationFrame(() => posicionarMenuContextual(x, y));
+    menuContextual.querySelector('[data-menu-volver]').focus();
     return;
   }
   const item = e.target.closest('[data-menu-accion]');
@@ -720,6 +896,7 @@ menuContextual.addEventListener('click', async (e) => {
       case 'papelera':
         if (!pendiente) proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false);
         break;
+      case 'memoria': await verMemoria(); break;
       // Cerrar y ocultar los hace Rust: la interfaz no tiene permiso para manejar la ventana.
       case 'ocultar': await llamar('ocultar_kerni'); break;
       case 'cerrar': await llamar('salir_de_kerni'); break;
