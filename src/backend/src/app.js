@@ -29,7 +29,7 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
     reply.header('access-control-allow-origin', origin);
     reply.header('vary', 'origin');
     if (req.method === 'OPTIONS') {
-      reply.header('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
+      reply.header('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
       reply.header('access-control-allow-headers', 'content-type');
       reply.header('access-control-max-age', '600');
       return reply.code(204).send();

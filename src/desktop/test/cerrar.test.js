@@ -13,6 +13,7 @@ const leer = (...ruta) => readFileSync(join(AQUI, '..', ...ruta), 'utf8').replac
 
 const main = leer('web', 'main.js');
 const html = leer('web', 'index.html');
+const css = leer('web', 'style.css');
 const lib = leer('src-tauri', 'src', 'lib.rs');
 const capacidad = JSON.parse(leer('src-tauri', 'capabilities', 'default.json'));
 
@@ -44,6 +45,8 @@ test('"Cerrar Kerni" siempre cierra: si el cierre normal se cuelga, a los 3 segu
 test('el menú integrado tiene las herramientas nuevas y cada opción tiene su acción en main.js', () => {
   assert.match(html, /id="menu-mas-boton"[^>]*aria-expanded="false"/);
   assert.match(html, /<div id="menu-mas"[^>]*\bhidden\b/);
+  assert.match(html, /id="menu-principal"[^>]*role="group"/);
+  assert.match(html, /data-menu-volver/);
   const opciones = [...html.matchAll(/data-menu-accion="(\w+)"/g)].map((m) => m[1]);
   for (const esperada of ['metricas', 'pesados', 'limpiar', 'ocultar', 'cerrar', 'equipo', 'reporte', 'inicio', 'espacio', 'red', 'actualizaciones', 'papelera']) {
     assert.ok(opciones.includes(esperada), `falta ${esperada} en el menú`);
@@ -52,6 +55,10 @@ test('el menú integrado tiene las herramientas nuevas y cada opción tiene su a
   for (const o of opciones) assert.ok(main.includes(`case '${o}'`), `main.js no maneja la opción ${o}`);
   // "Más herramientas" despliega la lista y no cierra el menú
   assert.match(main, /e\.target\.closest\('#menu-mas-boton'\)/);
+  assert.match(main, /e\.target\.closest\('\[data-menu-volver\]'\)/);
+  assert.match(main, /const x = Number\.parseFloat\(menuContextual\.style\.left\)/);
+  assert.match(main, /requestAnimationFrame\(\(\) => posicionarMenuContextual\(x, y\)\)/);
+  assert.match(css, /#menu-mas \{[^}]*max-height: min\(50vh, 320px\); overflow-y: auto;/);
   // la papelera, desde el menú, solo abre la tarjeta de confirmación
   assert.match(main, /case 'papelera':\s+if \(!pendiente\) proponer\(\{ accion: 'vaciar_papelera'/);
   assert.doesNotMatch(main, /llamar\('vaciar_papelera'\)\s*;?\s*\n\s*break/);

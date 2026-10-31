@@ -14,6 +14,7 @@ describe('CORS para la app de escritorio', () => {
       expect(res.statusCode).toBe(204);
       expect(res.headers['access-control-allow-origin']).toBe(origin);
       expect(res.headers['access-control-allow-methods']).toMatch(/POST/);
+      expect(res.headers['access-control-allow-methods']).toMatch(/PUT/);
     },
   );
 

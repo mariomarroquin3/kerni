@@ -134,6 +134,80 @@ ok(metricas.alInicio.oculto && !metricas.alInicio.visible, 'la barra de métrica
 ok(metricas.mostrado.visible, 'se puede mostrar (desde el menú nativo llega el mismo evento)');
 ok(metricas.vuelto.oculto, 'el botón Ocultar la vuelve a esconder');
 
+console.log('\nLayout compacto de 320×620 (burbuja, aprobación, HUD y tarjetas)');
+const layout = await evaluar(`(() => {
+  const ids = ['globo', 'confirmar', 'confirmar-texto', 'confirmar-motivo', 'hud', 'archivos', 'panico', 'panel', 'memoria-panel'];
+  const guardado = Object.fromEntries(ids.map((id) => {
+    const e = document.getElementById(id);
+    return [id, { hidden: e.hidden, text: ['globo', 'confirmar-texto', 'confirmar-motivo'].includes(id) ? e.textContent : null }];
+  }));
+  const mensajes = document.getElementById('mensajes');
+  const scrollGuardado = mensajes.scrollTop;
+  const globo = document.getElementById('globo');
+  const confirmar = document.getElementById('confirmar');
+  globo.hidden = false;
+  globo.textContent = 'Yuni, ya te dejé la propuesta en pantalla. Leé con calma el motivo y revisá los detalles antes de decidir. Esta prueba simula una burbuja larga de cuatro líneas.';
+  document.getElementById('confirmar-texto').textContent = 'Propuesta de prueba con una descripción suficientemente larga para ocupar tres líneas en la tarjeta de aprobación.';
+  document.getElementById('confirmar-motivo').textContent = 'Revisá el cambio antes de aprobarlo. Esta acción requiere tu decisión.';
+  for (const id of ['confirmar', 'hud', 'archivos', 'panico']) document.getElementById(id).hidden = false;
+  document.getElementById('panel').hidden = true;
+  document.getElementById('memoria-panel').hidden = true;
+  const app = document.getElementById('app').getBoundingClientRect();
+  const cajaMensajes = mensajes.getBoundingClientRect();
+  const mascota = document.getElementById('mascota').getBoundingClientRect();
+  const medida = {
+    ancho: innerWidth, alto: innerHeight,
+    app: { top: app.top, bottom: app.bottom },
+    mensajes: { top: cajaMensajes.top, bottom: cajaMensajes.bottom, scroll: mensajes.scrollHeight, alto: mensajes.clientHeight, overflow: getComputedStyle(mensajes).overflowY },
+    mascota: { top: mascota.top, bottom: mascota.bottom, alto: mascota.height },
+    hudOculto: getComputedStyle(document.getElementById('hud')).display === 'none',
+    tarjetasConScroll: mensajes.scrollHeight > mensajes.clientHeight,
+  };
+  for (const id of ids) {
+    const e = document.getElementById(id);
+    e.hidden = guardado[id].hidden;
+    if (guardado[id].text !== null) e.textContent = guardado[id].text;
+  }
+  mensajes.scrollTop = scrollGuardado;
+  return medida;
+})()`);
+ok(layout.ancho >= 300 && layout.alto >= 600, 'la prueba corre en la ventana objetivo', `${layout.ancho}×${layout.alto}`);
+ok(layout.app.top >= 0 && layout.app.bottom <= layout.alto, 'el contenedor principal cabe dentro de la ventana', `${layout.app.top.toFixed(0)}–${layout.app.bottom.toFixed(0)} px`);
+ok(layout.mensajes.top >= 0 && layout.mensajes.bottom <= layout.alto && layout.mensajes.overflow === 'auto', 'burbuja y tarjetas quedan en una zona desplazable dentro de la ventana', `scroll ${layout.mensajes.scroll}/${layout.mensajes.alto} px`);
+ok(layout.mascota.alto >= 110 && layout.mascota.top >= 0 && layout.mascota.bottom <= layout.alto, 'la mascota se encoge sin bajar de 110 px ni salir de la ventana', `${layout.mascota.alto.toFixed(0)} px`);
+ok(layout.hudOculto, 'el HUD se recoge mientras hay una tarjeta de aprobación');
+ok(layout.tarjetasConScroll, 'el contenido combinado de tarjetas conserva desplazamiento interno cuando no cabe');
+
+console.log('\nMenú contextual en las esquinas');
+const menuEnEsquinas = await evaluar(`(() => {
+  const menu = document.getElementById('menu-contextual');
+  const mascota = document.getElementById('mascota');
+  const confirmar = document.getElementById('confirmar'), hud = document.getElementById('hud');
+  const mas = document.getElementById('menu-mas'), botonMas = document.getElementById('menu-mas-boton');
+  const foco = document.activeElement;
+  const guardado = { oculto: menu.hidden, left: menu.style.left, top: menu.style.top, masOculto: mas.hidden, expandido: botonMas.getAttribute('aria-expanded'), confirmar: confirmar.hidden, hud: hud.hidden };
+  const resultados = [];
+  for (const estado of ['cerrado', 'hud', 'aprobacion']) {
+    confirmar.hidden = estado !== 'aprobacion';
+    hud.hidden = estado === 'hud' || estado === 'aprobacion' ? false : true;
+    for (const [x, y] of [[8, 8], [innerWidth - 8, 8], [8, innerHeight - 8], [innerWidth - 8, innerHeight - 8]]) {
+      mascota.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+      const r = menu.getBoundingClientRect();
+      resultados.push({ estado, left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+    }
+  }
+  menu.hidden = guardado.oculto;
+  menu.style.left = guardado.left;
+  menu.style.top = guardado.top;
+  mas.hidden = guardado.masOculto;
+  botonMas.setAttribute('aria-expanded', guardado.expandido);
+  confirmar.hidden = guardado.confirmar;
+  hud.hidden = guardado.hud;
+  if (foco instanceof HTMLElement) foco.focus();
+  return { ancho: innerWidth, alto: innerHeight, resultados };
+})()`);
+ok(menuEnEsquinas.resultados.length === 12 && menuEnEsquinas.resultados.every((r) => r.left >= 0 && r.top >= 0 && r.right <= menuEnEsquinas.ancho && r.bottom <= menuEnEsquinas.alto), 'el menú no se sale por ninguna esquina con el chat, HUD o aprobación abiertos', JSON.stringify(menuEnEsquinas.resultados));
+
 console.log('\nRive: cambio de modo');
 const pixelesDistintos = async () => evaluar(`(() => {
   const c = document.getElementById('kerni-rive'); const g = c.getContext('2d');

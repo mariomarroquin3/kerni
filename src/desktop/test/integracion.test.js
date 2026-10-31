@@ -166,6 +166,32 @@ test('archivos pesados sin uso: comandos registrados, panel, menú y acción de 
   assert.match(main, /nombre\.textContent = a\.esCarpeta/);
 });
 
+test('el panel de memoria ofrece control individual, aprendizaje automático y borrado total explícito', () => {
+  for (const id of ['memoria-panel', 'memoria-cerrar', 'memoria-estado', 'hechos-lista', 'reflexiones-lista', 'aprendizaje-auto', 'memoria-actualizar', 'memoria-olvidar-todo']) {
+    assert.match(html, new RegExp(`id="${id}"`), `falta ${id}`);
+  }
+  assert.match(html, /data-menu-accion="memoria"/);
+  assert.match(main, /case 'memoria': await verMemoria\(\)/);
+  assert.match(main, /pedirMemoria\('\/memoria\/reflexiones\/ajustes'/);
+  assert.match(main, /method: 'PUT'/);
+  assert.match(main, /\/memoria\/hechos\/\$\{encodeURIComponent\(hecho\.clave\)\}/);
+  assert.match(main, /\/memoria\/reflexiones\/\$\{encodeURIComponent\(reflexion\.id\)\}/);
+  assert.match(main, /Se eliminarán los recuerdos, las reflexiones, el historial de conversación y el historial resumido de salud/);
+  assert.match(main, /nombre\.textContent = tituloTexto/);
+  assert.match(main, /valor\.textContent = String\(contenido \?\? 'Sin detalle'\)/);
+  assert.doesNotMatch(main, /memoria-info[^]*?innerHTML/);
+});
+
+test('el chat anuncia espera y respuesta sin añadir elementos visibles al layout', () => {
+  assert.match(html, /id="globo"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="mensaje"[^>]*aria-describedby="chat-estado"/);
+  assert.match(html, /id="chat-estado" class="solo-lectores" role="status"/);
+  assert.match(main, /setAttribute\('aria-busy', 'true'\)/);
+  assert.match(main, /setAttribute\('aria-busy', 'false'\)/);
+  assert.match(main, /Kerni está pensando…/);
+  assert.match(main, /La respuesta tardó demasiado\./);
+});
+
 test('el globo de texto dura lo que tarda leerse, no se cierra con el puntero encima y un clic lo cierra', () => {
   assert.match(main, /setTimeout\(ocultarGlobo, duracionGlobo\(texto, ms\)\)/);
   assert.match(main, /\$\('globo'\)\.addEventListener\('mouseenter'/);
@@ -209,7 +235,7 @@ test('la memoria: el front manda un device_id al chat y solo guarda recuerdos tr
   assert.match(main, /device_id: deviceId/);
   assert.match(main, /localStorage\.setItem\(clave, id\)/);
   // el recuerdo se propone en la tarjeta; el POST a /memoria/hechos vive solo en ejecutar() (clic en Aprobar)
-  assert.equal([...main.matchAll(/\/memoria\/hechos/g)].length, 1);
+  assert.equal([...main.matchAll(/fetch\(`\$\{BACKEND\}\/memoria\/hechos`/g)].length, 1);
   assert.match(main, /async function ejecutar\(a\) \{\s*if \(a\.accion === 'recordar'\)/);
   // la salud solo se manda desde la app real, nunca con los datos de demostración
   assert.match(main, /if \(enTauri && deviceId\) \{\s*setInterval/);
