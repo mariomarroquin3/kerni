@@ -75,9 +75,22 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     // Una sola persona usa la app: la clave del límite es la sesión local.
     if (limitador && !limitador.permitir('local')) return reply.code(429).send({ error: 'Muchos mensajes seguidos; esperá un momento.' });
 
+    const quiereStream = req.headers.accept?.includes('text/event-stream') || req.query?.stream === 'true';
+
     if (!provider) {
       const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_cupo' });
-      if (respaldo) return { session_id: randomUUID(), ...respaldo };
+      if (respaldo) {
+        if (quiereStream) {
+          reply.raw.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+          });
+          reply.raw.write(`event: done\ndata: ${JSON.stringify({ session_id: randomUUID(), ...respaldo })}\n\n`);
+          return reply.raw.end();
+        }
+        return { session_id: randomUUID(), ...respaldo };
+      }
       return reply.code(503).send({
         error: 'No hay una llave de modelo configurada. Kerni probará las respuestas automáticas locales.',
         fallbackLocal: true,
@@ -105,15 +118,47 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     if (sesion.ocupada) return reply.code(409).send({ error: 'Kerni todavía está respondiendo el mensaje anterior' });
 
     sesion.ocupada = true;
+    let sseIniciado = false;
     try {
       // La base de conocimiento ya no se busca aquí: el modelo la consulta con la herramienta buscar_conocimiento solo cuando hace falta.
       const recuerdos = deviceId ? await seguro('leer el contexto', () => memoria.contexto(deviceId), '') : '';
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId) });
+
+      if (quiereStream) {
+        reply.raw.writeHead(200, {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        });
+        sseIniciado = true;
+      }
+
+      const { respuesta, acciones, traza } = await agent.runTurn({
+        sessionId,
+        history: sesion.history,
+        mensaje,
+        snapshot,
+        equipo,
+        memoria: recuerdos,
+        puedeRecordar: Boolean(deviceId),
+        signal: req.raw.signal,
+        onDelta: (chunk) => {
+          if (sseIniciado) reply.raw.write(`event: delta\ndata: ${JSON.stringify({ text: chunk })}\n\n`);
+        },
+        onStatus: (st) => {
+          if (sseIniciado) reply.raw.write(`event: status\ndata: ${JSON.stringify(st)}\n\n`);
+        },
+      });
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
         seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);
         seguro('encolar la reflexión', () => motorReflexion.encolarReflexion({ deviceId, mensaje }), undefined);
       }
+
+      if (sseIniciado) {
+        reply.raw.write(`event: done\ndata: ${JSON.stringify({ session_id: sessionId, respuesta, acciones, traza })}\n\n`);
+        return reply.raw.end();
+      }
+
       return { session_id: sessionId, respuesta, acciones, traza };
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo }, 'falló el turno');
@@ -123,12 +168,25 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
         : ['llave_invalida', 'sin_red'].includes(err.codigo) ? null : 'fallo';
       if (motivo) {
         const respaldo = await responderSinModelo({ mensaje, equipo, motivo });
-        if (respaldo) return { session_id: sessionId, ...respaldo };
+        if (respaldo) {
+          if (sseIniciado) {
+            reply.raw.write(`event: done\ndata: ${JSON.stringify({ session_id: sessionId, ...respaldo })}\n\n`);
+            return reply.raw.end();
+          }
+          return { session_id: sessionId, ...respaldo };
+        }
       }
       // Los errores de la API traen un mensaje pensado para la persona (llave inválida, cupo agotado, sin red).
       const claro = ['llave_invalida', 'sin_cupo', 'sin_red'].includes(err.codigo) || err.status === 402;
+      const errorMsg = claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.';
+
+      if (sseIniciado) {
+        reply.raw.write(`event: error\ndata: ${JSON.stringify({ error: errorMsg, ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}) })}\n\n`);
+        return reply.raw.end();
+      }
+
       return reply.code(claro ? 503 : 502).send({
-        error: claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.',
+        error: errorMsg,
         ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}),
       });
     } finally {

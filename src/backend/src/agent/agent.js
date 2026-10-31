@@ -133,7 +133,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
    *   `memoria` es el bloque <memoria> ya armado (recuerdos + salud), o vacío.
    *   `puedeRecordar` es falso si la petición no trae device_id.
    */
-  async function runTurn({ history, mensaje, snapshot, equipo, memoria = '', puedeRecordar = true, signal }) {
+  async function runTurn({ history, mensaje, snapshot, equipo, memoria = '', puedeRecordar = true, signal, onDelta, onStatus }) {
     // Sin device_id no hay dónde guardar: ofrecer la herramienta llevaría a una propuesta que falla al aprobarla.
     const recuerda = memoriaActiva && puedeRecordar;
     const definiciones = [...DEFINICIONES, DEFINICION_ENLACE, ...(recuerda ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])];
@@ -185,7 +185,14 @@ export function createAgent({ provider, logger = console, clock = () => performa
         }
 
         history.push(paso.assistantMessage);
-        if (paso.text) respuesta = paso.text;
+        if (paso.text) {
+          respuesta = paso.text;
+          if (onDelta && paso.kind !== 'tool_calls') {
+            const limpio = quitarEmojis(quitarBloquesInternos(paso.text));
+            const tokens = limpio.match(/\S+\s*/g) || [limpio];
+            for (const t of tokens) onDelta(t);
+          }
+        }
         if (paso.kind !== 'tool_calls') break;
 
         const resultados = await Promise.all(paso.calls.map(async (call) => {
@@ -197,6 +204,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
             return { id: call.id, name: call.name, content: JSON.stringify({ ok: true, nota: 'La persona verá la propuesta y decidirá si la guarda.' }) };
           }
           if (call.name === 'buscar_conocimiento' && puedeBuscar) {
+            onStatus?.({ paso: i + 1, herramienta: 'buscar_conocimiento' });
             const args = BuscarConocimientoSchema.safeParse(call.input);
             if (!args.success) {
               traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'argumentos inválidos' });
@@ -219,6 +227,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
             };
           }
           if (call.name === 'revisar_enlace') {
+            onStatus?.({ paso: i + 1, herramienta: 'revisar_enlace' });
             const args = RevisarEnlaceSchema.safeParse(call.input);
             if (!args.success) {
               traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'argumentos inválidos' });
