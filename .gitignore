@@ -6,6 +6,7 @@ target/
 !.env.example
 *.log
 .DS_Store
+.claude/
 coverage/
 src/desktop/src-tauri/gen/
 src/desktop/personaje/kerni-rive/fuente/build/
