@@ -263,3 +263,11 @@ test('el saludo cubre todas las propiedades que tocan los modos (si no, se apila
     assert.deepEqual(faltan, [], `el modo ${modo} toca propiedades que el saludo no cubre: ${faltan.join(', ')}`);
   }
 });
+
+test('el HUD cuenta con un indicador de salud visual y niveles de estado', () => {
+  assert.match(html, /id="salud-badge"/);
+  assert.match(html, /id="salud-texto"/);
+  assert.match(main, /salud-optimo/);
+  assert.match(main, /salud-aviso/);
+  assert.match(main, /salud-critico/);
+});

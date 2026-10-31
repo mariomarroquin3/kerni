@@ -165,18 +165,53 @@ const deviceId = idDeEstaPc();
 
 // ---------- Globo de texto ----------
 let timerGlobo;
+let animacionTipeo = null;
+
+function cancelarTipeo() {
+  if (animacionTipeo !== null) {
+    cancelAnimationFrame(animacionTipeo);
+    animacionTipeo = null;
+  }
+}
+
 function ocultarGlobo() {
+  cancelarTipeo();
   $('globo').hidden = true;
   pintarReposo();
 }
+
 /** `ms` es el mínimo: si el texto es largo se queda lo que se tarda en leerlo (ver `duracionGlobo`). */
 function decir(texto, ms = 15000) {
   const globo = $('globo');
-  globo.textContent = texto; // textContent: lo que dice el modelo nunca se interpreta como HTML
+  cancelarTipeo();
   globo.hidden = false;
   clearTimeout(timerGlobo);
   timerGlobo = setTimeout(ocultarGlobo, duracionGlobo(texto, ms));
   pintarReposo();
+
+  const reduceMovimiento = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMovimiento || !texto || texto.length <= 15) {
+    globo.textContent = texto; // textContent: lo que dice el modelo nunca se interpreta como HTML
+    return;
+  }
+
+  let i = 0;
+  globo.textContent = '';
+  const paso = Math.max(1, Math.floor(texto.length / 50));
+  let ultimo = performance.now();
+  function escribir(ahora) {
+    if (ahora - ultimo >= 16) {
+      i = Math.min(texto.length, i + paso);
+      globo.textContent = texto.slice(0, i);
+      ultimo = ahora;
+    }
+    if (i < texto.length) {
+      animacionTipeo = requestAnimationFrame(escribir);
+    } else {
+      animacionTipeo = null;
+    }
+  }
+  animacionTipeo = requestAnimationFrame(escribir);
 }
 // Mientras el puntero está encima no se cierra (para leer con calma); al salir queda unos segundos más. Un clic lo cierra.
 $('globo').addEventListener('mouseenter', () => clearTimeout(timerGlobo));
@@ -201,6 +236,21 @@ function pintar(m) {
   $('txt-cpu').textContent = `${Math.round(m.cpu)}%`;
   $('txt-ram').textContent = `${(m.ram.usadaMb / 1024).toFixed(1)} GB`;
   $('txt-disco').textContent = `${m.disco.libreGb.toFixed(0)} GB libres`;
+
+  const badge = $('salud-badge');
+  const texto = $('salud-texto');
+  if (badge && texto) {
+    if (m.cpu >= 90 || ramPct >= 90) {
+      badge.className = 'salud-badge salud-critico';
+      texto.textContent = 'Exigido';
+    } else if (m.cpu >= 70 || ramPct >= 75 || discoPct >= 85) {
+      badge.className = 'salud-badge salud-aviso';
+      texto.textContent = 'Atención';
+    } else {
+      badge.className = 'salud-badge salud-optimo';
+      texto.textContent = 'Óptimo';
+    }
+  }
 }
 
 function pintarPanico(m, activo) {
