@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es-SV">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kerni: la mascota que cuida tu compu</title>
+  <meta name="description" content="Kerni es una mascota de escritorio para Windows que revisa cómo está tu compu, te explica lo que pasa y te pide permiso antes de cambiar algo.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" type="image/png" href="assets/kerni.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+  <header class="barra">
+    <div class="contenedor barra__fila">
+      <a class="marca" href="#inicio" aria-label="Kerni, ir al inicio">
+        <img src="assets/kerni.png" alt="" width="36" height="36">
+        <span>Kerni</span>
+      </a>
+      <nav aria-label="Secciones">
+        <ul class="menu">
+          <li><a href="#que-hace">Qué hace</a></li>
+          <li><a href="#proteccion">Cómo te protege</a></li>
+          <li><a href="#instalar">Instalar</a></li>
+          <li><a href="#llave">Tu llave</a></li>
+          <li><a href="#preguntas">Preguntas</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido" tabindex="-1">
+    <section class="heroe" id="inicio" aria-labelledby="titulo">
+      <div class="contenedor heroe__fila">
+        <div class="heroe__texto">
+          <p class="etiqueta">Versión de prueba 0.1</p>
+          <h1 id="titulo">Kerni</h1>
+          <p class="promesa">Una mascota que cuida tu compu y te pide permiso antes de tocar algo.</p>
+          <p class="bajada">Vive en una esquina de tu pantalla, revisa la memoria, el disco y la batería, y te explica en palabras sencillas qué está pasando. Si algo se puede mejorar, te lo propone; vos decidís.</p>
+          <div class="acciones">
+            <a class="boton boton--principal" href="https://github.com/mariomarroquin3/kerni/releases/latest">
+              <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Descargar para Windows
+            </a>
+            <a class="boton boton--secundario" href="#instalar">Cómo instalarlo</a>
+          </div>
+          <p class="nota">Windows 10 u 11 · La app no cuesta · El chat usa tu propia llave de Anthropic</p>
+        </div>
+        <figure class="heroe__figura">
+          <div class="pantallita">
+            <img src="assets/kerni.png" alt="Kerni, un robot pequeño de cuerpo blanco y gorra azul, con cara de pantalla y ojos celestes, sonriendo." width="480" height="480">
+          </div>
+          <figcaption class="globo">“Tu disco está al 86 %. ¿Querés que te muestre los archivos grandes que no usás?”</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="seccion" id="que-hace" aria-labelledby="t-que-hace">
+      <div class="contenedor">
+        <h2 id="t-que-hace">Qué hace</h2>
+        <p class="intro">Todo lo de esta lista ya está hecho. Lo marcado como <span class="sello sello--chat">Con el chat</span> necesita una llave de Anthropic y, por ahora, la instalación de desarrollo (ver <a href="#llave">Tu llave de Anthropic</a>).</p>
+        <ul class="tarjetas">
+          <li class="tarjeta">
+            <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>La salud de tu compu</h3>
+            <p>Mide en vivo el procesador, la memoria, el disco y la batería, y su cara cambia según cómo anda tu equipo. Si llevás una semana sin reiniciar, te lo recuerda.</p>
+          </li>
+          <li class="tarjeta">
+            <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Zm0 6v5m0 3v.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Modo pánico</h3>
+            <p>Si el procesador pasa del 95 % durante varias lecturas seguidas, Kerni se pone en alerta y te muestra qué programas lo están ocupando. Cerrarlos o no es tu decisión.</p>
+          </li>
+          <li class="tarjeta">
+            <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M4 6h6l2 2h8v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6Zm7 6v4m3-2h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Archivos pesados sin uso</h3>
+            <p>Busca archivos grandes que no abrís hace meses en Descargas, Documentos, Escritorio y otras carpetas tuyas. Solo te los muestra: no borra ni mueve nada. También limpia temporales viejos si lo aprobás.</p>
+          </li>
+          <li class="tarjeta">
+            <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1m-2 6.4a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(1 -1) scale(.92)"/></svg>
+            <h3>Revisar enlaces <span class="sello sello--chat">Con el chat</span></h3>
+            <p>Pegale un enlace sospechoso y mira la dirección sin abrir el sitio: imitaciones de marcas, acortadores, trucos con letras. Nunca te dirá que un sitio “es seguro”, solo si ve señales de peligro.</p>
+          </li>
+          <li class="tarjeta">
+            <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M5 5h3m-3 7h3m-3 7h3M11 5h8m-8 7h8m-8 7h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <h3>Guías paso a paso <span class="sello sello--chat">Con el chat</span></h3>
+            <p>Te acompaña un paso a la vez cuando la compu va lenta, la impresora sale fuera de línea, te falta espacio en el disco o hay actualizaciones pendientes.</p>
+          </li>
+          <li class="tarjeta">
+            <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M4 5h16v11H4zM9 20h6m-3-4v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Herramientas y consejos</h3>
+            <p>Te dice qué programas se abren al encender, cómo está tu conexión, si hay actualizaciones de Windows y arma un resumen del equipo para el técnico. Con el chat, además te explica el porqué.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="seccion seccion--suave" id="proteccion" aria-labelledby="t-proteccion">
+      <div class="contenedor">
+        <h2 id="t-proteccion">Cómo te protege</h2>
+        <p class="intro">Kerni está pensado para que nunca te lleves una sorpresa. Esto es lo que hace y lo que no hace.</p>
+        <div class="promesas">
+          <article class="promesa-item">
+            <h3>Kerni propone, vos decidís</h3>
+            <p>Antes de cambiar cualquier cosa te muestra una tarjeta que explica qué va a hacer. Nada pasa hasta que tocás <strong>Aprobar</strong>. Si algo no tiene vuelta atrás, como vaciar la papelera, la tarjeta te lo dice.</p>
+          </article>
+          <article class="promesa-item">
+            <h3>No toca lo de Windows</h3>
+            <p>Los procesos de Windows y de tu antivirus están en una lista protegida: Kerni no los cierra. Esa lista se revisa dos veces, cuando propone y otra vez justo antes de actuar.</p>
+          </article>
+          <article class="promesa-item">
+            <h3>No mira tu pantalla</h3>
+            <p>Kerni no toma capturas de pantalla ni lee el contenido de tus archivos. Para encontrar archivos pesados solo ve el nombre, el tamaño y la fecha.</p>
+          </article>
+          <article class="promesa-item">
+            <h3>Lo que recuerda se queda en tu compu</h3>
+            <p>Su memoria se guarda en tu equipo. Cuando usás el chat, tu mensaje y un resumen del estado de la compu (uso de memoria, disco y nombres de programas) viajan al servicio de Anthropic para que pueda responderte. Nada más sale sin que lo pidás.</p>
+          </article>
+        </div>
+        <p class="aclaracion">Ningún programa es perfecto. Kerni te ayuda a entender tu compu, pero no reemplaza a tu antivirus ni al técnico de tu institución.</p>
+      </div>
+    </section>
+
+    <section class="seccion" id="instalar" aria-labelledby="t-instalar">
+      <div class="contenedor">
+        <h2 id="t-instalar">Instalación paso a paso</h2>
+        <ol class="pasos">
+          <li>
+            <h3>Descargá el instalador</h3>
+            <p>Tocá <a href="https://github.com/mariomarroquin3/kerni/releases/latest">Descargar para Windows</a>. Se abre la página de la última versión en GitHub; bajá el archivo que termina en <code>_x64-setup.exe</code>.</p>
+          </li>
+          <li>
+            <h3>Abrilo</h3>
+            <p>Buscalo en tu carpeta de Descargas y hacé doble clic.</p>
+          </li>
+          <li>
+            <h3>Si Windows te avisa, revisá y continuá</h3>
+            <p>Puede aparecer una pantalla azul que dice “Windows protegió su PC”. Sale porque el instalador todavía no tiene firma digital. Tocá <strong>Más información</strong> y luego <strong>Ejecutar de todas formas</strong>.</p>
+            <p class="alerta"><strong>Importante:</strong> hacé esto solo si bajaste el archivo desde esta página. Si alguien te mandó un instalador de Kerni por correo, WhatsApp o una memoria USB, no lo abrás.</p>
+          </li>
+          <li>
+            <h3>Abrí Kerni</h3>
+            <p>Seguí los pasos del instalador. Kerni aparece en la esquina inferior derecha de la pantalla. Con clic derecho (o clic con dos dedos en el panel táctil) sobre él ves su menú; también tiene un ícono junto al reloj.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="seccion seccion--suave" id="llave" aria-labelledby="t-llave">
+      <div class="contenedor">
+        <h2 id="t-llave">Tu llave de Anthropic</h2>
+        <p class="intro">El chat de Kerni usa Claude, un modelo de inteligencia artificial de la empresa Anthropic. Para hablar con él, cada persona usa su propia llave (una clave secreta). Sin llave, Kerni igual mide tu compu y te avisa; solo no conversa.</p>
+
+        <div class="columnas">
+          <div class="bloque">
+            <h3>Cómo conseguirla</h3>
+            <ol class="lista-numerada">
+              <li>Entrá a <a href="https://console.anthropic.com/">console.anthropic.com</a> y creá una cuenta.</li>
+              <li>Abrí la sección <strong>API Keys</strong>.</li>
+              <li>Tocá <strong>Create Key</strong>, ponele un nombre como “Kerni” y copiala. Solo se muestra una vez.</li>
+            </ol>
+            <h3>Lo que cuesta</h3>
+            <p>Anthropic cobra por uso: cada mensaje gasta un poquito de saldo. Antes de empezar, poné un <strong>límite de gasto</strong> en la consola (sección de límites) para no llevarte sorpresas.</p>
+            <p class="alerta">Tu llave es como una contraseña. No la compartás, no la pegués en páginas web ni se la mandés a nadie. Esta página nunca te la va a pedir.</p>
+          </div>
+
+          <div class="bloque">
+            <h3>Dónde pegarla en Kerni <span class="sello sello--pronto">Próximamente</span></h3>
+            <p>En una próxima versión vas a pegarla desde la app: <strong>Kerni &gt; menú &gt; Configurar llave</strong>. Esa pantalla todavía no existe.</p>
+            <h3>Cómo se va a guardar <span class="sello sello--pronto">Próximamente</span></h3>
+            <p>El plan es guardarla en el Administrador de credenciales de Windows, en tu compu, y enviarla solo a Anthropic. Esto también está en camino.</p>
+            <h3>Mientras tanto</h3>
+            <p>La versión de prueba que se descarga aquí no incluye todavía la parte que conecta el chat, así que en una instalación descargada el chat no funciona aún. Para usarlo hoy hace falta la instalación de desarrollo: bajar el código del proyecto y escribir la llave en el archivo de configuración, como explica la <a href="https://github.com/mariomarroquin3/kerni#readme">guía del proyecto en GitHub</a>. Si no te sentís cómodo con eso, esperá la próxima versión.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="seccion" id="preguntas" aria-labelledby="t-preguntas">
+      <div class="contenedor">
+        <h2 id="t-preguntas">Preguntas frecuentes</h2>
+        <div class="preguntas">
+          <details>
+            <summary>¿Necesito internet?</summary>
+            <p>Para medir tu compu, el modo pánico, limpiar temporales y buscar archivos pesados, no. El chat, la revisión de enlaces y las guías sí lo necesitan, porque hablan con el servicio de Anthropic.</p>
+          </details>
+          <details>
+            <summary>¿Qué pasa si no tengo llave?</summary>
+            <p>Kerni sigue funcionando con sus reglas locales: te muestra cómo están la memoria, el disco y la batería, entra en modo pánico si hace falta y te propone limpiar temporales. Lo que no vas a tener es la conversación.</p>
+          </details>
+          <details>
+            <summary>¿Borra mis archivos?</summary>
+            <p>No borra nada sin una tarjeta que vos aprobás. Lo único que puede eliminar son archivos temporales de más de 24 horas y lo que ya está en la papelera, y solo si tocás Aprobar. La lista de archivos pesados es solo para mirar: si querés borrar algo, lo hacés vos desde el Explorador.</p>
+          </details>
+          <details>
+            <summary>¿Funciona en Linux o Mac?</summary>
+            <p>No. Kerni está hecho para Windows y el instalador es solo para Windows 10 u 11. Algunas partes corren en Linux para quienes lo desarrollan, pero las herramientas de Windows no funcionan ahí y no hay versión para Mac.</p>
+          </details>
+          <details>
+            <summary>¿Es seguro descargarlo?</summary>
+            <p>Descargalo solo desde esta página, que te lleva a la página oficial del proyecto en GitHub. El instalador aún no tiene firma digital, por eso Windows puede avisarte la primera vez. Si lo recibiste por otro lado, no lo abrás.</p>
+          </details>
+          <details>
+            <summary>¿Cuánto cuesta?</summary>
+            <p>La app no cuesta. El chat sí gasta saldo de tu cuenta de Anthropic, según cuánto lo usés. Poné un límite de gasto en su consola y listo.</p>
+          </details>
+          <details>
+            <summary>¿Puede cerrar un programa sin avisarme?</summary>
+            <p>No. Si un programa está consumiendo demasiado, Kerni te lo dice y te propone cerrarlo con una tarjeta. Los programas de Windows y del antivirus nunca aparecen como opción.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie__fila">
+      <p class="marca marca--pie">
+        <img src="assets/kerni.png" alt="" width="28" height="28">
+        <span>Kerni</span>
+      </p>
+      <p>Hecho por el Equipo Kerni en El Salvador.</p>
+      <p><a href="https://github.com/mariomarroquin3/kerni">Proyecto en GitHub</a></p>
+    </div>
+  </footer>
+</body>
+</html>
