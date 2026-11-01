@@ -35,6 +35,7 @@ const PROPUESTAS = {
   ver_actualizaciones: 'Ver si hay actualizaciones de Windows pendientes (no las instala).',
   ver_reporte_soporte: 'Armar un resumen de tu equipo para mandárselo al soporte técnico.',
   ver_dispositivos_red: 'Ver los dispositivos conectados en tu red local.',
+  ver_arranque: 'Ver por qué tarda en prender: el último arranque de Windows y los programas que se abren solos.',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -45,6 +46,7 @@ const REGLAS = [
     accion: 'ver_programas_inicio',
     patron: /\b(programas?|apps?|aplicaciones?)\s+de\s+(inicio|arranque)\b|\b(abre\w*|inicia\w*|arranca\w*|carga\w*)\s+(solos?\s+)?(al|cuando|con)\s+(inicia\w*|prende\w*|encender\w*|arranca\w*|windows|la\s+(compu\w*|pc))|\b(compu\w*|pc)\s+(tarda|demora)\s+(en\s+)?(prender|arrancar|iniciar|encender)/,
   },
+  { accion: 'ver_arranque', patron: /\bpor\s+que\b.{0,25}\b(tarda|demora)\w*\b.{0,15}\b(prender|arrancar|encender)\b|\b(cuanto|tarda|demora)\w*\s+(en\s+)?(prender|arrancar|encender)\b/ },
   { accion: 'ver_actualizaciones', patron: /\b(hay|tengo|faltan?|pendientes?|revis\w+|busc\w+)\b.{0,30}\bactualizaci\w+/ },
   {
     accion: 'ver_dispositivos_red',

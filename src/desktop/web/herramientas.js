@@ -17,13 +17,14 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
   switch (a.accion) {
     case 'ver_info_equipo': return '¿Miro el modelo y las características de tu equipo? Solo lo muestro en pantalla.';
     case 'ver_programas_inicio': return '¿Miro qué programas se abren solos cuando prendés la compu? Solo los listo; no cambio nada.';
+    case 'ver_arranque': return '¿Miro por qué tarda en prender? Solo leo el último arranque de Windows y tus programas de inicio. No cambio nada.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
@@ -210,4 +211,20 @@ export function panelDispositivosRed(dispositivos, miIpLocal) {
   const estado = `${ipLocal} ${actividadArp} ` +
     'Dispositivos que no han hablado con tu PC en los últimos minutos no aparecen.';
   return { estado, filas };
+}
+
+/**
+ * "¿Por qué tarda en prender?": cuánto tardó el último arranque (si Windows lo registró) y cuántos programas se abren solos.
+ * Si falta un dato, lo dice con la nota que manda Rust; nunca inventa una duración.
+ * @param {{ duracionS: number|null, fecha: string|null, programasActivos: number|null, programasTotal: number|null, nota: string }} a
+ */
+export function panelArranque(a) {
+  const partes = [a.duracionS ? `Tu último arranque tardó ${Math.round(a.duracionS)} segundos.` : 'No pude medir tu último arranque.'];
+  if (a.nota) partes.push(a.nota);
+  if (a.programasTotal != null) {
+    partes.push(`${a.programasActivos} de ${a.programasTotal} programas se abren solos al prender.`);
+    if (a.programasActivos >= 5) partes.push('Desactivar los que no necesitás ayuda a que prenda más rápido. Lo hacés desde "Programas de inicio".');
+  }
+  const filas = a.fecha ? [{ titulo: 'Último arranque registrado', detalle: a.fecha.replace('T', ' ') }] : [];
+  return { estado: partes.join(' '), filas };
 }

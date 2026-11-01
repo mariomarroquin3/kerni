@@ -80,7 +80,7 @@ fn base64(bytes: &[u8]) -> String {
 }
 
 /// PowerShell con un guion fijo (nunca armado con texto de la persona ni del modelo). Va codificado para no depender de comillas.
-fn ps(script: &str, limite: Duration) -> Result<String, String> {
+pub(crate) fn ps(script: &str, limite: Duration) -> Result<String, String> {
     ps_con_datos(script, limite, &[])
 }
 
@@ -104,7 +104,7 @@ fn ps_con_datos(_script: &str, _limite: Duration, _datos: &[(&str, &str)]) -> Re
 }
 
 /// PowerShell devuelve nada, un objeto o una lista según cuántos resultados haya: se normaliza siempre a lista.
-fn lista_json(salida: &str) -> Vec<Value> {
+pub(crate) fn lista_json(salida: &str) -> Vec<Value> {
     let s = salida.trim().trim_start_matches('\u{feff}');
     if s.is_empty() {
         return Vec::new();
@@ -116,7 +116,7 @@ fn lista_json(salida: &str) -> Vec<Value> {
     }
 }
 
-fn texto(v: &Value, clave: &str, max: usize) -> String {
+pub(crate) fn texto(v: &Value, clave: &str, max: usize) -> String {
     v.get(clave).and_then(Value::as_str).map(|s| limpiar_texto(s, max)).unwrap_or_default()
 }
 
@@ -252,7 +252,7 @@ pub fn parsear_inicio(salida: &str) -> Vec<ProgramaInicio> {
     lista
 }
 
-fn leer_inicio() -> Result<Vec<ProgramaInicio>, String> {
+pub(crate) fn leer_inicio() -> Result<Vec<ProgramaInicio>, String> {
     Ok(parsear_inicio(&ps(GUION_INICIO, Duration::from_secs(20))?))
 }
 

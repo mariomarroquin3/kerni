@@ -9,6 +9,7 @@
 //! - Ícono en la bandeja y menú con clic derecho para ocultar o cerrar.
 //! - Los comandos que tocan el sistema viven en `sistema.rs`.
 
+mod diagnostico;
 mod herramientas;
 mod sistema;
 
@@ -178,6 +179,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         herramientas::vaciar_papelera,
         herramientas::abrir_ajuste,
         herramientas::ver_dispositivos_red,
+        diagnostico::ver_arranque,
         linux::limpiar_temporales,
     ]
 }
@@ -202,6 +204,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         herramientas::vaciar_papelera,
         herramientas::abrir_ajuste,
         herramientas::ver_dispositivos_red,
+        diagnostico::ver_arranque,
         sistema::limpiar_temporales,
     ]
 }

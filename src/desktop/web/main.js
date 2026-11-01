@@ -3,7 +3,7 @@ import { createCharacter } from './character.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
-import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
+import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelArranque, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -45,6 +45,7 @@ function demo(comando, args) {
     };
   }
   if (comando === 'info_equipo') return { fabricante: 'Dell Inc.', modelo: 'Latitude 3120', so: 'Microsoft Windows 11 Home', version: '10.0.22631', cpu: 'Intel(R) Pentium(R) Silver N6000', nucleos: 4, ramMb: 3912 };
+  if (comando === 'ver_arranque') return { duracionS: 48.2, fecha: '2026-10-31 08:02:11', programasActivos: 7, programasTotal: 12, nota: 'Lo tomé del último registro de arranque de Windows.' };
   if (comando === 'programas_inicio') {
     return [
       { nombre: 'OneDrive', comando: '"C:/Program Files/Microsoft OneDrive/OneDrive.exe" /background', ambito: 'usuario', activo: true, puedeCambiar: true },
@@ -557,6 +558,7 @@ const verDispositivosRed = () => conPanel('Dispositivos en la red', 'Escanando l
     const resultado = await llamar('ver_dispositivos_red');
     return panelDispositivosRed(resultado.dispositivos, resultado.miIpLocal);
   }, (r) => r); // pasamos directo el resultado ya armado
+const verArranque = () => conPanel('Por qué tarda en prender', 'Mirando tu último arranque…', () => llamar('ver_arranque'), panelArranque);
 /** Junta lo que ya sabe la app (equipo, memoria, disco, inicio y red). Lo que no se pueda leer simplemente no aparece. */
 async function juntarReporte() {
   const seguro = async (fn) => { try { return await fn(); } catch { return undefined; } };
@@ -572,6 +574,7 @@ const VISTAS = {
   ver_estado_red: verRed,
   ver_actualizaciones: verActualizaciones,
   ver_dispositivos_red: verDispositivosRed,
+  ver_arranque: verArranque,
 };
 $('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
 
