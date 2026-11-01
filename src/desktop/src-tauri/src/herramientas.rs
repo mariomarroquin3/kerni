@@ -583,11 +583,27 @@ pub async fn papelera() -> Result<Papelera, String> {
     tauri::async_runtime::spawn_blocking(medir_papelera).await.map_err(|e| e.to_string())?
 }
 
-/// Vacía la papelera. NO se puede deshacer. Devuelve lo que había antes de vaciarla.
+/// Lo que la persona aprobó (elementos y MB de la tarjeta) contra lo que hay ahora. Si la papelera creció
+/// mucho desde que se midió, no se vacía: sería borrar algo que nunca se le mostró. Sin cifras aprobadas
+/// (la medición falló y la tarjeta lo dijo) no hay con qué comparar y se sigue como antes.
+pub fn revisar_papelera_aprobada(aprobado: Option<(u32, f64)>, ahora: &Papelera) -> Result<(), String> {
+    let Some((elementos, mb)) = aprobado else { return Ok(()) };
+    if ahora.elementos > elementos.saturating_mul(2) || ahora.mb > mb + 50.0 {
+        return Err(format!(
+            "La papelera creció desde que la viste (ahora tiene {} elementos, {:.1} MB). Revisala de nuevo antes de vaciarla; no vacié nada",
+            ahora.elementos, ahora.mb
+        ));
+    }
+    Ok(())
+}
+
+/// Vacía la papelera. NO se puede deshacer. `elementos` y `mb` son lo que la tarjeta mostró (opcionales).
+/// Devuelve lo que había antes de vaciarla.
 #[tauri::command]
-pub async fn vaciar_papelera() -> Result<Papelera, String> {
-    tauri::async_runtime::spawn_blocking(|| {
+pub async fn vaciar_papelera(elementos: Option<u32>, mb: Option<f64>) -> Result<Papelera, String> {
+    tauri::async_runtime::spawn_blocking(move || {
         let antes = medir_papelera()?;
+        revisar_papelera_aprobada(elementos.zip(mb), &antes)?;
         if antes.elementos == 0 {
             return Ok(antes);
         }
@@ -685,6 +701,21 @@ mod tests {
         assert!(parsear_inicio("").is_empty());
         assert!(parsear_inicio("[]").is_empty());
         assert!(aplicar_cambio_inicio("", true).is_err() || cfg!(windows));
+    }
+
+    #[test]
+    fn la_papelera_que_creció_desde_la_tarjeta_no_se_vacía() {
+        let p = |elementos, mb| Papelera { elementos, mb };
+        // Sin cifras aprobadas no hay con qué comparar.
+        assert!(revisar_papelera_aprobada(None, &p(500, 9000.0)).is_ok());
+        // Igual o un poco más: se vacía.
+        assert!(revisar_papelera_aprobada(Some((7, 120.0)), &p(7, 120.0)).is_ok());
+        assert!(revisar_papelera_aprobada(Some((7, 120.0)), &p(14, 170.0)).is_ok());
+        // Más del doble de elementos o más de 50 MB de más: se pide revisarla otra vez.
+        assert!(revisar_papelera_aprobada(Some((7, 120.0)), &p(15, 120.0)).unwrap_err().contains("no vacié nada"));
+        assert!(revisar_papelera_aprobada(Some((7, 120.0)), &p(7, 171.0)).is_err());
+        // Si la tarjeta dijo "nada", cualquier cosa nueva frena el vaciado.
+        assert!(revisar_papelera_aprobada(Some((0, 0.0)), &p(1, 0.2)).is_err());
     }
 
     #[test]

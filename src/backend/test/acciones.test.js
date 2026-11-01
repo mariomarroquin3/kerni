@@ -83,3 +83,12 @@ describe('telemetría', () => {
     expect(esProtegido('chrome.exe')).toBe(false);
   });
 });
+
+describe('vaciar_papelera: las cifras de la tarjeta no las pone el modelo', () => {
+  it('una propuesta del modelo con elementos o mb no los lleva a la tarjeta', () => {
+    const r = validarPropuesta({ accion: 'vaciar_papelera', motivo: 'Libera espacio', elementos: 1, mb: 1 }, SNAPSHOT);
+    expect(r.ok).toBe(true);
+    expect(r.accion).not.toHaveProperty('elementos');
+    expect(r.accion).not.toHaveProperty('mb');
+  });
+});

@@ -304,9 +304,13 @@ function proponer(accion, porKerni = false) {
   // La tarjeta de la papelera dice cuánto hay, así que primero se mide (solo lectura).
   if (accion.accion === 'vaciar_papelera' && accion.detalle === undefined) {
     (async () => {
-      let detalle = '';
-      try { detalle = detallePapelera(await llamar('papelera')); } catch { /* sin dato: la tarjeta lo dice sin cifras */ }
-      if (mia === propuestaSeq) proponer({ ...accion, detalle }, porKerni);
+      // Las cifras que se miden aquí son las que la persona aprueba: se mandan a Rust para comparar al vaciar.
+      let medida = null;
+      try { medida = await llamar('papelera'); } catch { /* sin dato: la tarjeta lo dice sin cifras */ }
+      const datos = medida
+        ? { detalle: detallePapelera(medida), elementos: medida.elementos, mb: medida.mb }
+        : { detalle: '' };
+      if (mia === propuestaSeq) proponer({ ...accion, ...datos }, porKerni);
     })();
     return;
   }
@@ -355,7 +359,7 @@ async function ejecutar(a) {
     await llamar('abrir_ajuste', { destino: a.destino });
     decir('Listo, te lo abrí en los ajustes de Windows.', 6000);
   } else if (a.accion === 'vaciar_papelera') {
-    const r = await llamar('vaciar_papelera');
+    const r = await llamar('vaciar_papelera', { elementos: a.elementos, mb: a.mb });
     decir(r.elementos ? `Listo, vacié la papelera y liberé ${tamanoLegible(r.mb)}.` : 'La papelera ya estaba vacía.');
   } else if (a.accion === 'cambiar_inicio') {
     decir(await llamar('cambiar_inicio', { nombre: a.nombre, activar: a.activar }));

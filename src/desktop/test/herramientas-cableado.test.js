@@ -102,3 +102,8 @@ test('solo lectura donde se promete: la interfaz no tiene comandos para borrar n
   // lo único que borra, además de limpiar_temporales, es vaciar_papelera, y lleva tarjeta que avisa que no se deshace
   assert.ok(herramientas.includes('no se puede deshacer'));
 });
+
+test('vaciar la papelera manda a Rust las cifras que la tarjeta mostró, para comparar al vaciar', () => {
+  assert.match(main, /datos = medida\s*\n\s*\? \{ detalle: detallePapelera\(medida\), elementos: medida\.elementos, mb: medida\.mb \}/);
+  assert.match(main, /llamar\('vaciar_papelera', \{ elementos: a\.elementos, mb: a\.mb \}\)/);
+});
