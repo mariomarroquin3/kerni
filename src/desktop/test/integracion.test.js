@@ -115,9 +115,9 @@ test('las solicitudes locales claras evitan el modelo y las respuestas locales s
   assert.ok(localAntesDelModelo >= 0 && localAntesDelModelo < llamadaChat);
   assert.match(main, /function responderAutomatico\(mensaje\) \{\s*const local = responderLocal\(mensaje, ultimas\)/);
   assert.equal([...main.matchAll(/responderLocal\(mensaje, ultimas\)/g)].length, 1);
-  assert.match(main, /if \(accion === 'ver_archivos_pesados'\) \{\s*void buscarArchivosPesados\(\);\s*\} else if \(Object\.hasOwn\(VISTAS, accion\)\) \{\s*void VISTAS\[accion\]\(\);/);
-  assert.match(main, /else if \(accion === 'abrir_ajuste'\) \{\s*void ACCIONES_DEL_PANEL\.ajuste\(local\.proponer\.destino\)\.catch/);
-  assert.match(main, /else \{\s*proponer\(local\.proponer, true\);/);
+  // Las reglas locales también muestran tarjeta: nada se ejecuta directo desde el enrutador.
+  assert.match(main, /if \(local\.proponer\) proponer\(local\.proponer, false\);/);
+  assert.doesNotMatch(main, /void buscarArchivosPesados\(\);\s*\} else if/);
   assert.match(main, /if \(data\.fallbackLocal\) \{\s*const enlace = enlaceParaRevisar\(mensaje\)/);
   assert.match(main, /if \(responderAutomatico\(mensaje\)\) return;/);
 });

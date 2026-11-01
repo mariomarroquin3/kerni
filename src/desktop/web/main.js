@@ -232,7 +232,13 @@ function pintarPanico(m, activo) {
 
 let eraPanico = false;
 let avisoReinicioRevisado = false;
-async function actualizar() {
+let leyendo = null;
+/** Si ya hay una lectura en curso (el ciclo y un Aprobar a la vez), se espera esa en vez de pedir otra. */
+function actualizar() {
+  leyendo ??= leerYPintar().finally(() => { leyendo = null; });
+  return leyendo;
+}
+async function leerYPintar() {
   try {
     const m = await llamar('metricas');
     ultimas = m;
@@ -284,9 +290,18 @@ function describir(a) {
 
 /** `porKerni`: la propuesta es iniciativa de Kerni (no un botón que apretaste), así que se pone en alerta. */
 let propuestaSeq = 0;
+// Una tarjeta abierta NUNCA se reemplaza: si llega otra propuesta (una respuesta lenta del chat, la bandeja, la papelera
+// medida tarde), espera su turno. Si no, la persona podría aprobar algo que no alcanzó a leer.
+const colaPropuestas = [];
+const MAX_COLA = 3;
+// Aprobar no cuenta hasta que la tarjeta lleve un momento a la vista (un doble clic o un clic ya en camino no aprueba lo nuevo).
+const ESPERA_APROBAR_MS = 600;
+let tarjetaMostradaEn = 0;
+const mismaPropuesta = (a, b) => a.accion === b.accion && a.pid === b.pid && a.nombre === b.nombre && a.destino === b.destino && a.clave === b.clave;
+
 function proponer(accion, porKerni = false) {
   const mia = ++propuestaSeq;
-  // La tarjeta de la papelera dice cuánto hay, así que primero se mide (solo lectura). Si mientras tanto salió otra tarjeta, no la pisa.
+  // La tarjeta de la papelera dice cuánto hay, así que primero se mide (solo lectura).
   if (accion.accion === 'vaciar_papelera' && accion.detalle === undefined) {
     (async () => {
       let detalle = '';
@@ -295,12 +310,32 @@ function proponer(accion, porKerni = false) {
     })();
     return;
   }
+  if (pendiente) {
+    const repetida = mismaPropuesta(pendiente, accion) || colaPropuestas.some((p) => mismaPropuesta(p.accion, accion));
+    if (!repetida && colaPropuestas.length < MAX_COLA) colaPropuestas.push({ accion, porKerni });
+    return;
+  }
+  mostrarTarjeta(accion, porKerni);
+}
+
+function mostrarTarjeta(accion, porKerni) {
   pendiente = accion;
   alertaActiva = porKerni;
   actualizarModo();
   $('confirmar-texto').textContent = describir(accion);
   $('confirmar-motivo').textContent = accion.motivo ?? '';
   $('confirmar').hidden = false;
+  tarjetaMostradaEn = performance.now();
+}
+
+/** Cierra la tarjeta y, si había otra esperando, la muestra después de una pausa para que se note que es otra. */
+function cerrarTarjeta() {
+  pendiente = null;
+  alertaActiva = false;
+  $('confirmar').hidden = true;
+  actualizarModo();
+  const siguiente = colaPropuestas.shift();
+  if (siguiente) setTimeout(() => { if (!pendiente) mostrarTarjeta(siguiente.accion, siguiente.porKerni); else colaPropuestas.unshift(siguiente); }, 400);
 }
 
 async function ejecutar(a) {
@@ -337,10 +372,9 @@ async function ejecutar(a) {
 }
 
 $('aprobar').addEventListener('click', async () => {
+  if (performance.now() - tarjetaMostradaEn < ESPERA_APROBAR_MS) return;
   const a = pendiente;
-  pendiente = null;
-  alertaActiva = false;
-  $('confirmar').hidden = true;
+  cerrarTarjeta();
   if (!a) return;
   try {
     await ejecutar(a);
@@ -352,10 +386,7 @@ $('aprobar').addEventListener('click', async () => {
 });
 
 $('rechazar').addEventListener('click', () => {
-  pendiente = null;
-  alertaActiva = false;
-  actualizarModo();
-  $('confirmar').hidden = true;
+  cerrarTarjeta();
   decir('Listo, no toco nada. ¡Tranqui!', 4000);
 });
 
@@ -667,18 +698,10 @@ function responderAutomatico(mensaje) {
   if (!local) return false;
   decir(local.texto, 20000);
   $('chat-estado').textContent = 'Kerni respondió con información local.';
-  if (local.proponer && !pendiente) {
-    const accion = local.proponer.accion;
-    if (accion === 'ver_archivos_pesados') {
-      void buscarArchivosPesados();
-    } else if (Object.hasOwn(VISTAS, accion)) {
-      void VISTAS[accion]();
-    } else if (accion === 'abrir_ajuste') {
-      void ACCIONES_DEL_PANEL.ajuste(local.proponer.destino).catch((err) => decir(String(err)));
-    } else {
-      proponer(local.proponer, true);
-    }
-  }
+  // Lo que reconoce una regla local también pasa por la tarjeta (AGENTS.md): una regex puede equivocarse,
+  // y abrir Configuración o buscar actualizaciones (hasta 5 min) sin preguntar no es "Kerni propone, la persona decide".
+  // Si ya hay una tarjeta abierta, `proponer` la deja esperando en la cola.
+  if (local.proponer) proponer(local.proponer, false);
   return true;
 }
 
@@ -720,8 +743,8 @@ $('chat').addEventListener('submit', async (e) => {
       }),
       signal: controller.signal,
     });
-    clearTimeout(timeout);
-    const data = await res.json();
+    // El plazo cubre también la lectura del cuerpo.
+    const data = await res.json().finally(() => clearTimeout(timeout));
     if (!res.ok) {
       if (data.fallbackLocal) {
         const enlace = enlaceParaRevisar(mensaje);
@@ -907,8 +930,12 @@ menuContextual.addEventListener('click', async (e) => {
   }
 });
 
-actualizar();
-setInterval(actualizar, CADA_MS);
+// Una lectura a la vez: la siguiente se programa cuando termina la anterior. Con setInterval, si Rust tardaba
+// (una limpieza grande), las lecturas se apilaban y llegaban juntas, todas altas, y podían disparar un pánico falso.
+(async function ciclo() {
+  await actualizar();
+  setTimeout(ciclo, CADA_MS);
+})();
 
 // Historial de salud para la memoria: una lectura resumida cada 10 min, solo con datos reales (no la demo).
 if (enTauri && deviceId) {

@@ -73,10 +73,20 @@ const EXCEPCIONES = {
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
 };
 
+// "no quiero vaciar la papelera", "no me abras nada", "mejor no": la persona dice que NO; que conteste el modelo.
+// "archivos que ya no uso" o "no tengo internet" sí son pedidos: solo cuenta el "no" delante de un verbo de pedido. Igual que en el backend.
+const NEGACION = /\b(no|nunca|jamas|ni)\s+(me\s+|la\s+|lo\s+|los\s+|las\s+)?(quier\w*|quisier\w*|necesit\w*|hace\s+falta|es\s+necesario|vaci\w*|borr\w*|elimin\w*|limpi\w*|abr\w*|toqu\w*|cierr\w*|cerr\w*|mostr\w*|muestr\w*|busqu\w*|busc\w*|revis\w*)\b|\bmejor\s+no\b/;
+
+/** @returns {boolean} el mensaje rechaza o prohíbe una acción */
+export function esNegacion(texto) {
+  return NEGACION.test(norm(texto));
+}
+
 /** @returns {null | { texto: string, proponer: object }} */
 export function accionLocalNueva(texto) {
   const t = norm(texto);
   if (!t || palabras(t) > MAX_PALABRAS_ACCION_LOCAL) return null;
+  if (NEGACION.test(t)) return null;
   if (PIDE_ABRIR.test(t)) {
     const destino = DESTINOS.find(([, patron]) => patron.test(t))?.[0];
     if (destino) {
@@ -99,7 +109,7 @@ export function porcentajeDisco(m) {
  * @returns {null | { texto: string, proponer?: object }} null = que conteste el modelo
  */
 export function responderLocal(texto, m) {
-  if (!texto) return null;
+  if (!texto || esNegacion(texto)) return null;
   const t = norm(texto).replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
   const w = palabras(t);
   const pideVer = palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto);
