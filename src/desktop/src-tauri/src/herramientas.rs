@@ -452,8 +452,13 @@ pub fn parsear_dispositivos_red(salida: &str) -> Vec<DispositivoRed> {
         }
     }
     // Multidifusión y difusión (224.x a 255.x) no son equipos: la tabla ARP las trae y confunden la lista.
-    resultados.retain(|d| !es_multidifusion_o_difusion(&d.ip));
+    resultados.retain(|d| !es_multidifusion_o_difusion(&d.ip) && !es_mac_de_difusion(&d.mac));
     resultados
+}
+
+/// La MAC ff-ff-ff-ff-ff-ff (con guiones o dos puntos, en cualquier mayúscula) es la difusión de la subred: no es un equipo.
+fn es_mac_de_difusion(mac: &str) -> bool {
+    mac.replace(':', "-").eq_ignore_ascii_case("ff-ff-ff-ff-ff-ff")
 }
 
 /// Primer octeto 224 o más: multidifusión (224-239) o reservado y difusión (240-255). Una IP que no se entiende no pasa.
@@ -793,6 +798,24 @@ mod tests {
         assert!(!es_multidifusion_o_difusion("10.0.0.7"));
         assert!(es_multidifusion_o_difusion("224.0.0.251"));
         assert!(es_multidifusion_o_difusion("basura"));
+    }
+
+    #[test]
+    fn quita_la_difusion_de_la_subred_aunque_tenga_ip_normal() {
+        // Windows pone la difusion de la subred en la tabla ARP con la MAC ff-ff-ff-ff-ff-ff: no es un equipo.
+        let salida = "  192.168.1.2         aa-bb-cc-dd-ee-01     dynamic
+  192.168.1.255       ff-ff-ff-ff-ff-ff     static
+  10.0.0.255          ff-ff-ff-ff-ff-ff     static";
+        let ips: Vec<String> = parsear_dispositivos_red(salida).into_iter().map(|d| d.ip).collect();
+        assert_eq!(ips, vec!["192.168.1.2".to_string()]);
+        // Linux con dos puntos y en mayúsculas: la misma MAC de difusión.
+        let linux = "192.168.1.255 dev eth0 lladdr FF:FF:FF:FF:FF:FF REACHABLE";
+        assert!(parsear_dispositivos_red(linux).is_empty());
+        // Un equipo real con una IP que termina en 255 (red /16) sí se queda.
+        let real = "  192.168.1.255       aa-bb-cc-dd-ee-02     dynamic";
+        assert_eq!(parsear_dispositivos_red(real).len(), 1);
+        assert!(es_mac_de_difusion("FF-FF-FF-FF-FF-FF"));
+        assert!(!es_mac_de_difusion("aa-bb-cc-dd-ee-02"));
     }
 
     #[test]
