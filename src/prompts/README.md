@@ -49,3 +49,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-29 | Fix local IP detection on Windows and Linux | [2026-10-29-fix-local-ip-detection.md](2026-10-29-fix-local-ip-detection.md) |
 | 2026-10-29 | Fix network device request detection | [2026-10-29-fix-network-device-intent.md](2026-10-29-fix-network-device-intent.md) |
 | 2026-10-29 | Recognize laptop type questions locally | [2026-10-29-laptop-type-intent.md](2026-10-29-laptop-type-intent.md) |
+| 2026-11-01 | Pending items and low-cost improvements: freeze, browser cache, slow-PC diagnosis, AI chip, recovery, icon | [2026-11-01-pendientes-y-mejoras.md](2026-11-01-pendientes-y-mejoras.md) |
