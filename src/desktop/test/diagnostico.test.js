@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { describirNueva, panelArranque, ACCIONES_PANEL } from '../web/herramientas.js';
+import { describirNueva, panelArranque, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
 import { accionLocalNueva } from '../web/intenciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -41,4 +41,28 @@ test('ver_arranque: está registrado en lib.rs (dos listas) y la interfaz lo lla
   assert.match(lib, /^mod diagnostico;/m);
   assert.ok(main.includes("llamar('ver_arranque'"));
   assert.match(main, /ver_arranque: verArranque/);
+});
+
+test('ver_salud_disco: la tarjeta dice que solo mira y "¿cómo está el disco?" la abre sin modelo', () => {
+  assert.match(describirNueva({ accion: 'ver_salud_disco' }), /no pruebo, no reparo ni borro nada/);
+  assert.ok(ACCIONES_PANEL.includes('ver_salud_disco'));
+  assert.equal(accionLocalNueva('¿cómo está el disco?')?.proponer.accion, 'ver_salud_disco');
+  assert.equal(accionLocalNueva('cómo está el disco lleno'), null);
+});
+
+test('ver_salud_disco: separa alerta de sin alertas y nunca dice "sano"', () => {
+  const alerta = panelSaludDisco({ discos: [{ nombre: 'HDD', tipo: 'HDD', gb: 1000, nivel: 'alerta', motivos: ['Windows marca advertencia en la salud del disco'], temperaturaC: null, desgastePct: null, erroresLectura: null, datosParciales: false }], nota: '' });
+  assert.match(alerta.estado, /alerta. Respaldá tus archivos ya/);
+  assert.match(alerta.filas[0].pista.texto, /Respaldá ya/);
+  const ok = panelSaludDisco({ discos: [{ nombre: 'SSD', tipo: 'SSD', gb: 476, nivel: 'sin_alertas', motivos: [], temperaturaC: 34, desgastePct: 3, erroresLectura: 0, datosParciales: false }], nota: '' });
+  assert.match(ok.estado, /Sin alertas en tus discos/);
+  assert.doesNotMatch(ok.estado + JSON.stringify(ok.filas), /sano/i);
+  const vacio = panelSaludDisco({ discos: [], nota: 'No pude leer los discos de esta PC: Tardó demasiado y lo cancelé' });
+  assert.match(vacio.estado, /No pude leer/);
+});
+
+test('ver_salud_disco: registrado en lib.rs (dos listas) y la interfaz lo llama', () => {
+  assert.equal([...lib.matchAll(/diagnostico::ver_salud_disco,/g)].length, 2);
+  assert.ok(main.includes("llamar('ver_salud_disco'"));
+  assert.match(main, /ver_salud_disco: verSaludDisco/);
 });

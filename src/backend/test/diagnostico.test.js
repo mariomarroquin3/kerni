@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ACCIONES, ACCIONES_SIN_DATOS, validarPropuesta } from '../src/acciones.js';
 import { detectarAccion } from '../src/intenciones.js';
 
-const DIAGNOSTICO = ['ver_arranque'];
+const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco'];
 
 describe('diagnóstico: solo lectura, sin datos del modelo', () => {
   it('cada herramienta está en ACCIONES y en ACCIONES_SIN_DATOS, y pasa sin foto del sistema', () => {
@@ -23,5 +23,15 @@ describe('diagnóstico: frases que abren la tarjeta sin modelo', () => {
     }
     expect(detectarAccion('la compu tarda en prender')?.accion).toBe('ver_programas_inicio');
     expect(detectarAccion('por qué tarda en prender, explicame')?.accion).toBe('ver_arranque');
+  });
+});
+
+describe('ver_salud_disco: frases', () => {
+  it('"¿cómo está el disco?" y parecidas abren la salud; "disco lleno" sigue siendo espacio', () => {
+    for (const f of ['¿cómo está el disco?', 'cómo esta mi disco', 'estado del disco', 'el disco está bien?']) {
+      expect(detectarAccion(f)?.accion, f).toBe('ver_salud_disco');
+    }
+    expect(detectarAccion('cómo está el disco lleno')).toBeNull();
+    expect(detectarAccion('cuánto espacio tengo en el disco')).toBeNull();
   });
 });

@@ -18,6 +18,7 @@ export const ACCIONES = [
   'ver_reporte_soporte',
   'ver_dispositivos_red',
   'ver_arranque',
+  'ver_salud_disco',
   'abrir_ajuste',
   'vaciar_papelera',
 ];

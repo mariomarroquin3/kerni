@@ -36,6 +36,7 @@ const PROPUESTAS = {
   ver_reporte_soporte: 'Armar un resumen de tu equipo para mandárselo al soporte técnico.',
   ver_dispositivos_red: 'Ver los dispositivos conectados en tu red local.',
   ver_arranque: 'Ver por qué tarda en prender: el último arranque de Windows y los programas que se abren solos.',
+  ver_salud_disco: 'Revisar la salud de tus discos (solo lectura, sin probarlos ni repararlos).',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -65,6 +66,7 @@ const REGLAS = [
     patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(que|cual(es)?)\s+(modelo|marca)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(que|cual(es)?)\s+(tipo|clase)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/,
   },
   { accion: 'ver_reporte_soporte', patron: /\b(reporte|informe|resumen|ficha)\b.{0,30}\b(soporte|tecnico|ti|informatica|sistemas|help\s*desk)\b|\b(soporte|tecnico)\b.{0,30}\b(reporte|informe|resumen)\b|\bpara\s+(el\s+)?(soporte|tecnico)\b.{0,20}\b(datos|informacion|reporte|resumen)/ },
+  { accion: 'ver_salud_disco', patron: /\bcomo\s+esta\s+(el\s+|mi\s+|tu\s+)?(disco|ssd|hdd)\b(?!\s+(lleno|llena|casi))|\b(salud|estado)\s+(del\s+|de\s+(mi|el|tu|los)\s+)?(disco|discos|ssd|hdd)\b|\b(disco|ssd|hdd)\s+(esta\s+)?(fallando|muriendo|bien|mal)\b/ },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },
 ];
 

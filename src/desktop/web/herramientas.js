@@ -17,7 +17,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_arranque', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -25,6 +25,7 @@ export function describirNueva(a) {
     case 'ver_info_equipo': return '¿Miro el modelo y las características de tu equipo? Solo lo muestro en pantalla.';
     case 'ver_programas_inicio': return '¿Miro qué programas se abren solos cuando prendés la compu? Solo los listo; no cambio nada.';
     case 'ver_arranque': return '¿Miro por qué tarda en prender? Solo leo el último arranque de Windows y tus programas de inicio. No cambio nada.';
+    case 'ver_salud_disco': return '¿Miro cómo está tu disco? Le pido a Windows la salud de cada disco. Solo leo: no pruebo, no reparo ni borro nada.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
@@ -227,4 +228,31 @@ export function panelArranque(a) {
   }
   const filas = a.fecha ? [{ titulo: 'Último arranque registrado', detalle: a.fecha.replace('T', ' ') }] : [];
   return { estado: partes.join(' '), filas };
+}
+
+/**
+ * "¿Cómo está el disco?": salud de cada disco físico. Nunca dice "sano": sin alertas no es garantía de nada.
+ * @param {{ discos?: object[], nota?: string }} r
+ */
+export function panelSaludDisco({ discos = [], nota = '' }) {
+  const alertas = discos.filter((d) => d.nivel === 'alerta');
+  const sinDatos = discos.filter((d) => d.nivel === 'sin_datos');
+  let estado;
+  if (!discos.length) estado = nota || 'No pude leer los discos de esta PC.';
+  else if (alertas.length) estado = `${alertas.length === 1 ? 'Un disco tiene' : `${alertas.length} discos tienen`} alerta. Respaldá tus archivos ya, antes de que falle.`;
+  else if (sinDatos.length) estado = 'Windows no me dio la salud de algún disco. Eso no quiere decir que esté mal: no tengo cómo mirarlo.';
+  else estado = 'Sin alertas en tus discos. Eso no garantiza que estén bien: un disco puede fallar sin aviso, así que conviene tener un respaldo.';
+  if (nota && discos.length) estado += ` ${nota}`;
+  const filas = discos.map((d) => {
+    const datos = [d.tipo, `${d.gb} GB`];
+    if (d.temperaturaC != null) datos.push(`${d.temperaturaC} °C`);
+    if (d.desgastePct != null) datos.push(`desgaste ${d.desgastePct} %`);
+    if (d.erroresLectura != null) datos.push(`errores de lectura: ${d.erroresLectura}`);
+    const fila = { titulo: d.nombre, detalle: datos.join(' · ') };
+    if (d.nivel === 'alerta') fila.pista = { nivel: 'respaldar', texto: `Alerta: ${d.motivos.join('; ')}. Respaldá ya.` };
+    else if (d.nivel === 'sin_datos') fila.pista = { nivel: 'revisar', texto: 'Windows no me dio la salud de este disco.' };
+    else if (d.datosParciales) fila.pista = { nivel: 'info', texto: 'Sin alertas en lo que se pudo leer; faltan datos de fiabilidad (suele pedir administrador).' };
+    return fila;
+  });
+  return { estado, filas };
 }

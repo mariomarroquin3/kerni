@@ -120,7 +120,7 @@ pub(crate) fn texto(v: &Value, clave: &str, max: usize) -> String {
     v.get(clave).and_then(Value::as_str).map(|s| limpiar_texto(s, max)).unwrap_or_default()
 }
 
-fn numero(v: &Value, clave: &str) -> f64 {
+pub(crate) fn numero(v: &Value, clave: &str) -> f64 {
     v.get(clave).and_then(Value::as_f64).unwrap_or(0.0)
 }
 
