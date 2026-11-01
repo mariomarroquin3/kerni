@@ -175,6 +175,17 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
     )
   `);
 
+  // Guía paso a paso en curso: una fila por PC (ver guias/motor.js). Sin fila, no hay guía activa.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS guia_progreso (
+      device_id   TEXT PRIMARY KEY,
+      guia_id     TEXT NOT NULL,
+      paso        INTEGER NOT NULL CHECK (paso >= 0),
+      iniciada    TEXT NOT NULL,
+      actualizada TEXT NOT NULL
+    )
+  `);
+
   // Preparar statements reutilizables
   const stmtHechos = db.prepare('SELECT clave, valor, origen, actualizado FROM hechos WHERE device_id = ? ORDER BY actualizado DESC LIMIT ?');
   const stmtCountHechos = db.prepare('SELECT count(*) as c FROM hechos WHERE device_id = ?');
@@ -249,6 +260,11 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
       actualizado = excluded.actualizado
   `);
   const stmtDeleteProgreso = db.prepare('DELETE FROM progreso WHERE device_id = ?');
+
+  const stmtGetGuia = db.prepare('SELECT guia_id, paso, iniciada, actualizada FROM guia_progreso WHERE device_id = ?');
+  const stmtDeleteGuia = db.prepare('DELETE FROM guia_progreso WHERE device_id = ?');
+  const stmtInsertGuia = db.prepare('INSERT INTO guia_progreso (device_id, guia_id, paso, iniciada, actualizada) VALUES (?, ?, ?, ?, ?)');
+  const stmtAvanzarGuia = db.prepare('UPDATE guia_progreso SET paso = ?, actualizada = ? WHERE device_id = ?');
 
   /** Lo que la persona lleva: XP total y lo ganado hoy (si la fila es de otro día, hoy es 0). */
   function leerProgreso(deviceId, hoy) {
@@ -564,6 +580,30 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
       };
     },
 
+    /** La guía en curso de esta PC: { guia_id, paso, iniciada, actualizada } o null. */
+    async guiaActual(deviceId) {
+      return stmtGetGuia.get(deviceId) ?? null;
+    },
+
+    /** Empieza una guía desde el paso 0 (reemplaza la que hubiera). Lanza si la base falla: lo maneja el motor. */
+    async iniciarGuia(deviceId, guiaId, ahoraMs = Date.now()) {
+      const ahora = new Date(ahoraMs).toISOString();
+      stmtDeleteGuia.run(deviceId);
+      stmtInsertGuia.run(deviceId, guiaId, 0, ahora, ahora);
+      return true;
+    },
+
+    /** Mueve la guía en curso a otro paso. Lanza si la base falla. */
+    async avanzarGuia(deviceId, paso, ahoraMs = Date.now()) {
+      stmtAvanzarGuia.run(paso, new Date(ahoraMs).toISOString(), deviceId);
+      return true;
+    },
+
+    async borrarGuia(deviceId) {
+      stmtDeleteGuia.run(deviceId);
+      return true;
+    },
+
     async obtenerAjustes(deviceId) {
       try {
         const row = stmtGetAjuste.get(deviceId);
@@ -590,6 +630,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
         stmtDeleteAllReflexiones.run(deviceId);
         stmtDeleteAllOlvidadas.run(deviceId);
         stmtDeleteProgreso.run(deviceId);
+        stmtDeleteGuia.run(deviceId);
         if (tieneSupabase) {
           await seguro('olvidar salud remota', () => supabase.delete('kerni_salud', { device_id: `eq.${deviceId}` }), false);
         }

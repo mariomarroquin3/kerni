@@ -22,6 +22,10 @@ export function createMemoriaNula() {
     registrarSalud: async () => false,
     progreso: async () => null,
     sumarEvento: async () => null,
+    guiaActual: async () => null,
+    iniciarGuia: async () => false,
+    avanzarGuia: async () => false,
+    borrarGuia: async () => false,
     mantenimiento: async () => undefined,
   };
 }
