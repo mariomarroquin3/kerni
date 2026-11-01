@@ -67,7 +67,7 @@ const DEFINICIONES = [
     name: 'proponer_accion',
     description:
       'Propone una acción sobre la PC. No se ejecuta: la persona la ve en pantalla y decide si la aprueba. '
-      + 'terminar_proceso requiere pid y nombre exactos del bloque <sistema>; limpiar_temporales borra archivos temporales viejos; '
+      + 'terminar_proceso requiere pid y nombre exactos del bloque <sistema>; congelar_proceso hace lo mismo pero solo pausa el proceso (no cierra nada, y la persona lo reanuda después); limpiar_temporales borra archivos temporales viejos; '
       + 'ver_archivos_pesados solo LISTA los archivos y carpetas pesados que no se usan hace tiempo (no borra nada). '
       + 'Solo lectura, para ver datos: ver_info_equipo (modelo, sistema, procesador), ver_programas_inicio (lo que arranca con Windows), '
       + 'ver_espacio_carpetas (qué carpeta ocupa más), ver_estado_red (test de internet/latencia/DNS), ver_actualizaciones (pendientes de Windows Update; no instala), '

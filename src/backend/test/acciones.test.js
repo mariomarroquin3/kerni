@@ -120,3 +120,40 @@ describe('validarPropuesta: la hora de inicio protege contra el pid reutilizado'
     expect(r.accion).not.toHaveProperty('inicio');
   });
 });
+
+describe('congelar_proceso', () => {
+  const CON_INICIO = { ...SNAPSHOT, procesos: SNAPSHOT.procesos.map((p) => (p.pid === 5555 ? { ...p, inicio: 1700000000 } : p)) };
+
+  it('acepta congelar un proceso de la foto con el nombre exacto y lleva la hora de inicio', () => {
+    const r = validarPropuesta({ accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU', inicio: 1700000000 }, CON_INICIO);
+    expect(r.ok).toBe(true);
+    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU', inicio: 1700000000 });
+  });
+
+  it('nunca congela procesos protegidos', () => {
+    const r = validarPropuesta({ accion: 'congelar_proceso', pid: 900, nombre: 'svchost.exe', motivo: 'x x x' }, SNAPSHOT);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('no se puede congelar');
+  });
+
+  it('rechaza un pid que no está en la foto o con otro nombre', () => {
+    expect(validarPropuesta({ accion: 'congelar_proceso', pid: 4321, nombre: 'miner.exe', motivo: 'x x x' }, SNAPSHOT).ok).toBe(false);
+    expect(validarPropuesta({ accion: 'congelar_proceso', pid: 5555, nombre: 'otro.exe', motivo: 'x x x' }, SNAPSHOT).ok).toBe(false);
+  });
+
+  it('rechaza una hora de inicio distinta (pid reutilizado)', () => {
+    const r = validarPropuesta({ accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'x x x', inicio: 1699999999 }, CON_INICIO);
+    expect(r.ok).toBe(false);
+  });
+
+  it('necesita pid y nombre, y sin foto no se verifica', () => {
+    expect(validarPropuesta({ accion: 'congelar_proceso', motivo: 'x x x' }, SNAPSHOT).error).toBe('congelar_proceso necesita pid y nombre');
+    expect(validarPropuesta({ accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'x x x' }, undefined).ok).toBe(false);
+  });
+
+  it('es una acción con datos del sistema: no entra en ACCIONES_SIN_DATOS', async () => {
+    const { ACCIONES, ACCIONES_SIN_DATOS } = await import('../src/acciones.js');
+    expect(ACCIONES).toContain('congelar_proceso');
+    expect(ACCIONES_SIN_DATOS).not.toContain('congelar_proceso');
+  });
+});

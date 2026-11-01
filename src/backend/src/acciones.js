@@ -8,6 +8,7 @@ import { esProtegido, limpiarNombre } from './telemetria.js';
 /** Acciones que el modelo puede proponer. Quitar programas de inicio NO está: lo pide la interfaz desde su propia lista. */
 export const ACCIONES = [
   'terminar_proceso',
+  'congelar_proceso',
   'limpiar_temporales',
   'ver_archivos_pesados',
   'ver_info_equipo',
@@ -27,15 +28,16 @@ export const ACCIONES = [
   'vaciar_papelera',
 ];
 /** Acciones que no llevan datos del sistema: la app decide qué y cuánto mirar. */
-export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => a !== 'terminar_proceso' && a !== 'abrir_ajuste');
+const CON_PROCESO = ['terminar_proceso', 'congelar_proceso'];
+export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => !CON_PROCESO.includes(a) && a !== 'abrir_ajuste');
 /** Lista cerrada (la misma que `direccion_de_ajuste` en Rust): el modelo nunca manda una dirección. */
 export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia'];
 
 export const ProponerAccionSchema = z.object({
   accion: z.enum(ACCIONES).describe('Qué se propone hacer.'),
   destino: z.enum(DESTINOS_AJUSTE).optional().describe('Solo para abrir_ajuste: qué pantalla de Configuración de Windows abrir.'),
-  pid: z.number().int().positive().optional().describe('Solo para terminar_proceso: el pid exacto del bloque <sistema>.'),
-  nombre: z.string().optional().describe('Solo para terminar_proceso: el nombre exacto del proceso, como aparece en <sistema>.'),
+  pid: z.number().int().positive().optional().describe('Solo para terminar_proceso y congelar_proceso: el pid exacto del bloque <sistema>.'),
+  nombre: z.string().optional().describe('Solo para terminar_proceso y congelar_proceso: el nombre exacto del proceso, como aparece en <sistema>.'),
   motivo: z.string().min(3).max(300).describe('Una frase simple para la persona: por qué conviene.'),
 });
 
@@ -58,14 +60,17 @@ export function validarPropuesta(input, snapshot) {
     return { ok: true, accion: { tipo: 'proponer_accion', accion, destino, motivo } };
   }
 
-  if (!pid || !nombre) return { ok: false, error: 'terminar_proceso necesita pid y nombre' };
+  if (!pid || !nombre) return { ok: false, error: `${accion} necesita pid y nombre` };
   if (!snapshot) return { ok: false, error: 'no hay foto del sistema; no se puede verificar el proceso' };
   const proceso = snapshot.procesos.find((p) => p.pid === pid);
   if (!proceso) return { ok: false, error: `el pid ${pid} no está en la foto del sistema` };
   if (proceso.nombre.toLowerCase() !== nombre.trim().toLowerCase()) {
     return { ok: false, error: `el pid ${pid} es ${limpiarNombre(proceso.nombre)}, no ${limpiarNombre(nombre)}` };
   }
-  if (esProtegido(proceso.nombre)) return { ok: false, error: `${limpiarNombre(proceso.nombre)} es un proceso protegido; no se puede cerrar` };
+  if (esProtegido(proceso.nombre)) {
+    const verbo = accion === 'congelar_proceso' ? 'congelar' : 'cerrar';
+    return { ok: false, error: `${limpiarNombre(proceso.nombre)} es un proceso protegido; no se puede ${verbo}` };
+  }
   // La hora de inicio distingue un proceso de otro que reutilizó el pid. Si la foto no la trae (cliente anterior),
   // se valida solo por pid y nombre, como antes. Si llega una hora distinta a la de la foto, se rechaza.
   const inicioPedido = Number.isInteger(input?.inicio) ? input.inicio : undefined;

@@ -107,3 +107,15 @@ test('vaciar la papelera manda a Rust las cifras que la tarjeta mostró, para co
   assert.match(main, /datos = medida\s*\n\s*\? \{ detalle: detallePapelera\(medida\), elementos: medida\.elementos, mb: medida\.mb \}/);
   assert.match(main, /llamar\('vaciar_papelera', \{ elementos: a\.elementos, mb: a\.mb \}\)/);
 });
+
+test('congelar y reanudar: registrados en los dos listados de lib.rs, llamados desde la interfaz y conocidos por el backend', () => {
+  for (const comando of ['congelar_proceso', 'reanudar_proceso']) {
+    assert.equal([...lib.matchAll(new RegExp(`congelar::${comando},`, 'g'))].length, 2, comando);
+    assert.ok(main.includes(`llamar('${comando}'`), `main.js no llama a ${comando}`);
+  }
+  assert.match(lib, /^mod congelar;/m);
+  assert.ok(acciones.includes("'congelar_proceso'"), 'el backend no conoce congelar_proceso');
+  assert.ok(!acciones.includes("'reanudar_proceso'"), 'reanudar es solo de la interfaz, no del modelo');
+  // Congelar y reanudar nunca tocan la lista de protegidos: deben seguir siendo la misma en ambas capas.
+  assert.match(main, /congelados/);
+});

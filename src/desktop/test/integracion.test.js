@@ -273,6 +273,6 @@ test('cada llamada al backend desde la interfaz tiene plazo: un backend colgado 
 });
 
 test('el panel de pánico no se reconstruye cada 2 s: solo cuando cambian los procesos o su orden', () => {
-  assert.match(main, /const clave = procesos\.map\(\(p\) => p\.pid\)\.join\(','\);\s*\n\s*if \(clave === panicoClave\)/);
+  assert.match(main, /const clave = procesos\.map\(\(p\) => `[^`]*`\)\.join\(','\);\s*\n\s*if \(clave === panicoClave\)/);
   assert.match(main, /panicoFilas\[i\]\.nombre\.textContent = /);
 });

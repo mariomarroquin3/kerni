@@ -22,6 +22,8 @@ export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_re
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
   switch (a.accion) {
+    case 'congelar_proceso': return `¿Congelo ${a.nombre} (pid ${a.pid})? Lo pauso, no lo cierro: se congela hasta que lo reanudes; si tiene algo abierto puede quedarse sin responder.`;
+    case 'reanudar_proceso': return `¿Reanudo ${a.nombre} (pid ${a.pid})? Vuelve a correr desde donde se quedó.`;
     case 'ver_info_equipo': return '¿Miro el modelo y las características de tu equipo? Solo lo muestro en pantalla.';
     case 'ver_programas_inicio': return '¿Miro qué programas se abren solos cuando prendés la compu? Solo los listo; no cambio nada.';
     case 'ver_arranque': return '¿Miro por qué tarda en prender? Solo leo el último arranque de Windows y tus programas de inicio. No cambio nada.';

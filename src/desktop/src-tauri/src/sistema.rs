@@ -85,6 +85,8 @@ pub struct Metricas {
     pub bateria: Option<Bateria>,
     /// Segundos desde el último arranque COMPLETO. Con el "inicio rápido" de Windows, Apagar no lo reinicia: solo Reiniciar.
     pub encendida_s: u64,
+    /// Pids que Kerni dejó congelados (modo pánico). La interfaz los muestra con "Reanudar".
+    pub congelados: Vec<u32>,
 }
 
 #[cfg(windows)]
@@ -178,7 +180,7 @@ pub struct ResultadoLimpieza {
 }
 
 /// El `System` compartido. Va en un `Arc` para poder usarlo fuera del hilo principal (`spawn_blocking`).
-pub struct Monitor(Arc<Mutex<System>>);
+pub struct Monitor(pub(crate) Arc<Mutex<System>>);
 
 impl Default for Monitor {
     fn default() -> Self {
@@ -190,7 +192,7 @@ impl Default for Monitor {
 
 /// Si una lectura anterior entró en pánico con el candado tomado, el `System` sigue sirviendo: se recupera
 /// en vez de tumbar cada lectura siguiente.
-fn bloquear(m: &Mutex<System>) -> MutexGuard<'_, System> {
+pub(crate) fn bloquear(m: &Mutex<System>) -> MutexGuard<'_, System> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -262,7 +264,9 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
         (d.available_space() as f64 / GB, (d.total_space() as f64 / GB).max(0.1))
     });
 
+    let vivos: Vec<(u32, u64)> = sys.processes().values().map(|p| (p.pid().as_u32(), p.start_time())).collect();
     Metricas {
+        congelados: crate::congelar::podar_y_listar(&vivos),
         cpu: sys.global_cpu_usage().clamp(0.0, 100.0),
         ram: Ram { usada_mb: sys.used_memory() as f64 / MB, total_mb: (sys.total_memory() as f64 / MB).max(1.0) },
         disco: Disco { libre_gb: libre, total_gb: total },

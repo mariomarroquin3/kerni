@@ -9,6 +9,7 @@
 //! - Ícono en la bandeja y menú con clic derecho para ocultar o cerrar.
 //! - Los comandos que tocan el sistema viven en `sistema.rs`.
 
+mod congelar;
 mod diagnostico;
 mod herramientas;
 mod sistema;
@@ -110,6 +111,8 @@ fn al_elegir(app: &AppHandle, id: &str) {
 /// Cierra Kerni. Si por lo que sea el cierre normal se queda colgado (la ventana no tiene barra de título ni aparece en la barra de
 /// tareas, así que no hay otra forma de cerrarla), a los 3 segundos se sale a la fuerza: "Cerrar Kerni" siempre tiene que cerrar.
 fn salir(app: &AppHandle) {
+    // Lo que Kerni congeló vuelve a correr antes de irse: nada se queda suspendido sin la app.
+    congelar::reanudar_todos();
     std::thread::spawn(|| {
         std::thread::sleep(Duration::from_secs(3));
         std::process::exit(0);
@@ -167,6 +170,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         ocultar_kerni,
         sistema::metricas,
         sistema::terminar_proceso,
+        congelar::congelar_proceso,
+        congelar::reanudar_proceso,
         sistema::archivos_pesados,
         sistema::mostrar_en_carpeta,
         sistema::espacio_por_carpeta,
@@ -197,6 +202,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         ocultar_kerni,
         sistema::metricas,
         sistema::terminar_proceso,
+        congelar::congelar_proceso,
+        congelar::reanudar_proceso,
         sistema::archivos_pesados,
         sistema::mostrar_en_carpeta,
         sistema::espacio_por_carpeta,

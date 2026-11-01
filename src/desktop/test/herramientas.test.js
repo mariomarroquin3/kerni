@@ -21,6 +21,15 @@ test('la tarjeta de cada acción nueva dice qué va a pasar, y la que borra avis
   assert.equal(describirNueva({ accion: 'limpiar_temporales' }), null);
 });
 
+test('congelar: la tarjeta dice que pausa y no cierra, y que puede quedarse sin responder', () => {
+  const texto = describirNueva({ accion: 'congelar_proceso', pid: 77, nombre: 'miner.exe' });
+  assert.equal(
+    texto,
+    '¿Congelo miner.exe (pid 77)? Lo pauso, no lo cierro: se congela hasta que lo reanudes; si tiene algo abierto puede quedarse sin responder.',
+  );
+  assert.match(describirNueva({ accion: 'reanudar_proceso', pid: 77, nombre: 'miner.exe' }), /Reanudo miner\.exe/);
+});
+
 test('papelera: describe el contenido, o dice que está vacía', () => {
   assert.equal(detallePapelera({ elementos: 1, mb: 5 }), '1 elemento (5 MB)');
   assert.equal(detallePapelera({ elementos: 12, mb: 2048 }), '12 elementos (2.0 GB)');

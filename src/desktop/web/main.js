@@ -73,6 +73,8 @@ function demo(comando, args) {
   if (comando === 'vaciar_papelera') return { elementos: 7, mb: 120 };
   if (comando === 'abrir_ajuste' || comando === 'mostrar_en_carpeta') return undefined;
   if (comando === 'terminar_proceso') return `Cerré ${args.nombre} (demo)`;
+  if (comando === 'congelar_proceso') return `Congelé ${args.nombre} (demo). Lo pausé, no lo cerré.`;
+  if (comando === 'reanudar_proceso') return `Reanudé ${args.nombre} (demo)`;
   if (comando === 'limpiar_temporales') return { archivos: 128, liberadoMb: 412.5 };
   if (comando === 'archivos_pesados') {
     return {
@@ -223,12 +225,15 @@ function pintarPanico(m, activo) {
     return;
   }
   const lista = $('panico-lista');
-  const procesos = sospechosos(m.procesos);
-  const clave = procesos.map((p) => p.pid).join(',');
+  // Los congelados por Kerni van aunque ya no usen CPU (congelado no gasta CPU): así se pueden reanudar.
+  const congelados = new Set(m.congelados ?? []);
+  const sospechosasCpu = sospechosos(m.procesos);
+  const procesos = [...sospechosasCpu, ...m.procesos.filter((p) => congelados.has(p.pid) && !sospechosasCpu.some((s) => s.pid === p.pid))];
+  const clave = procesos.map((p) => `${p.pid}${congelados.has(p.pid) ? 'c' : ''}`).join(',');
   if (clave === panicoClave) {
     procesos.forEach((p, i) => {
       panicoFilas[i].dato.p = p;
-      panicoFilas[i].nombre.textContent = `${p.nombre} · ${p.cpu.toFixed(0)}%`;
+      panicoFilas[i].nombre.textContent = `${p.nombre} · ${p.cpu.toFixed(0)}%${congelados.has(p.pid) ? ' · congelado' : ''}`;
     });
     return;
   }
@@ -236,17 +241,37 @@ function pintarPanico(m, activo) {
   lista.replaceChildren();
   panicoFilas = procesos.map((p) => {
     const dato = { p };
+    const estaCongelado = congelados.has(p.pid);
     const li = document.createElement('li');
     const nombre = document.createElement('span');
-    nombre.textContent = `${p.nombre} · ${p.cpu.toFixed(0)}%`;
-    const boton = document.createElement('button');
-    boton.type = 'button';
-    boton.textContent = 'Cerrar…';
-    boton.addEventListener('click', () => proponer({
-      accion: 'terminar_proceso', pid: dato.p.pid, nombre: dato.p.nombre, inicio: dato.p.inicio,
-      motivo: `Usa ${dato.p.cpu.toFixed(0)}% de CPU mientras la PC está al tope.`,
-    }));
-    li.append(nombre, boton);
+    nombre.textContent = `${p.nombre} · ${p.cpu.toFixed(0)}%${estaCongelado ? ' · congelado' : ''}`;
+    li.append(nombre);
+    if (estaCongelado) {
+      const reanudar = document.createElement('button');
+      reanudar.type = 'button';
+      reanudar.textContent = 'Reanudar';
+      reanudar.addEventListener('click', () => proponer({
+        accion: 'reanudar_proceso', pid: dato.p.pid, nombre: dato.p.nombre, inicio: dato.p.inicio,
+        motivo: 'Lo congelaste desde el modo pánico; lo vuelvo a correr.',
+      }));
+      li.append(reanudar);
+    } else {
+      const congelar = document.createElement('button');
+      congelar.type = 'button';
+      congelar.textContent = 'Congelar';
+      congelar.addEventListener('click', () => proponer({
+        accion: 'congelar_proceso', pid: dato.p.pid, nombre: dato.p.nombre, inicio: dato.p.inicio,
+        motivo: `Usa ${dato.p.cpu.toFixed(0)}% de CPU; lo pauso sin cerrarlo.`,
+      }));
+      const boton = document.createElement('button');
+      boton.type = 'button';
+      boton.textContent = 'Cerrar…';
+      boton.addEventListener('click', () => proponer({
+        accion: 'terminar_proceso', pid: dato.p.pid, nombre: dato.p.nombre, inicio: dato.p.inicio,
+        motivo: `Usa ${dato.p.cpu.toFixed(0)}% de CPU mientras la PC está al tope.`,
+      }));
+      li.append(congelar, boton);
+    }
     lista.append(li);
     return { nombre, dato };
   });
@@ -396,6 +421,10 @@ async function ejecutar(a) {
     // Sin `inicio` (propuesta del modelo, que no lo trae) Rust solo compara el nombre del proceso.
     const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre, inicio: a.inicio });
     decir(msg);
+  } else if (a.accion === 'congelar_proceso') {
+    decir(await llamar('congelar_proceso', { pid: a.pid, nombre: a.nombre, inicio: a.inicio }), 8000);
+  } else if (a.accion === 'reanudar_proceso') {
+    decir(await llamar('reanudar_proceso', { pid: a.pid, nombre: a.nombre, inicio: a.inicio }), 8000);
   } else if (a.accion === 'limpiar_temporales') {
     const r = await llamar('limpiar_temporales');
     decir(r.archivos
