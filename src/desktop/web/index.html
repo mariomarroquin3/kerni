@@ -20,9 +20,11 @@
           <section id="confirmar" class="tarjeta zona glass" hidden>
             <p id="confirmar-texto"></p>
             <p id="confirmar-motivo" class="motivo"></p>
+            <p id="confirmar-explicacion" class="motivo explicacion" hidden></p>
             <div class="botones">
               <button id="aprobar" type="button">Aprobar</button>
               <button id="rechazar" type="button" class="secundario">No</button>
+              <button id="confirmar-por-que" type="button" class="secundario" aria-controls="confirmar-explicacion" aria-expanded="false">¿Por qué?</button>
             </div>
           </section>
           <section id="archivos" class="tarjeta zona glass" hidden>
@@ -52,6 +54,7 @@
               <input id="aprendizaje-auto" type="checkbox" />
               <span>Crear reflexiones automáticamente</span>
             </label>
+            <div class="insignia" data-insignia><p class="insignia-texto"></p><div class="barra"><i></i></div></div>
             <p id="memoria-estado" role="status" aria-live="polite"></p>
             <h3>Recuerdos guardados</h3>
             <ul id="hechos-lista"></ul>
@@ -84,6 +87,7 @@
       </div>
 
       <section id="hud" class="zona glass" hidden aria-label="Salud del equipo">
+        <div class="insignia" data-insignia aria-live="polite"><p class="insignia-texto"></p><div class="barra"><i></i></div></div>
         <div id="metricas">
           <div class="medidor"><span>CPU</span><div class="barra"><i id="barra-cpu"></i></div><b id="txt-cpu">–</b></div>
           <div class="medidor"><span>RAM</span><div class="barra"><i id="barra-ram"></i></div><b id="txt-ram">–</b></div>

@@ -5,6 +5,8 @@ import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
 import { armarReporte, describirNueva, detalleCache, textoLimpiezaCache, detallePapelera,panelActualizaciones, panelArranque, panelConsumoBateria, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
+import { ayudaContada, contarAyuda, estadoDeHoy, nivelDeXp, textoInsignia } from './progreso.js';
+import { explicarAccion } from './explicaciones.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -175,6 +177,72 @@ function idDeEstaPc() {
   } catch { return null; }
 }
 const deviceId = idDeEstaPc();
+
+// ---------- Aprendizaje: insignia de nivel y "¿Por qué?" ----------
+// El XP solo llega por aprender (ayuda, consejos, lección); aprobar una acción no suma nada. El backend decide el tope.
+let progreso = { disponible: null, xp: 0, xpHoy: 0, topeDiario: 20, leccionHoy: false };
+const consejosActivos = true;
+
+function pintarProgreso() {
+  const texto = textoInsignia({ xp: progreso.xp, disponible: progreso.disponible, activos: consejosActivos });
+  const ancho = progreso.disponible ? nivelDeXp(progreso.xp).porcentaje : 0;
+  for (const el of document.querySelectorAll('[data-insignia]')) {
+    el.querySelector('.insignia-texto').textContent = texto; // textContent: el texto no se interpreta como HTML
+    el.querySelector('.barra i').style.width = `${ancho}%`;
+  }
+}
+
+async function cargarProgreso() {
+  if (!deviceId) { progreso.disponible = false; pintarProgreso(); return; }
+  try {
+    const res = await fetch(`${BACKEND}/progreso?device_id=${deviceId}`, { signal: AbortSignal.timeout(PLAZO_BACKEND_MS) });
+    if (res.ok) {
+      const d = await res.json();
+      progreso = { disponible: true, xp: d.xp, xpHoy: d.xpHoy, topeDiario: d.topeDiario, leccionHoy: d.leccionHoy };
+    } else {
+      progreso.disponible = false;
+    }
+  } catch {
+    progreso.disponible = false;
+  }
+  pintarProgreso();
+}
+
+/** Manda un evento de la lista cerrada. Sin backend o con la memoria apagada no hace nada: la función se ve apagada. */
+async function enviarEvento(evento) {
+  if (!deviceId || !consejosActivos || progreso.disponible !== true) return null;
+  try {
+    const res = await fetch(`${BACKEND}/progreso/evento`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, evento }),
+      signal: AbortSignal.timeout(PLAZO_BACKEND_MS),
+    });
+    if (res.status === 503) { progreso.disponible = false; pintarProgreso(); return null; }
+    if (!res.ok) return null;
+    const d = await res.json();
+    progreso = { disponible: true, xp: d.xp, xpHoy: d.xpHoy, topeDiario: d.topeDiario, leccionHoy: d.leccionHoy };
+    pintarProgreso();
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+// Estado del día en este PC (localStorage, con try/catch: sin almacenamiento no pasa nada grave).
+const CLAVE_HOY = 'kerni.aprendizaje.hoy';
+function diaHoy() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function estadoHoy() {
+  let guardado = null;
+  try { guardado = JSON.parse(localStorage.getItem(CLAVE_HOY)); } catch { /* sin almacenamiento o dato roto */ }
+  return estadoDeHoy(guardado, diaHoy());
+}
+function guardarHoy(estado) {
+  try { localStorage.setItem(CLAVE_HOY, JSON.stringify(estado)); } catch { /* idem */ }
+}
 
 // ---------- Globo de texto ----------
 let timerGlobo;
@@ -397,6 +465,9 @@ function mostrarTarjeta(accion, porKerni) {
   actualizarModo();
   $('confirmar-texto').textContent = describir(accion);
   $('confirmar-motivo').textContent = accion.motivo ?? '';
+  // Cada tarjeta nueva empieza con la explicación cerrada.
+  $('confirmar-explicacion').hidden = true;
+  $('confirmar-por-que').setAttribute('aria-expanded', 'false');
   $('confirmar').hidden = false;
   tarjetaMostradaEn = performance.now();
 }
@@ -469,6 +540,22 @@ $('aprobar').addEventListener('click', async () => {
 $('rechazar').addEventListener('click', () => {
   cerrarTarjeta();
   decir('Listo, no toco nada. ¡Tranqui!', 4000);
+});
+
+// "¿Por qué?": abre la explicación de la tarjeta. Funciona aunque los consejos estén apagados; solo el XP depende de la opción.
+$('confirmar-por-que').addEventListener('click', () => {
+  if (!pendiente) return;
+  const accion = pendiente.accion;
+  const exp = $('confirmar-explicacion');
+  exp.textContent = explicarAccion(accion) ?? 'Todavía no tengo una explicación para esta acción. Lo que dice la tarjeta es lo que va a pasar.';
+  exp.hidden = false;
+  $('confirmar-por-que').setAttribute('aria-expanded', 'true');
+  // Una vez por tipo de tarjeta y día.
+  const hoy = estadoHoy();
+  if (consejosActivos && !ayudaContada(hoy, accion)) {
+    guardarHoy(contarAyuda(hoy, accion));
+    enviarEvento('ayuda_leida');
+  }
 });
 
 // ---------- Archivos pesados sin uso: solo lectura, Kerni lista y la persona decide ----------
@@ -1050,6 +1137,11 @@ async function refrescarIA() {
 }
 refrescarIA();
 setInterval(refrescarIA, 60000);
+
+// Progreso: se lee al arrancar y, si el backend no respondió, se vuelve a intentar cada minuto.
+pintarProgreso();
+cargarProgreso();
+setInterval(() => { if (progreso.disponible !== true) cargarProgreso(); }, 60000);
 
 // Una lectura a la vez: la siguiente se programa cuando termina la anterior. Con setInterval, si Rust tardaba
 // (una limpieza grande), las lecturas se apilaban y llegaban juntas, todas altas, y podían disparar un pánico falso.

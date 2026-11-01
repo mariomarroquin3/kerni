@@ -173,6 +173,11 @@ button:disabled { opacity: 0.45; cursor: default; }
 .barra i.alto { background: var(--aviso); }
 .barra i.critico { background: var(--peligro); }
 
+/* ---- Aprendizaje: insignia de nivel (texto + barra; sin assets) y explicación de "¿Por qué?" ---- */
+.insignia { display: flex; flex-direction: column; gap: 4px; }
+.insignia-texto { margin: 0; font-size: 11px; color: var(--suave); }
+.explicacion { margin: 4px 0 2px; color: var(--texto); font-size: 12px; line-height: 1.4; }
+
 .hud-pie { display: flex; gap: 6px; margin-top: 2px; }
 .hud-pie #limpiar { flex: 1; min-width: 0; }
 #metricas { display: flex; flex-direction: column; gap: 5px; }
