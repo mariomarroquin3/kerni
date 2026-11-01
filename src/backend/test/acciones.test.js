@@ -121,6 +121,16 @@ describe('validarPropuesta: la hora de inicio protege contra el pid reutilizado'
   });
 });
 
+describe('limpiar_cache_navegador', () => {
+  it('es una acción sin datos del sistema: la app decide qué borrar (solo la caché)', async () => {
+    const r = validarPropuesta({ accion: 'limpiar_cache_navegador', motivo: 'El navegador va lento.' }, SNAPSHOT);
+    expect(r.ok).toBe(true);
+    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'limpiar_cache_navegador', motivo: 'El navegador va lento.' });
+    const { ACCIONES_SIN_DATOS } = await import('../src/acciones.js');
+    expect(ACCIONES_SIN_DATOS).toContain('limpiar_cache_navegador');
+  });
+});
+
 describe('congelar_proceso', () => {
   const CON_INICIO = { ...SNAPSHOT, procesos: SNAPSHOT.procesos.map((p) => (p.pid === 5555 ? { ...p, inicio: 1700000000 } : p)) };
 

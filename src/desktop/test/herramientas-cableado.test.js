@@ -28,6 +28,8 @@ test('cada comando nuevo está en los dos listados de lib.rs y la interfaz lo ll
     vaciar_papelera: 'herramientas',
     abrir_ajuste: 'herramientas',
     ver_dispositivos_red: 'herramientas',
+    medir_cache_navegador: 'navegadores',
+    limpiar_cache_navegador: 'navegadores',
   };
   for (const [comando, modulo] of Object.entries(comandos)) {
     assert.equal([...lib.matchAll(new RegExp(`${modulo}::${comando},`, 'g'))].length, 2, comando);

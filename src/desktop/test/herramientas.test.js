@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AJUSTES, describirNueva, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed } from '../web/herramientas.js';
+import { AJUSTES, describirNueva, detalleCache, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, textoLimpiezaCache } from '../web/herramientas.js';
 import { accionLocalNueva, responderLocal } from '../web/intenciones.js';
 
 const SIN_DIMINUTIVOS = /\b[a-záéíóúñ]{3,}(it|cit)[oa]s?\b/i;
@@ -19,6 +19,16 @@ test('la tarjeta de cada acción nueva dice qué va a pasar, y la que borra avis
   assert.match(describirNueva({ accion: 'cambiar_inicio', nombre: 'Spotify', activar: true }), /vuelva a abrirse/);
   assert.equal(describirNueva({ accion: 'terminar_proceso' }), null);
   assert.equal(describirNueva({ accion: 'limpiar_temporales' }), null);
+});
+
+test('caché de navegadores: la tarjeta dice cuánto hay y qué no toca; el resultado cuenta lo que quedó en uso', () => {
+  const tarjeta = describirNueva({ accion: 'limpiar_cache_navegador', detalle: detalleCache({ mb: 412.5, archivos: 1280, completa: true }) });
+  assert.match(tarjeta, /Ocupa 412\.5 MB en 1280 archivos\./);
+  assert.match(tarjeta, /Cerrá los navegadores antes/);
+  assert.match(tarjeta, /No toca cookies, historial, contraseñas, marcadores, sesiones ni extensiones/);
+  assert.match(detalleCache({ mb: 1, archivos: 2, completa: false }), /puede haber más/);
+  assert.equal(textoLimpiezaCache({ archivos: 0, saltados: 0 }), 'No había caché que borrar.');
+  assert.match(textoLimpiezaCache({ archivos: 5, liberadoMb: 12.3, saltados: 2 }), /borré 5 archivos.*2 estaban en uso y los dejé/);
 });
 
 test('congelar: la tarjeta dice que pausa y no cierra, y que puede quedarse sin responder', () => {

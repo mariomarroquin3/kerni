@@ -12,6 +12,7 @@
 mod congelar;
 mod diagnostico;
 mod herramientas;
+mod navegadores;
 mod sistema;
 
 // En pruebas se compila también en Windows para correr sus pruebas; la app solo la usa en Linux.
@@ -172,6 +173,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         sistema::terminar_proceso,
         congelar::congelar_proceso,
         congelar::reanudar_proceso,
+        navegadores::medir_cache_navegador,
+        navegadores::limpiar_cache_navegador,
         sistema::archivos_pesados,
         sistema::mostrar_en_carpeta,
         sistema::espacio_por_carpeta,
@@ -204,6 +207,8 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         sistema::terminar_proceso,
         congelar::congelar_proceso,
         congelar::reanudar_proceso,
+        navegadores::medir_cache_navegador,
+        navegadores::limpiar_cache_navegador,
         sistema::archivos_pesados,
         sistema::mostrar_en_carpeta,
         sistema::espacio_por_carpeta,

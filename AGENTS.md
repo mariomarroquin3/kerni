@@ -164,6 +164,7 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 | `congelar_proceso` (y `reanudar_proceso`, solo desde la interfaz) | Pausa un proceso sin cerrarlo: suspende sus hilos con `NtSuspendProcess` (ntdll). Mismas revisiones que `terminar_proceso` (protegidos, pid propio, pid reutilizado). Kerni recuerda lo que congeló y lo reanuda al salir. La tarjeta avisa que puede quedarse sin responder | **Sí, reversible** (pausa, no cierra) |
+| `limpiar_cache_navegador` | Borra solo las carpetas `Cache` y `Code Cache` de cada perfil de Chrome y Edge (en `%LOCALAPPDATA%`). Mide primero y la tarjeta dice cuántos MB hay; si un archivo está en uso se salta y se cuenta. Nunca cookies, historial, contraseñas, marcadores, sesiones ni extensiones (`navegadores.rs`) | **Sí, solo caché** (se regenera) |
 
 - **Cambiar el inicio** (`cambiar_inicio`) no está en lo que el modelo puede proponer: lo pide la interfaz desde su propia lista (botón *Desactivar/Activar* en cada fila), siempre con tarjeta. Rust revalida el nombre contra la lista real y solo cambia los del **usuario**; no borra nada: escribe el mismo interruptor del Administrador de tareas, así que es reversible. Los del equipo piden administrador y la interfaz lo dice.
 - **El modelo de la PC viaja con el chat** (`equipo`: fabricante, modelo y sistema, limpiados y rotulados como dato en el prompt). Así Kerni busca en el manual correcto: con el modelo real, "¿cuánta RAM le puedo agregar?" responde con la guía de la Latitude 3120.
@@ -204,7 +205,8 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [ ] Ícono propio (hoy se usa el de Bitoo).
 - [ ] Probar a mano el arrastre de la ventana (`data-tauri-drag-region="deep"`): el clic sobre Kerni ya no lo hace saludar porque el arrastre lo captura.
 - [x] Modo pánico: **congelar** procesos no esenciales (suspender) en vez de solo cerrar (`congelar.rs`). Probado solo con pruebas unitarias; falta probar el congelado real en una ventana.
-- [ ] Limpiar caché y Prefetch (Prefetch exige administrador; decidir si se pide elevación).
+- [x] Limpiar caché de Chrome y Edge (`limpiar_cache_navegador`, solo `Cache` y `Code Cache`). Probado con carpetas de prueba; falta probarlo con el navegador real cerrado y abierto.
+- [ ] Prefetch (exige administrador; decidir si se pide elevación).
 - [x] Memoria unificada en SQLite local (recuerdos aprobados, chat retomable, salud, reflexiones); Supabase solo para salud y RAG.
 - [x] `buscar_conocimiento`: el RAG pasó de buscarse en cada mensaje a ser una herramienta de solo lectura.
 - [x] Supabase local con Docker (pgvector + PostgREST): migraciones aplicadas, 41 fragmentos indexados con embeddings reales de Gemini y búsqueda probada de punta a punta con el modelo.

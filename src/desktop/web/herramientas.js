@@ -22,6 +22,7 @@ export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_re
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
   switch (a.accion) {
+    case 'limpiar_cache_navegador': return `¿Limpio la caché de Chrome y Edge?${a.detalle ? ' ' + a.detalle + '.' : ''} Cerrá los navegadores antes: lo que esté en uso se salta. No toca cookies, historial, contraseñas, marcadores, sesiones ni extensiones.`;
     case 'congelar_proceso': return `¿Congelo ${a.nombre} (pid ${a.pid})? Lo pauso, no lo cierro: se congela hasta que lo reanudes; si tiene algo abierto puede quedarse sin responder.`;
     case 'reanudar_proceso': return `¿Reanudo ${a.nombre} (pid ${a.pid})? Vuelve a correr desde donde se quedó.`;
     case 'ver_info_equipo': return '¿Miro el modelo y las características de tu equipo? Solo lo muestro en pantalla.';
@@ -46,6 +47,19 @@ export function describirNueva(a) {
       : `¿Querés que ${a.nombre} deje de abrirse solo al iniciar Windows? No se desinstala y lo podés reactivar cuando quieras.`;
     default: return null;
   }
+}
+
+/** Lo que dice la tarjeta de la caché: cuánto hay (medido antes de preguntar). */
+export function detalleCache(m) {
+  return `Ocupa ${m.mb.toFixed(1)} MB en ${m.archivos} archivos${m.completa ? '' : ' (puede haber más: no alcancé a revisar todo)'}.`;
+}
+
+/** Lo que Kerni dice al terminar: cuánto liberó y qué dejó porque estaba en uso. */
+export function textoLimpiezaCache(r) {
+  if (!r.archivos && !r.saltados) return 'No había caché que borrar.';
+  const base = r.archivos ? `Listo, borré ${r.archivos} archivos de caché y liberé ${tamanoLegible(r.liberadoMb)}.` : 'No borré nada.';
+  const saltados = r.saltados ? ` ${r.saltados} ${r.saltados === 1 ? 'estaba' : 'estaban'} en uso y los dejé.` : '';
+  return base + saltados;
 }
 
 /** "3 elementos, 12 MB" para la tarjeta de la papelera. */

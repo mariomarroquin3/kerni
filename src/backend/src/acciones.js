@@ -26,6 +26,7 @@ export const ACCIONES = [
   'ver_consumo_bateria',
   'abrir_ajuste',
   'vaciar_papelera',
+  'limpiar_cache_navegador',
 ];
 /** Acciones que no llevan datos del sistema: la app decide qué y cuánto mirar. */
 const CON_PROCESO = ['terminar_proceso', 'congelar_proceso'];

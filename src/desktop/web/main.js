@@ -3,7 +3,7 @@ import { createCharacter } from './character.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
-import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelArranque, panelConsumoBateria, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
+import { armarReporte, describirNueva, detalleCache, textoLimpiezaCache, detallePapelera,panelActualizaciones, panelArranque, panelConsumoBateria, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -74,6 +74,8 @@ function demo(comando, args) {
   if (comando === 'abrir_ajuste' || comando === 'mostrar_en_carpeta') return undefined;
   if (comando === 'terminar_proceso') return `Cerré ${args.nombre} (demo)`;
   if (comando === 'congelar_proceso') return `Congelé ${args.nombre} (demo). Lo pausé, no lo cerré.`;
+  if (comando === 'medir_cache_navegador') return { archivos: 1280, mb: 412.5, carpetas: 4, completa: true };
+  if (comando === 'limpiar_cache_navegador') return { archivos: 1280, liberadoMb: 412.5, saltados: 3, completa: true };
   if (comando === 'reanudar_proceso') return `Reanudé ${args.nombre} (demo)`;
   if (comando === 'limpiar_temporales') return { archivos: 128, liberadoMb: 412.5 };
   if (comando === 'archivos_pesados') {
@@ -366,6 +368,20 @@ function proponer(accion, porKerni = false) {
     })();
     return;
   }
+  // La caché se mide antes (solo lectura) para que la tarjeta diga cuántos MB hay. Si no hay nada, no se pregunta.
+  if (accion.accion === 'limpiar_cache_navegador' && accion.detalle === undefined) {
+    (async () => {
+      let medida = null;
+      try { medida = await llamar('medir_cache_navegador'); } catch { /* sin dato: la tarjeta lo dice sin cifras */ }
+      if (mia !== propuestaSeq) return;
+      if (medida && medida.archivos === 0) {
+        decir('No veo caché de Chrome ni Edge que borrar.', 6000);
+        return;
+      }
+      proponer({ ...accion, detalle: medida ? detalleCache(medida) : '' }, porKerni);
+    })();
+    return;
+  }
   if (pendiente) {
     const repetida = mismaPropuesta(pendiente, accion) || colaPropuestas.some((p) => mismaPropuesta(p.accion, accion));
     if (!repetida && colaPropuestas.length < MAX_COLA) colaPropuestas.push({ accion, porKerni });
@@ -421,6 +437,8 @@ async function ejecutar(a) {
     // Sin `inicio` (propuesta del modelo, que no lo trae) Rust solo compara el nombre del proceso.
     const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre, inicio: a.inicio });
     decir(msg);
+  } else if (a.accion === 'limpiar_cache_navegador') {
+    decir(textoLimpiezaCache(await llamar('limpiar_cache_navegador')), 8000);
   } else if (a.accion === 'congelar_proceso') {
     decir(await llamar('congelar_proceso', { pid: a.pid, nombre: a.nombre, inicio: a.inicio }), 8000);
   } else if (a.accion === 'reanudar_proceso') {
