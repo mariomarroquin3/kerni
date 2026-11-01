@@ -55,3 +55,28 @@ jobs:
       - name: Rust tests
         working-directory: src/desktop/src-tauri
         run: cargo test
+
+  # Dependency audit. These steps are blocking on purpose: do not add `|| true` or lower the level to make CI green.
+  # To review a failure: run the same command locally, read the advisory (GHSA / RUSTSEC id), check whether the
+  # vulnerable code path is reachable in Kerni, then update the dependency (`npm audit fix`, `cargo update -p <crate>`)
+  # or, only if there is no fix and the path is unreachable, record the decision in docs/security.md.
+  audit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      # npm audit reads package-lock.json; runtime dependencies only, fails on high or critical.
+      - name: npm audit (backend)
+        working-directory: src/backend
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (desktop)
+        working-directory: src/desktop
+        run: npm audit --omit=dev --audit-level=high
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: cargo audit (Rust core)
+        working-directory: src/desktop/src-tauri
+        run: cargo audit
