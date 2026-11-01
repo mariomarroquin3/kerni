@@ -155,6 +155,7 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 | `ver_actualizaciones` | Pregunta a Windows Update qué hay pendiente. **No descarga ni instala**; puede tardar minutos (87 s medidos aquí, tope de 5). Las definiciones del antivirus se listan pero no cuentan como pendientes | No |
 | `ver_reporte_soporte` | Junta equipo, memoria, disco, batería, programas de inicio, red y los 5 procesos que más memoria usan en un texto plano (**sin rutas ni nombre de usuario**) y ofrece **Copiar resumen** para mandárselo al técnico de la institución. No incluye las actualizaciones (tardan). Se arma en la interfaz con lo que ya sabe; nunca se envía solo | No |
 | `ver_dispositivos_red` | Lista los equipos que la tabla ARP de la PC ya conoce en la red local (IP y MAC, sin escanear) y tu IP local. No se conecta a ninguno ni manda datos | No |
+| `ver_arranque` | Dice por qué tarda en prender: la duración del último arranque que registró Windows (evento de rendimiento, a veces pide administrador) y cuántos programas se abren solos. Si falta el dato, lo dice | No |
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 
