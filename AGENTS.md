@@ -125,6 +125,15 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - **Respaldo sin modelo** (`rag/respaldo.js`, en `routes/chat.js`): si el modelo falla por **cupo agotado** (plan gratis de Gemini, ~20 pedidos por día) o por un fallo del servicio, Kerni responde con los dos fragmentos más parecidos de sus guías, con su fuente y página, y lo dice ("texto de mis guías, copiado tal cual"); si el pedido es claro (`intenciones.js`), añade además la tarjeta. No cubre llave inválida ni falta de red: la persona necesita saberlo. Si no hay guías relevantes, sigue el error de siempre. La búsqueda usa embeddings, que tienen su propio cupo (100 por minuto).
 - Una consulta al RAG cuesta un pedido de embeddings más un paso extra del modelo (el que lee el resultado): con Gemini gratuito el cupo diario se agota antes si se usa mucho.
 
+## Microsoft Learn (MCP, opcional)
+
+- **Qué hace:** la herramienta `buscar_docs_microsoft` busca en la documentación oficial de Microsoft (Windows, Office, Azure, .NET) por el servidor MCP público de Microsoft Learn (`https://learn.microsoft.com/api/mcp`, Streamable HTTP). Usa la herramienta `microsoft_docs_search` del servidor. Cada respuesta del modelo puede citar el título y el enlace de la página.
+- **Apagada por defecto.** Solo se enciende con `MICROSOFT_LEARN_MCP=1` en `src/backend/.env` (y reiniciar el backend). Apagada, la herramienta ni se le ofrece al modelo. Ver `src/backend/src/mcp/`.
+- **Qué sale de la PC:** solo el texto de la pregunta (entre 4 y 200 caracteres). Nunca la foto del sistema, el device_id, el equipo, la memoria ni nombres de archivos.
+- **Lista de destinos:** el cliente (`src/backend/src/mcp/cliente.js`) habla únicamente con ese endpoint exacto, fijado en el código; cualquier otra dirección se rechaza antes de hacer una petición y las redirecciones no se siguen. Lo que devuelve se trata como dato: se limpia, se quitan los enlaces que no sean de `learn.microsoft.com` o `docs.microsoft.com`, y el bloque `<documentacion>` tiene tope de tamaño.
+- **Solo lectura:** no cambia nada en la PC y no necesita aprobación (como `buscar_conocimiento`). Máximo 2 búsquedas por turno. Si Microsoft Learn falla o tarda más de 10 s, el chat sigue sin ella y lo dice.
+- **Términos:** el uso del sitio está sujeto a los [Términos de uso de Microsoft Learn](https://learn.microsoft.com/en-us/legal/termsofuse), que describen un uso personal y no comercial salvo que se indique otra cosa. Revisar ese punto antes de presentarlo como producto.
+
 ## Revisar enlaces (`revisar_enlace`)
 
 - **Solo lectura y sin abrir el sitio.** Mira la dirección (HTTP, un número en vez de un nombre, `@` que esconde el destino, acortadores, letras que imitan a otras, marcas imitadas como `paypa1-login.com` o `paypal.com.cuenta-segura.xyz`, terminaciones de estafa, demasiados subdominios, palabras de engaño) y, si hay `SAFE_BROWSING_API_KEY`, la lista de sitios peligrosos de Google (solo se le manda la dirección). Niveles: `peligroso`, `dudoso`, `sin_senales` y `no_se_puede`.
