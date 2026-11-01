@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { describirNueva, panelArranque, panelDuplicados, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
-import { accionLocalNueva } from '../web/intenciones.js';
+import { describirNueva, panelArranque, panelDuplicados, panelProgramasSinUso, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
+import { accionLocalNueva, responderLocal } from '../web/intenciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const leer = (...ruta) => readFileSync(join(AQUI, '..', ...ruta), 'utf8');
@@ -116,4 +116,31 @@ test('ver_duplicados_posibles: registrado en lib.rs (dos listas) y la interfaz l
   assert.equal([...lib.matchAll(/diagnostico::ver_duplicados_posibles,/g)].length, 2);
   assert.ok(main.includes("llamar('ver_duplicados_posibles'"));
   assert.match(main, /ver_duplicados_posibles: verDuplicados/);
+});
+
+test('ver_programas_sin_uso: la tarjeta dice que no desinstala, y el panel avisa que no hay último uso', () => {
+  assert.match(describirNueva({ accion: 'ver_programas_sin_uso' }), /no desinstalo nada/);
+  const p = panelProgramasSinUso({ programas: [{ nombre: 'Git', version: '2.4', editor: 'Git', instalado: '2022-03-01' }], total: 1, nota: 'Windows no me dice cuándo usaste cada programa sin permisos de administrador.' });
+  assert.match(p.estado, /administrador/);
+  assert.match(p.estado, /1 programa instalado/);
+  assert.equal(p.filas[0].titulo, 'Git');
+  assert.match(p.filas[0].detalle, /instalado el 2022-03-01/);
+  const sinFecha = panelProgramasSinUso({ programas: [{ nombre: 'Viejo', version: '', editor: '', instalado: null }], total: 3 });
+  assert.match(sinFecha.filas[0].detalle, /fecha de instalación desconocida/);
+  assert.equal(sinFecha.filas[1].titulo, 'Y 2 más');
+});
+
+test('ver_programas_sin_uso: "programas sin usar" es un pedido de programas, no la lista de archivos pesados', () => {
+  const medida = { cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 100, totalGb: 500 }, procesos: [] };
+  assert.equal(accionLocalNueva('programas que no uso')?.proponer.accion, 'ver_programas_sin_uso');
+  assert.equal(responderLocal('programas sin usar', medida)?.proponer?.accion, 'ver_programas_sin_uso');
+  assert.equal(responderLocal('qué programas puedo borrar', medida)?.proponer?.accion, 'ver_programas_sin_uso');
+  assert.equal(responderLocal('qué archivos sin usar tengo', medida)?.proponer?.accion, 'ver_archivos_pesados');
+  assert.equal(accionLocalNueva('explicame por qué programas sin usar'), null);
+});
+
+test('ver_programas_sin_uso: registrado en lib.rs (dos listas) y la interfaz lo llama', () => {
+  assert.equal([...lib.matchAll(/diagnostico::ver_programas_sin_uso,/g)].length, 2);
+  assert.ok(main.includes("llamar('ver_programas_sin_uso'"));
+  assert.match(main, /ver_programas_sin_uso: verProgramasSinUso/);
 });

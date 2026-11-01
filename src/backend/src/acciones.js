@@ -21,6 +21,7 @@ export const ACCIONES = [
   'ver_salud_disco',
   'ver_puntos_restauracion',
   'ver_duplicados_posibles',
+  'ver_programas_sin_uso',
   'abrir_ajuste',
   'vaciar_papelera',
 ];

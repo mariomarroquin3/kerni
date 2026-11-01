@@ -3,7 +3,7 @@ import { createCharacter } from './character.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
-import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelArranque, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
+import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelArranque, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -48,6 +48,7 @@ function demo(comando, args) {
   if (comando === 'ver_salud_disco') return { discos: [{ nombre: 'SSD demo', tipo: 'SSD', gb: 476, nivel: 'sin_alertas', motivos: [], temperaturaC: 34, desgastePct: 3, erroresLectura: 0, datosParciales: false }], nota: '' };
   if (comando === 'ver_puntos_restauracion') return { puntos: [{ numero: 5, descripcion: 'Instalación de Office', fecha: '2026-10-28 18:01:00', tipo: 'instalación de un programa' }], nota: 'Solo los listo: Kerni no crea ni borra puntos de restauración.' };
   if (comando === 'ver_duplicados_posibles') return { grupos: [{ nombre: 'foto.jpg', tamanoMb: 2.1, cantidad: 2, totalMb: 4.2, copias: [{ ruta: 'C:/Users/demo/Downloads/foto.jpg', carpeta: '~/Downloads' }, { ruta: 'C:/Users/demo/Pictures/foto.jpg', carpeta: '~/Pictures' }] }], completa: true, nota: 'Mismo nombre y mismo tamaño no siempre es el mismo archivo: revisá antes de borrar.' };
+  if (comando === 'ver_programas_sin_uso') return { programas: [{ nombre: 'Git', version: '2.4', editor: 'Git', instalado: '2022-03-01' }], total: 1, usoDisponible: false, nota: 'Windows no me dice cuándo usaste cada programa sin permisos de administrador, así que solo muestro cuándo se instaló.' };
   if (comando === 'ver_arranque') return { duracionS: 48.2, fecha: '2026-10-31 08:02:11', programasActivos: 7, programasTotal: 12, nota: 'Lo tomé del último registro de arranque de Windows.' };
   if (comando === 'programas_inicio') {
     return [
@@ -564,6 +565,7 @@ const verDispositivosRed = () => conPanel('Dispositivos en la red', 'Escanando l
 const verSaludDisco = () => conPanel('Salud de tus discos', 'Mirando la salud de tus discos…', () => llamar('ver_salud_disco'), panelSaludDisco);
 const verPuntos = () => conPanel('Puntos de restauración', 'Mirando los puntos de restauración…', () => llamar('ver_puntos_restauracion'), panelPuntos);
 const verDuplicados = () => conPanel('Archivos repetidos', 'Buscando archivos con el mismo nombre y tamaño… puede tardar unos segundos.', () => llamar('ver_duplicados_posibles'), panelDuplicados);
+const verProgramasSinUso = () => conPanel('Programas instalados', 'Leyendo la lista de programas…', () => llamar('ver_programas_sin_uso'), panelProgramasSinUso);
 const verArranque = () => conPanel('Por qué tarda en prender', 'Mirando tu último arranque…', () => llamar('ver_arranque'), panelArranque);
 /** Junta lo que ya sabe la app (equipo, memoria, disco, inicio y red). Lo que no se pueda leer simplemente no aparece. */
 async function juntarReporte() {
@@ -584,6 +586,7 @@ const VISTAS = {
   ver_salud_disco: verSaludDisco,
   ver_puntos_restauracion: verPuntos,
   ver_duplicados_posibles: verDuplicados,
+  ver_programas_sin_uso: verProgramasSinUso,
 };
 $('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
 

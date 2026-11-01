@@ -183,6 +183,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         diagnostico::ver_salud_disco,
         diagnostico::ver_puntos_restauracion,
         diagnostico::ver_duplicados_posibles,
+        diagnostico::ver_programas_sin_uso,
         linux::limpiar_temporales,
     ]
 }
@@ -211,6 +212,7 @@ fn crear_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + S
         diagnostico::ver_salud_disco,
         diagnostico::ver_puntos_restauracion,
         diagnostico::ver_duplicados_posibles,
+        diagnostico::ver_programas_sin_uso,
         sistema::limpiar_temporales,
     ]
 }

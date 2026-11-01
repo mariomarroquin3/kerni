@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ACCIONES, ACCIONES_SIN_DATOS, validarPropuesta } from '../src/acciones.js';
 import { detectarAccion } from '../src/intenciones.js';
 
-const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles'];
+const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso'];
 
 describe('diagnóstico: solo lectura, sin datos del modelo', () => {
   it('cada herramienta está en ACCIONES y en ACCIONES_SIN_DATOS, y pasa sin foto del sistema', () => {
@@ -52,5 +52,15 @@ describe('ver_duplicados_posibles: frases', () => {
       expect(detectarAccion(f)?.accion, f).toBe('ver_duplicados_posibles');
     }
     expect(detectarAccion('cómo borro archivos duplicados')).toBeNull();
+  });
+});
+
+describe('ver_programas_sin_uso: frases', () => {
+  it('programas instalados o sin usar abren la lista de programas; la explicación va al modelo', () => {
+    for (const f of ['programas que no uso', 'qué programas puedo borrar', 'programas sin usar', 'qué programas tengo instalados']) {
+      expect(detectarAccion(f)?.accion, f).toBe('ver_programas_sin_uso');
+    }
+    expect(detectarAccion('explicame por qué programas sin usar')).toBeNull();
+    expect(detectarAccion('tengo archivos sin usar')?.accion).toBe('ver_archivos_pesados');
   });
 });

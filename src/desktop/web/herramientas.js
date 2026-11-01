@@ -17,7 +17,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -28,6 +28,7 @@ export function describirNueva(a) {
     case 'ver_salud_disco': return '¿Miro cómo está tu disco? Le pido a Windows la salud de cada disco. Solo leo: no pruebo, no reparo ni borro nada.';
     case 'ver_puntos_restauracion': return '¿Miro si hay puntos de restauración a los que volver? Solo los listo: no creo ni borro ninguno.';
     case 'ver_duplicados_posibles': return '¿Busco archivos que parecen repetidos en tus carpetas personales? Comparo solo el nombre y el tamaño, sin abrir ni leer los archivos. Solo listo: no borro nada.';
+    case 'ver_programas_sin_uso': return '¿Miro qué programas tenés instalados y cuándo se instalaron? Solo listo: no desinstalo nada, y Windows no me dice cuándo usaste cada uno.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
@@ -289,4 +290,21 @@ export function panelDuplicados({ grupos = [], nota = '' }) {
     estado: `Encontré ${grupos.length} ${grupos.length === 1 ? 'grupo' : 'grupos'} de posibles duplicados que suman ${tamanoLegible(total)}. Son posibles duplicados, revisá antes de borrar. ${nota}`.trim(),
     filas,
   };
+}
+
+/**
+ * Programas instalados y cuándo se instalaron. El último uso no se puede leer sin administrador: se dice, no se inventa.
+ * @param {{ programas?: object[], total?: number, nota?: string }} r
+ */
+export function panelProgramasSinUso({ programas = [], total = 0, nota = '' }) {
+  const estado = total
+    ? `Encontré ${total} ${total === 1 ? 'programa instalado' : 'programas instalados'}. ${nota} `
+      + 'Están del más viejo al más nuevo. La fecha de instalación no dice si los usás. No desinstalo nada: eso lo hacés desde Windows.'
+    : nota || 'No encontré programas instalados.';
+  const filas = programas.map((p) => ({
+    titulo: p.nombre,
+    detalle: [p.instalado ? `instalado el ${p.instalado}` : 'fecha de instalación desconocida', p.editor].filter(Boolean).join(' · '),
+  }));
+  if (total > programas.length) filas.push({ titulo: `Y ${total - programas.length} más`, detalle: '' });
+  return { estado, filas };
 }

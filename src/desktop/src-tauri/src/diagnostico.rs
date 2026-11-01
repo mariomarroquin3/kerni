@@ -65,6 +65,107 @@ pub async fn ver_arranque() -> Result<Arranque, String> {
     .map_err(|e| e.to_string())
 }
 
+// ---------- C5: programas instalados y cuándo se instalaron ----------
+
+/// Programas de Windows (Uninstall del equipo, del equipo de 32 bits y del usuario). Solo la fecha de instalación:
+/// cuándo se usó por última vez cada uno no se lee sin permisos de administrador, así que no se inventa.
+const GUION_PROGRAMAS: &str = r#"$r=@(Get-ItemProperty -Path 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue|Where-Object{$_.DisplayName -and $_.SystemComponent -ne 1 -and -not $_.ParentKeyName}|ForEach-Object{[pscustomobject]@{nombre=[string]$_.DisplayName;version=[string]$_.DisplayVersion;editor=[string]$_.Publisher;instalado=[string]$_.InstallDate}});if($r){@($r)|ConvertTo-Json -Compress}else{'[]'}"#;
+
+const NOTA_USO_NO_DISPONIBLE: &str = "Windows no me dice cuándo usaste cada programa sin permisos de administrador, así que solo muestro cuándo se instaló.";
+const MAX_PROGRAMAS_LISTADOS: usize = 60;
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgramaInstalado {
+    pub nombre: String,
+    pub version: String,
+    pub editor: String,
+    /// Fecha de instalación en formato AAAA-MM-DD, si Windows la tiene.
+    pub instalado: Option<String>,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgramasInstalados {
+    /// Del que se instaló hace más tiempo al más nuevo; los que no tienen fecha van al final.
+    pub programas: Vec<ProgramaInstalado>,
+    /// Cuántos programas hay en total (la lista muestra solo los primeros).
+    pub total: u32,
+    /// Siempre `false` por ahora: el último uso no se puede leer sin administrador.
+    pub uso_disponible: bool,
+    pub nota: String,
+}
+
+/// "20240315" -> "2024-03-15". Cualquier otra cosa no es una fecha y se descarta.
+fn fecha_de_instalacion(bruto: &str) -> Option<String> {
+    let s = bruto.trim();
+    if s.len() != 8 || !s.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let (anio, resto) = s.split_at(4);
+    let (mes, dia) = resto.split_at(2);
+    let m: u32 = mes.parse().ok()?;
+    let d: u32 = dia.parse().ok()?;
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    Some(format!("{anio}-{mes}-{dia}"))
+}
+
+/// Interpreta la salida del guion: quita los nombres repetidos (sin mayúsculas) y ordena por fecha de instalación.
+pub fn parsear_programas(salida: &str) -> Vec<ProgramaInstalado> {
+    let mut vistos = std::collections::HashSet::new();
+    let mut lista: Vec<ProgramaInstalado> = lista_json(salida)
+        .iter()
+        .filter_map(|v| {
+            let nombre = texto(v, "nombre", 120);
+            if nombre.is_empty() || !vistos.insert(nombre.to_lowercase()) {
+                return None;
+            }
+            Some(ProgramaInstalado {
+                nombre,
+                version: texto(v, "version", 40),
+                editor: texto(v, "editor", 80),
+                instalado: fecha_de_instalacion(&texto(v, "instalado", 12)),
+            })
+        })
+        .collect();
+    lista.sort_by(|a, b| {
+        use std::cmp::Ordering::{Equal, Greater, Less};
+        let por_nombre = a.nombre.to_lowercase().cmp(&b.nombre.to_lowercase());
+        match (&a.instalado, &b.instalado) {
+            (Some(x), Some(y)) => x.cmp(y).then(por_nombre),
+            (Some(_), None) => Less,
+            (None, Some(_)) => Greater,
+            (None, None) => Equal.then(por_nombre),
+        }
+    });
+    lista
+}
+
+/// Arma la respuesta con el total real y solo los primeros para mostrar.
+fn resumen_programas(todos: Vec<ProgramaInstalado>) -> ProgramasInstalados {
+    let total = todos.len() as u32;
+    let programas = todos.into_iter().take(MAX_PROGRAMAS_LISTADOS).collect();
+    ProgramasInstalados { programas, total, uso_disponible: false, nota: NOTA_USO_NO_DISPONIBLE.to_string() }
+}
+
+/// Programas instalados y la fecha en que se instalaron. Solo lectura: no desinstala nada.
+#[tauri::command]
+pub async fn ver_programas_sin_uso() -> Result<ProgramasInstalados, String> {
+    tauri::async_runtime::spawn_blocking(|| match ps(GUION_PROGRAMAS, Duration::from_secs(20)) {
+        Ok(salida) => resumen_programas(parsear_programas(&salida)),
+        Err(_) => ProgramasInstalados {
+            programas: Vec::new(),
+            total: 0,
+            uso_disponible: false,
+            nota: "No pude leer la lista de programas instalados de esta PC.".to_string(),
+        },
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 // ---------- C4: posibles duplicados (solo nombre y tamaño) ----------
 
 /// Solo se comparan nombre (sin mayúsculas) y tamaño exacto. Nunca se abre, lee ni compara el contenido de un archivo.
@@ -642,6 +743,50 @@ mod tests {
         let _ = std::fs::remove_dir_all(&raiz);
         assert!(!completa);
         assert!(salida.len() < 5);
+    }
+
+    #[test]
+    fn la_fecha_de_instalacion_se_lee_o_se_descarta() {
+        assert_eq!(fecha_de_instalacion("20240315").as_deref(), Some("2024-03-15"));
+        assert_eq!(fecha_de_instalacion("2024"), None);
+        assert_eq!(fecha_de_instalacion("2024ab15"), None);
+        assert_eq!(fecha_de_instalacion("20241340"), None);
+        assert_eq!(fecha_de_instalacion(""), None);
+    }
+
+    #[test]
+    fn quita_repetidos_sin_mayusculas_y_ordena_del_mas_viejo() {
+        let p = parsear_programas(r#"[
+            {"nombre":"Zoom","version":"6.0","editor":"Zoom","instalado":"20250110"},
+            {"nombre":"Git","version":"2.4","editor":"Git","instalado":"20220301"},
+            {"nombre":"git","version":"2.5","editor":"x","instalado":"20230101"},
+            {"nombre":"Sin fecha","version":"","editor":"","instalado":""},
+            {"nombre":"","version":"1","editor":"","instalado":"20200101"}
+        ]"#);
+        let nombres: Vec<&str> = p.iter().map(|x| x.nombre.as_str()).collect();
+        assert_eq!(nombres, vec!["Git", "Zoom", "Sin fecha"]);
+        assert_eq!(p[0].instalado.as_deref(), Some("2022-03-01"));
+        assert_eq!(p[2].instalado, None);
+    }
+
+    #[test]
+    fn el_resumen_dice_que_el_uso_no_esta_disponible_y_cuenta_el_total() {
+        let muchos: Vec<ProgramaInstalado> = (0..70)
+            .map(|i| ProgramaInstalado { nombre: format!("app {i}"), version: String::new(), editor: String::new(), instalado: None })
+            .collect();
+        let r = resumen_programas(muchos);
+        assert_eq!(r.total, 70);
+        assert_eq!(r.programas.len(), MAX_PROGRAMAS_LISTADOS);
+        assert!(!r.uso_disponible);
+        let json = serde_json::to_value(&r).unwrap();
+        assert_eq!(json["usoDisponible"], serde_json::Value::Bool(false));
+        assert!(r.nota.contains("administrador"));
+    }
+
+    #[test]
+    fn sin_salida_no_hay_programas_inventados() {
+        assert!(parsear_programas("").is_empty());
+        assert!(parsear_programas("[]").is_empty());
     }
 
 }

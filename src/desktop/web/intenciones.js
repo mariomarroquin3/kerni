@@ -36,6 +36,8 @@ const PIDE_EXPLICAR = /\b(por ?qu[eé]|c[oó]mo|explic\w*)\b/i;
 // Igual que el backend: "por qué ... pesados" es explicación, salvo que también pregunte qué puede borrar.
 const PIDE_BORRAR = /\b(borrar|eliminar|puedo|sobra\w*)\b/i;
 
+const HABLA_PROGRAMAS = /\b(programas?|aplicaciones?|apps?)\b/;
+const HABLA_ARCHIVOS = /\b(archivos?|carpetas?|cosas|fotos?|videos?|descargas|documentos?)\b/;
 const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
 
 // ---------- Las otras herramientas: pedidos cortos y claros que no necesitan al modelo ----------
@@ -69,6 +71,7 @@ const REGLAS_NUEVAS = [
   { accion: 'ver_salud_disco', patron: /\bcomo\s+esta\s+(el\s+|mi\s+|tu\s+)?(disco|ssd|hdd)\b(?!\s+(lleno|llena|casi))|\b(salud|estado)\s+(del\s+|de\s+(mi|el|tu|los)\s+)?(disco|discos|ssd|hdd)\b|\b(disco|ssd|hdd)\s+(esta\s+)?(fallando|muriendo|bien|mal)\b/, texto: 'Reviso la salud de tus discos. Solo miro: no pruebo, no reparo y no borro nada.', motivo: 'Ver si los discos muestran alertas.' },
   { accion: 'ver_puntos_restauracion', patron: /\b(volver|regresar|retroceder)\s+(atras|para\s+atras)\b|\bpuntos?\s+de\s+restauracion\b|\brestaur\w*\s+(el\s+|mi\s+)?(sistema|windows|pc|compu\w*|computadora)\b/, texto: 'Miro si hay puntos de restauración a los que volver. Solo los listo: no creo ni borro ninguno.', motivo: 'Ver los puntos de restauración que existen.' },
   { accion: 'ver_duplicados_posibles', patron: /\b(archivos?|fotos?|documentos?|videos?|copias?|cosas)\s+(duplicad\w*|repetid\w*)\b|\b(duplicad\w*|repetid\w*)\s+(archivos?|fotos?|documentos?|videos?|copias?)\b|\bbusc\w*\s+(duplicad\w*|repetid\w*)\b/, texto: 'Busco archivos que parecen repetidos. Comparo solo nombre y tamaño; no abro ni borro nada.', motivo: 'Ver posibles archivos repetidos en tus carpetas personales.' },
+  { accion: 'ver_programas_sin_uso', patron: /\b(programas?|aplicaciones?|apps?)\s+(que\s+)?(no\s+uso|sin\s+usar|ya\s+no\s+uso|viejos?|que\s+nunca\s+uso)\b|\b(que|cuales)\s+(programas?|aplicaciones?|apps?)\s+((\w+\s+){0,2})?(no\s+uso|sin\s+usar|puedo\s+(borrar|desinstalar|eliminar|quitar)|tengo\s+instalad\w*|hay\s+instalad\w*)\b/, texto: 'Miro qué programas tenés instalados y cuándo se instalaron. Solo listo: no desinstalo nada.', motivo: 'Ver los programas instalados y su fecha de instalación.' },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
 ];
 
@@ -93,6 +96,7 @@ const EXCEPCIONES = {
   ver_info_equipo: /\bequipo\s+de\b/,
   ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
   ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
+  ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_duplicados_posibles: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
@@ -143,9 +147,11 @@ export function responderLocal(texto, m) {
   const t = norm(texto).replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
   const w = palabras(t);
   // Sobre el texto sin tildes: en JavaScript "qué" no tiene \b después de la "é", así que "por qué" no coincidiría.
+  // "programas sin usar" no es un pedido de archivos.
+  const soloProgramas = HABLA_PROGRAMAS.test(t) && !HABLA_ARCHIVOS.test(t);
   const pideVer = palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto) && (!PIDE_EXPLICAR.test(t) || PIDE_BORRAR.test(t));
   const pideBorrarViejos = palabras(texto) <= MAX_PALABRAS_BORRAR && QUIERE_BORRAR_VIEJOS.test(texto) && !PIDE_EXPLICAR.test(t);
-  if (pideVer || pideBorrarViejos) {
+  if ((pideVer || pideBorrarViejos) && !soloProgramas) {
     // No hace falta la lectura del sistema: la búsqueda la hace la app, y solo después de que la persona apruebe.
     return {
       texto: '¡Puedo buscarlos! Miro los archivos y carpetas más pesados que no usás hace rato, y te marco cuáles suelen sobrar y cuáles conviene respaldar. Yo no borro nada: lo decidís vos.',

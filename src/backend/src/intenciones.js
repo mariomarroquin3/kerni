@@ -21,6 +21,8 @@ const PIDE_EXPLICAR = new RegExp(`${BS}b(por ?qu[eé]|c[oó]mo|explic${BS}w*)${B
 const PIDE_BORRAR = new RegExp(`${BS}b(borrar|eliminar|puedo|sobra${BS}w*)${BS}b`, 'i');
 
 export const MAX_PALABRAS_INTENCION = 30;
+const HABLA_PROGRAMAS = /\b(programas?|aplicaciones?|apps?)\b/;
+const HABLA_ARCHIVOS = /\b(archivos?|carpetas?|cosas|fotos?|videos?|descargas|documentos?)\b/;
 
 /** Minúsculas y sin tildes: el \w de JavaScript no reconoce "á", y así "vaciá" o "batería" también coinciden. */
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -39,6 +41,7 @@ const PROPUESTAS = {
   ver_salud_disco: 'Revisar la salud de tus discos (solo lectura, sin probarlos ni repararlos).',
   ver_puntos_restauracion: 'Ver si hay puntos de restauración a los que volver (solo lectura; no crea ni borra ninguno).',
   ver_duplicados_posibles: 'Buscar archivos que parecen repetidos (mismo nombre y tamaño), sin borrar nada.',
+  ver_programas_sin_uso: 'Listar los programas instalados y cuándo se instalaron (no desinstala nada).',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -71,6 +74,7 @@ const REGLAS = [
   { accion: 'ver_salud_disco', patron: /\bcomo\s+esta\s+(el\s+|mi\s+|tu\s+)?(disco|ssd|hdd)\b(?!\s+(lleno|llena|casi))|\b(salud|estado)\s+(del\s+|de\s+(mi|el|tu|los)\s+)?(disco|discos|ssd|hdd)\b|\b(disco|ssd|hdd)\s+(esta\s+)?(fallando|muriendo|bien|mal)\b/ },
   { accion: 'ver_puntos_restauracion', patron: /\b(volver|regresar|retroceder)\s+(atras|para\s+atras)\b|\bpuntos?\s+de\s+restauracion\b|\brestaur\w*\s+(el\s+|mi\s+)?(sistema|windows|pc|compu\w*|computadora)\b/ },
   { accion: 'ver_duplicados_posibles', patron: /\b(archivos?|fotos?|documentos?|videos?|copias?|cosas)\s+(duplicad\w*|repetid\w*)\b|\b(duplicad\w*|repetid\w*)\s+(archivos?|fotos?|documentos?|videos?|copias?)\b|\bbusc\w*\s+(duplicad\w*|repetid\w*)\b/ },
+  { accion: 'ver_programas_sin_uso', patron: /\b(programas?|aplicaciones?|apps?)\s+(que\s+)?(no\s+uso|sin\s+usar|ya\s+no\s+uso|viejos?|que\s+nunca\s+uso)\b|\b(que|cuales)\s+(programas?|aplicaciones?|apps?)\s+((\w+\s+){0,2})?(no\s+uso|sin\s+usar|puedo\s+(borrar|desinstalar|eliminar|quitar)|tengo\s+instalad\w*|hay\s+instalad\w*)\b/ },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },
 ];
 
@@ -81,6 +85,7 @@ const EXCEPCIONES = {
   ver_info_equipo: /\bequipo\s+de\b/,
   ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
   ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
+  ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_duplicados_posibles: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
@@ -90,6 +95,8 @@ const EXCEPCIONES = {
 export function pideArchivosPesados(texto) {
   const t = norm(texto);
   if (!t || palabras(t) > MAX_PALABRAS_INTENCION) return false;
+  // "programas sin usar" habla de programas: eso lo atiende ver_programas_sin_uso, no la lista de archivos.
+  if (HABLA_PROGRAMAS.test(t) && !HABLA_ARCHIVOS.test(t)) return false;
   if (!PIDE_ARCHIVOS.test(t)) return false;
   return !PIDE_EXPLICAR.test(t) || PIDE_BORRAR.test(t);
 }
