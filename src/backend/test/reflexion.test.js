@@ -306,3 +306,47 @@ afterAll(() => {
   for (const m of abiertas) m.cerrar?.();
   rmSync(tmpDir, { recursive: true, force: true });
 });
+
+describe('revisión de reflexiones: tope, olvido parecido y timeout', () => {
+  it('el tope nunca pasa de 200 aunque la nueva sea la de menor puntaje', async () => {
+    const { memoria: m } = mkMemoria();
+    for (let i = 0; i < 200; i++) {
+      const r = await m.guardarReflexion(DEVICE, {
+        categoria: 'proyecto',
+        contenido: `Usa el equipo${i}zeta para su trabajo`,
+        importancia: 9,
+      });
+      expect(r.ok).toBe(true);
+    }
+    const nueva = await m.guardarReflexion(DEVICE, {
+      categoria: 'proyecto',
+      contenido: 'Dato menor sobre cafeteraeta',
+      importancia: 1,
+    });
+    expect(nueva.ok).toBe(true);
+    expect(nueva.descartada).toBe(true);
+    expect(await m.obtenerReflexiones(DEVICE, { limite: 50 })).toHaveLength(50);
+    expect((await m.obtenerReflexiones(DEVICE, { limite: 50 })).every((r) => r.importancia === 9)).toBe(true);
+  });
+
+  it('una reflexión parecida a una borrada (Jaccard >= 0.6) no vuelve, ni por reemplazo', async () => {
+    const { memoria: m } = mkMemoria();
+    const r = await m.guardarReflexion(DEVICE, { categoria: 'preferencia', contenido: 'Le gusta compilar tarde', importancia: 5 });
+    await m.borrarReflexion(DEVICE, r.id);
+
+    const parecida = await m.guardarReflexion(DEVICE, { categoria: 'preferencia', contenido: 'Le gusta compilar tarde por la noche', importancia: 5 });
+    expect(parecida.error).toBe('olvidada');
+
+    const otra = await m.guardarReflexion(DEVICE, { categoria: 'proyecto', contenido: 'Trabaja con Vue y Tailwind', importancia: 5 });
+    expect((await m.reemplazarReflexion(DEVICE, otra.id, { contenido: 'Le gusta compilar tarde' })).error).toBe('olvidada');
+  });
+
+  it('vaciar las reflexiones deja tombstones: lo vaciado no se vuelve a aprender', async () => {
+    const { memoria: m } = mkMemoria();
+    await m.guardarReflexion(DEVICE, { categoria: 'preferencia', contenido: 'Prefiere modo oscuro siempre', importancia: 5 });
+    expect(await m.vaciarReflexiones(DEVICE)).toBe(true);
+    expect(await m.obtenerReflexiones(DEVICE)).toHaveLength(0);
+    const again = await m.guardarReflexion(DEVICE, { categoria: 'preferencia', contenido: 'Prefiere modo oscuro siempre', importancia: 5 });
+    expect(again.error).toBe('olvidada');
+  });
+});

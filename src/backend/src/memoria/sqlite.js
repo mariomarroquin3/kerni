@@ -221,7 +221,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
   const stmtTodasReflexionesGlobal = db.prepare('SELECT * FROM recuerdos_reflexivos');
   const stmtContarReflexiones = db.prepare('SELECT COUNT(*) as c FROM recuerdos_reflexivos WHERE device_id = ?');
 
-  const stmtEstaOlvidada = db.prepare('SELECT 1 FROM reflexiones_olvidadas WHERE device_id = ? AND clave = ? LIMIT 1');
+  const stmtClavesOlvidadas = db.prepare('SELECT clave FROM reflexiones_olvidadas WHERE device_id = ?');
   const stmtInsertOlvidada = db.prepare('INSERT OR IGNORE INTO reflexiones_olvidadas (device_id, clave, creado) VALUES (?, ?, ?)');
   const stmtDeleteAllOlvidadas = db.prepare('DELETE FROM reflexiones_olvidadas WHERE device_id = ?');
 
@@ -230,6 +230,28 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
     INSERT INTO ajustes_memoria (device_id, aprendizaje_auto) VALUES (?, ?)
     ON CONFLICT(device_id) DO UPDATE SET aprendizaje_auto = excluded.aprendizaje_auto
   `);
+
+  /**
+   * ¿El contenido se parece a una reflexión que la persona borró? Compara tokens
+   * con Jaccard >= 0.6 (la clave guardada son los tokens unidos con "_").
+   */
+  function estaOlvidada(deviceId, tokens) {
+    if (!tokens.length) return false;
+    for (const { clave } of stmtClavesOlvidadas.all(deviceId)) {
+      if (jaccard(tokens, clave.split('_')) >= 0.6) return true;
+    }
+    return false;
+  }
+
+  /** Quita las `exceso` reflexiones de menor puntaje (puede ser la recién insertada). Devuelve sus ids. */
+  function podarReflexiones(deviceId, exceso) {
+    const ahoraMs = Date.now();
+    const peores = stmtTodasReflexiones.all(deviceId)
+      .sort((a, b) => calcularPuntaje(a, ahoraMs) - calcularPuntaje(b, ahoraMs))
+      .slice(0, exceso);
+    for (const r of peores) stmtDeleteReflexion.run(deviceId, r.id);
+    return peores.map((r) => r.id);
+  }
 
   // Salud: guarda en local y opcionalmente sincroniza a Supabase si está disponible
   const ultimaSalud = new Map();
@@ -360,8 +382,8 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
       const norm = normalizar(textoLimpio);
       if (!norm.clave) return { ok: false, error: 'contenido sin tokens significativos' };
 
-      // 1. Si está en reflexiones_olvidadas, no reaprender
-      if (stmtEstaOlvidada.get(deviceId, norm.clave)) {
+      // 1. Si se parece a algo que la persona borró, no reaprender
+      if (estaOlvidada(deviceId, norm.tokens)) {
         return { ok: false, error: 'olvidada' };
       }
 
@@ -392,14 +414,12 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
         const res = stmtInsertReflexion.run(deviceId, cat, textoLimpio, norm.clave, imp, ahora, ahora, ahora);
         const nuevoId = Number(res.lastInsertRowid);
 
-        // 5. Verificar tope por dispositivo (máx 200)
+        // 5. Tope por dispositivo: se quitan las de menor puntaje, incluida la nueva si es la peor
         const { c } = stmtContarReflexiones.get(deviceId);
         if (c > TOPE_REFLEXIONES_POR_DISPOSITIVO) {
-          const todas = stmtTodasReflexiones.all(deviceId);
-          todas.sort((a, b) => calcularPuntaje(a) - calcularPuntaje(b));
-          const menor = todas[0];
-          if (menor && menor.id !== nuevoId) {
-            stmtDeleteReflexion.run(deviceId, menor.id);
+          const podadas = podarReflexiones(deviceId, c - TOPE_REFLEXIONES_POR_DISPOSITIVO);
+          if (podadas.includes(nuevoId)) {
+            return { ok: true, id: null, actualizado: false, descartada: true };
           }
         }
 
@@ -417,6 +437,9 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
 
       const textoLimpio = sanearParaBloque(contenido || existente.contenido, 300).trim();
       const norm = normalizar(textoLimpio);
+      if (estaOlvidada(deviceId, norm.tokens)) {
+        return { ok: false, error: 'olvidada' };
+      }
       const cat = categoria || existente.categoria;
       const imp = Number(importancia) || existente.importancia;
       const ahora = new Date().toISOString();
@@ -449,8 +472,14 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
       return res.changes > 0;
     },
 
+    // Vaciar escribe tombstones: si no, el extractor volvería a aprender lo mismo
+    // de los próximos mensajes y el "borrar todo" no serviría de nada.
     async vaciarReflexiones(deviceId) {
       try {
+        const ahora = new Date().toISOString();
+        for (const r of stmtTodasReflexiones.all(deviceId)) {
+          stmtInsertOlvidada.run(deviceId, r.clave, ahora);
+        }
         stmtDeleteAllReflexiones.run(deviceId);
         return true;
       } catch {
