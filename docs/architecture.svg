@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" font-family="Segoe UI, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 550" font-family="Segoe UI, Arial, sans-serif">
   <defs>
     <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#44475a"/>
@@ -6,7 +6,7 @@
   </defs>
 
   <!-- Front -->
-  <rect x="40" y="60" width="300" height="190" rx="10" fill="#eef4ff" stroke="#2a6df4" stroke-width="2"/>
+  <rect x="40" y="60" width="300" height="215" rx="10" fill="#eef4ff" stroke="#2a6df4" stroke-width="2"/>
   <text x="60" y="92" font-size="15" font-weight="bold" fill="#1d1d1f">Front (window)</text>
   <text x="60" y="112" font-size="11" fill="#5b6070">src/desktop/web · vanilla JS, Vite</text>
   <text x="60" y="140" font-size="12" fill="#1d1d1f">main.js: cards, chat, HUD</text>
@@ -14,9 +14,11 @@
   <text x="60" y="184" font-size="12" fill="#1d1d1f">herramientas.js: card texts</text>
   <text x="60" y="206" font-size="12" fill="#1d1d1f">Rive character (kerni.riv)</text>
   <text x="60" y="228" font-size="12" fill="#1d1d1f">renders text with textContent only</text>
+  <text x="60" y="250" font-size="12" fill="#1d1d1f">estado-ia.js: AI status chip (state logic)</text>
+  <text x="60" y="262" font-size="11" fill="#5b6070">shows Con IA, Sin IA, or cupo agotado</text>
 
   <!-- Rust core -->
-  <rect x="40" y="310" width="300" height="190" rx="10" fill="#fff4e8" stroke="#e08a1e" stroke-width="2"/>
+  <rect x="40" y="310" width="300" height="225" rx="10" fill="#fff4e8" stroke="#e08a1e" stroke-width="2"/>
   <text x="60" y="342" font-size="15" font-weight="bold" fill="#1d1d1f">Rust core (Tauri)</text>
   <text x="60" y="362" font-size="11" fill="#5b6070">src/desktop/src-tauri · the only code that touches the PC</text>
   <text x="60" y="390" font-size="12" fill="#1d1d1f">sistema.rs: metrics, close process, temp, files</text>
@@ -24,7 +26,9 @@
   <text x="60" y="430" font-size="12" fill="#1d1d1f">  recycle bin, settings</text>
   <text x="60" y="452" font-size="12" fill="#1d1d1f">diagnostico.rs: boot, disk health, restore,</text>
   <text x="60" y="470" font-size="12" fill="#1d1d1f">  duplicates, unused programs, battery</text>
-  <text x="60" y="490" font-size="11" fill="#5b6070">re-validates every request</text>
+  <text x="60" y="492" font-size="12" fill="#1d1d1f">congelar.rs: freeze and resume processes</text>
+  <text x="60" y="510" font-size="12" fill="#1d1d1f">navegadores.rs: browser cache (Chrome, Edge)</text>
+  <text x="60" y="528" font-size="11" fill="#5b6070">re-validates every request</text>
 
   <!-- Backend -->
   <rect x="400" y="60" width="340" height="440" rx="10" fill="#eefaf3" stroke="#2e9e5b" stroke-width="2"/>
@@ -57,8 +61,8 @@
   <line x1="340" y1="150" x2="398" y2="150" stroke="#44475a" stroke-width="2" marker-end="url(#flecha)"/>
   <text x="370" y="142" font-size="11" text-anchor="middle" fill="#44475a">HTTP JSON</text>
 
-  <line x1="190" y1="250" x2="190" y2="308" stroke="#44475a" stroke-width="2" marker-end="url(#flecha)"/>
-  <text x="200" y="284" font-size="11" fill="#44475a">invoke()</text>
+  <line x1="190" y1="276" x2="190" y2="308" stroke="#44475a" stroke-width="2" marker-end="url(#flecha)"/>
+  <text x="200" y="296" font-size="11" fill="#44475a">invoke()</text>
 
   <line x1="740" y1="130" x2="798" y2="130" stroke="#44475a" stroke-width="2" marker-end="url(#flecha)"/>
   <text x="769" y="122" font-size="11" text-anchor="middle" fill="#44475a">API</text>

@@ -7,7 +7,7 @@ Kerni is a Windows desktop pet (Tauri v2) that reads the PC's health and propose
 ![Kerni architecture: front, Rust core, local backend, model provider and knowledge base](architecture.svg)
 
 - **Front (`src/desktop/web`)**: draws the character, the bubble, the HUD and the cards. Renders all system and model text with `textContent`. Local rules (`web/intenciones.js`) answer short, deterministic requests without the model.
-- **Rust core (`src/desktop/src-tauri`)**: the only code that touches the system. Reads metrics, closes processes, cleans temp folders, lists files, reads startup entries, network, updates, restore points, and so on. It re-validates every request before acting.
+- **Rust core (`src/desktop/src-tauri`)**: the only code that touches the system. Reads metrics, closes or freezes (and resumes) processes, cleans temp folders and browser caches, lists files, reads startup entries, network, updates, restore points, and runs read-only diagnostics (boot time, disk health, duplicates, unused programs, battery). It re-validates every request before acting.
 - **Backend (`src/backend`)**: Node 22 + Fastify on loopback only. Runs the agent loop, validates proposals against the latest system snapshot, keeps local memory, and talks to the model provider.
 
 ## One chat turn
@@ -70,6 +70,7 @@ When the model is unavailable, `/chat` answers from the guides (RAG) or from the
 ## Known limits
 
 - The backend runs only on the PC. There is no cloud backend or sidecar yet.
-- Live Windows behavior of new cards (freeze, cache cleanup, restore) needs manual checks in the real window.
+- Live Windows behavior of new cards (freeze, browser cache cleanup, restore button) needs manual checks in the real window. The freeze logic is unit-tested; a real process has not been frozen yet.
+- Kerni resumes frozen processes when it exits; if it crashes while something is frozen, the process stays frozen until resumed by hand.
 - Linux code paths are checked only by their pure helper tests.
 - `node:sqlite` requires Node 22.13 or later; `package.json` says `>=22`.
