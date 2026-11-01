@@ -12,7 +12,8 @@
 mod herramientas;
 mod sistema;
 
-#[cfg(target_os = "linux")]
+// En pruebas se compila también en Windows para correr sus pruebas; la app solo la usa en Linux.
+#[cfg(any(target_os = "linux", test))]
 mod linux;
 
 use std::sync::atomic::{AtomicBool, Ordering};
