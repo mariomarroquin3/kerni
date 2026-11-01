@@ -74,6 +74,7 @@ const DEFINICIONES = [
       + 'ver_arranque (por qué tarda en prender: último arranque de Windows y programas que se abren solos), '
       + 'ver_salud_disco (salud de los discos: con alertas o sin alertas; nunca decir que está sano), '
       + 'ver_puntos_restauracion (puntos de restauración que existen; no crea ni borra), '
+      + 'ver_duplicados_posibles (posibles archivos repetidos: mismo nombre y tamaño; no borra nada), '
       + 'ver_reporte_soporte (resumen del equipo para mandárselo al técnico), '
       + 'ver_dispositivos_red (lista dispositivos en la red local: IPs y MACs de la tabla ARP + tu IP local real). '
       + 'Usa ver_dispositivos_red cuando la persona pregunte "cuál es mi ip", "mi ip", "qué dispositivos hay en la red", "quién está conectado", "escanea la red". '

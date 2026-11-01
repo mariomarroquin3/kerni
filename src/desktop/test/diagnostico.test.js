@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { describirNueva, panelArranque, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
+import { describirNueva, panelArranque, panelDuplicados, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
 import { accionLocalNueva } from '../web/intenciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -92,4 +92,28 @@ test('ver_puntos_restauracion: registrado en lib.rs (dos listas) y la interfaz l
   assert.equal([...lib.matchAll(/diagnostico::ver_puntos_restauracion,/g)].length, 2);
   assert.ok(main.includes("llamar('ver_puntos_restauracion'"));
   assert.match(main, /ver_puntos_restauracion: verPuntos/);
+});
+
+test('ver_duplicados_posibles: la tarjeta dice que no borra, y "archivos repetidos" abre la lista sin modelo', () => {
+  assert.match(describirNueva({ accion: 'ver_duplicados_posibles' }), /no abro ni leo|no abrir ni leer|no borro nada/);
+  assert.ok(ACCIONES_PANEL.includes('ver_duplicados_posibles'));
+  assert.equal(accionLocalNueva('tengo archivos repetidos')?.proponer.accion, 'ver_duplicados_posibles');
+  assert.equal(accionLocalNueva('cómo borro archivos duplicados'), null);
+});
+
+test('ver_duplicados_posibles: rotula cada grupo como posibles duplicados y ofrece Ver por copia', () => {
+  const p = panelDuplicados({ grupos: [{ nombre: 'foto.jpg', tamanoMb: 2.1, cantidad: 2, totalMb: 4.2, copias: [{ ruta: 'C:/a/foto.jpg', carpeta: '~/Downloads' }, { ruta: 'C:/b/foto.jpg', carpeta: '~/Pictures' }] }], completa: true, nota: 'Revisá antes de borrar.' });
+  assert.match(p.estado, /posibles duplicados, revisá antes de borrar/);
+  assert.equal(p.filas[0].titulo, 'Grupo 1: foto.jpg (2 copias)');
+  assert.equal(p.filas[1].boton.tipo, 'mostrar');
+  assert.equal(p.filas[1].boton.dato, 'C:/a/foto.jpg');
+  const vacio = panelDuplicados({ grupos: [], nota: 'No encontré archivos con el mismo nombre y tamaño.' });
+  assert.match(vacio.estado, /No encontré/);
+  assert.deepEqual(vacio.filas, []);
+});
+
+test('ver_duplicados_posibles: registrado en lib.rs (dos listas) y la interfaz lo llama', () => {
+  assert.equal([...lib.matchAll(/diagnostico::ver_duplicados_posibles,/g)].length, 2);
+  assert.ok(main.includes("llamar('ver_duplicados_posibles'"));
+  assert.match(main, /ver_duplicados_posibles: verDuplicados/);
 });

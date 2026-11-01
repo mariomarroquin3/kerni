@@ -17,7 +17,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -27,6 +27,7 @@ export function describirNueva(a) {
     case 'ver_arranque': return '¿Miro por qué tarda en prender? Solo leo el último arranque de Windows y tus programas de inicio. No cambio nada.';
     case 'ver_salud_disco': return '¿Miro cómo está tu disco? Le pido a Windows la salud de cada disco. Solo leo: no pruebo, no reparo ni borro nada.';
     case 'ver_puntos_restauracion': return '¿Miro si hay puntos de restauración a los que volver? Solo los listo: no creo ni borro ninguno.';
+    case 'ver_duplicados_posibles': return '¿Busco archivos que parecen repetidos en tus carpetas personales? Comparo solo el nombre y el tamaño, sin abrir ni leer los archivos. Solo listo: no borro nada.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
@@ -269,5 +270,23 @@ export function panelPuntos({ puntos = [], nota = '' }) {
     estado: `Hay ${puntos.length} ${puntos.length === 1 ? 'punto de restauración' : 'puntos de restauración'}. El más nuevo es del ${fechaDe(puntos[0])}. `
       + `Volver a uno lo decidís vos desde Windows; yo no lo hago. ${nota}`.trim(),
     filas: puntos.map((p) => ({ titulo: p.descripcion, detalle: `${fechaDe(p)} · ${p.tipo}` })),
+  };
+}
+
+/**
+ * "Archivos repetidos": posibles duplicados por nombre y tamaño. Nunca dice que son iguales ni borra nada.
+ * @param {{ grupos?: object[], nota?: string }} r
+ */
+export function panelDuplicados({ grupos = [], nota = '' }) {
+  if (!grupos.length) return { estado: nota, filas: [] };
+  const total = grupos.reduce((s, g) => s + g.totalMb, 0);
+  const filas = [];
+  grupos.forEach((g, i) => {
+    filas.push({ titulo: `Grupo ${i + 1}: ${g.nombre} (${g.cantidad} copias)`, detalle: `${tamanoLegible(g.tamanoMb)} cada una · ${tamanoLegible(g.totalMb)} entre todas` });
+    for (const c of g.copias) filas.push({ titulo: c.carpeta, detalle: g.nombre, boton: { texto: 'Ver', tipo: 'mostrar', dato: c.ruta } });
+  });
+  return {
+    estado: `Encontré ${grupos.length} ${grupos.length === 1 ? 'grupo' : 'grupos'} de posibles duplicados que suman ${tamanoLegible(total)}. Son posibles duplicados, revisá antes de borrar. ${nota}`.trim(),
+    filas,
   };
 }

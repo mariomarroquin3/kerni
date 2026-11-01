@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ACCIONES, ACCIONES_SIN_DATOS, validarPropuesta } from '../src/acciones.js';
 import { detectarAccion } from '../src/intenciones.js';
 
-const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion'];
+const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles'];
 
 describe('diagnóstico: solo lectura, sin datos del modelo', () => {
   it('cada herramienta está en ACCIONES y en ACCIONES_SIN_DATOS, y pasa sin foto del sistema', () => {
@@ -43,5 +43,14 @@ describe('ver_puntos_restauracion: frases', () => {
     }
     expect(detectarAccion('cómo puedo volver atrás')).toBeNull();
     expect(detectarAccion('qué es un punto de restauración')).toBeNull();
+  });
+});
+
+describe('ver_duplicados_posibles: frases', () => {
+  it('"archivos repetidos" abre la lista; "cómo borro duplicados" va al modelo', () => {
+    for (const f of ['tengo archivos duplicados', 'busca fotos repetidas', 'hay archivos repetidos en mi compu']) {
+      expect(detectarAccion(f)?.accion, f).toBe('ver_duplicados_posibles');
+    }
+    expect(detectarAccion('cómo borro archivos duplicados')).toBeNull();
   });
 });

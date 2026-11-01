@@ -373,9 +373,9 @@ fn limpiar_dir(dir: &Path, limite: SystemTime, archivos: &mut u32, bytes: &mut u
 const DIAS_SIN_USO_POR_DEFECTO: u32 = 90;
 const MB_MINIMOS_POR_DEFECTO: u32 = 200;
 const MAX_RESULTADOS: usize = 25;
-const MAX_ENTRADAS: u32 = 400_000;
-const TIEMPO_MAXIMO: Duration = Duration::from_secs(20);
-const PROFUNDIDAD_MAXIMA: u32 = 12;
+pub(crate) const MAX_ENTRADAS: u32 = 400_000;
+pub(crate) const TIEMPO_MAXIMO: Duration = Duration::from_secs(20);
+pub(crate) const PROFUNDIDAD_MAXIMA: u32 = 12;
 #[cfg(not(target_os = "linux"))]
 const CARPETAS_PERSONALES: &[&str] = &["Downloads", "Desktop", "Documents", "Videos", "Pictures", "Music"];
 /// Carpetas de dependencias y de compilación de programadores: son cientos de miles de archivos que nadie quiere
@@ -429,18 +429,18 @@ impl Limites {
 }
 
 /// Tope de trabajo: un disco enorme no debe dejar a Kerni pensando para siempre.
-struct Presupuesto {
-    entradas: u32,
+pub(crate) struct Presupuesto {
+    pub(crate) entradas: u32,
     max_entradas: u32,
     inicio: Instant,
     tiempo_maximo: Duration,
 }
 
 impl Presupuesto {
-    fn nuevo(max_entradas: u32, tiempo_maximo: Duration) -> Self {
+    pub(crate) fn nuevo(max_entradas: u32, tiempo_maximo: Duration) -> Self {
         Presupuesto { entradas: 0, max_entradas, inicio: Instant::now(), tiempo_maximo }
     }
-    fn agotado(&self) -> bool {
+    pub(crate) fn agotado(&self) -> bool {
         self.entradas >= self.max_entradas || self.inicio.elapsed() >= self.tiempo_maximo
     }
 }
@@ -455,7 +455,7 @@ fn ultimo_uso(meta: &fs::Metadata) -> SystemTime {
     }
 }
 
-fn es_carpeta_ajena(nombre: &str, junto_a_cargo_toml: bool) -> bool {
+pub(crate) fn es_carpeta_ajena(nombre: &str, junto_a_cargo_toml: bool) -> bool {
     let n = nombre.to_lowercase();
     CARPETAS_AJENAS.contains(&n.as_str()) || (junto_a_cargo_toml && n == "target")
 }
@@ -515,7 +515,7 @@ fn analizar_dir(dir: &Path, profundidad: u32, lim: &Limites, pres: &mut Presupue
 }
 
 /// Quita el prefijo `\\?\` que Windows agrega al canonizar una ruta, para mostrarla y abrirla normalmente.
-fn sin_prefijo_verbatim(p: &Path) -> std::path::PathBuf {
+pub(crate) fn sin_prefijo_verbatim(p: &Path) -> std::path::PathBuf {
     let texto = p.to_string_lossy();
     match texto.strip_prefix(r"\\?\") {
         Some(resto) if resto.chars().nth(1) == Some(':') => std::path::PathBuf::from(resto),
@@ -534,14 +534,14 @@ fn sin_anidadas(raices: Vec<std::path::PathBuf>) -> Vec<std::path::PathBuf> {
     canonicas
 }
 
-fn carpeta_personal() -> Option<std::path::PathBuf> {
+pub(crate) fn carpeta_personal() -> Option<std::path::PathBuf> {
     let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
     std::env::var_os(variable).map(std::path::PathBuf::from).filter(|p| p.is_dir())
 }
 
 /// Las únicas carpetas que Kerni mira (y desde donde deja abrir algo): las personales de la persona.
 #[cfg(target_os = "linux")]
-fn raices_del_usuario() -> Vec<std::path::PathBuf> {
+pub(crate) fn raices_del_usuario() -> Vec<std::path::PathBuf> {
     let Some(casa) = carpeta_personal() else { return Vec::new() };
     let mut raices: Vec<std::path::PathBuf> = Vec::new();
     let intentos: &[(&str, &str, &str)] = &[
@@ -562,7 +562,7 @@ fn raices_del_usuario() -> Vec<std::path::PathBuf> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn raices_del_usuario() -> Vec<std::path::PathBuf> {
+pub(crate) fn raices_del_usuario() -> Vec<std::path::PathBuf> {
     let Some(casa) = carpeta_personal() else { return Vec::new() };
     let mut raices: Vec<std::path::PathBuf> = CARPETAS_PERSONALES.iter().map(|n| casa.join(n)).collect();
     // Con OneDrive, Escritorio, Documentos e Imágenes suelen vivir ahí.
@@ -594,7 +594,7 @@ fn primera_casa(casa: &std::path::Path, nombres: &[&str]) -> Option<std::path::P
     None
 }
 
-fn mostrar_ruta(p: &Path, casa: Option<&Path>) -> String {
+pub(crate) fn mostrar_ruta(p: &Path, casa: Option<&Path>) -> String {
     match casa.and_then(|c| p.strip_prefix(c).ok()) {
         Some(resto) => format!("~{}{}", std::path::MAIN_SEPARATOR, resto.display()),
         None => p.display().to_string(),

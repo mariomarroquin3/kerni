@@ -11,7 +11,10 @@ use std::time::Duration;
 use serde::Serialize;
 use serde_json::Value;
 
+use std::path::Path;
+
 use crate::herramientas::{self, lista_json, numero, ps, texto};
+use crate::sistema;
 
 // ---------- C1: por qué tarda en arrancar ----------
 
@@ -57,6 +60,176 @@ pub async fn ver_arranque() -> Result<Arranque, String> {
             (lista.iter().filter(|p| p.activo).count() as u32, lista.len() as u32)
         });
         parsear_arranque(&evento, programas)
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+// ---------- C4: posibles duplicados (solo nombre y tamaño) ----------
+
+/// Solo se comparan nombre (sin mayúsculas) y tamaño exacto. Nunca se abre, lee ni compara el contenido de un archivo.
+const MB_BYTES: f64 = 1024.0 * 1024.0;
+/// Archivos más chicos que esto se ignoran: son mucho ruido (iconos, configuraciones) y casi nunca importan.
+const MINIMO_BYTES_DUPLICADO: u64 = 1024 * 1024;
+const MAX_GRUPOS_DUPLICADOS: usize = 25;
+
+/// Un archivo listado: nombre, tamaño y dónde está. Solo metadatos.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ArchivoListado {
+    pub nombre: String,
+    pub bytes: u64,
+    /// Ruta completa: sirve para el botón "Ver" (mostrar_en_carpeta la vuelve a revisar contra las carpetas personales).
+    pub ruta: String,
+    /// Carpeta con `~` en lugar de la carpeta personal.
+    pub carpeta: String,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CopiaDuplicada {
+    pub ruta: String,
+    pub carpeta: String,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GrupoDuplicados {
+    pub nombre: String,
+    pub tamano_mb: f64,
+    pub cantidad: u32,
+    /// Lo que ocupan todas las copias juntas.
+    pub total_mb: f64,
+    pub copias: Vec<CopiaDuplicada>,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DuplicadosPosibles {
+    /// Del grupo que más ocupa al que menos.
+    pub grupos: Vec<GrupoDuplicados>,
+    /// `false` si se acabó el tiempo o el tope de entradas antes de revisar todo: puede haber más.
+    pub completa: bool,
+    pub nota: String,
+}
+
+/// Agrupa por nombre (sin mayúsculas) y tamaño exacto. Función pura: no toca el disco.
+pub fn agrupar_duplicados(archivos: &[ArchivoListado], minimo_bytes: u64) -> Vec<GrupoDuplicados> {
+    let mut mapa: std::collections::HashMap<(String, u64), Vec<&ArchivoListado>> = std::collections::HashMap::new();
+    for a in archivos.iter().filter(|a| a.bytes >= minimo_bytes && !a.nombre.is_empty()) {
+        mapa.entry((a.nombre.to_lowercase(), a.bytes)).or_default().push(a);
+    }
+    let mut grupos: Vec<GrupoDuplicados> = mapa
+        .into_iter()
+        .filter(|(_, v)| v.len() >= 2)
+        .map(|((_, bytes), v)| {
+            let cantidad = v.len() as u32;
+            let tamano_mb = bytes as f64 / MB_BYTES;
+            GrupoDuplicados {
+                nombre: v[0].nombre.clone(),
+                tamano_mb,
+                cantidad,
+                total_mb: tamano_mb * f64::from(cantidad),
+                copias: v.iter().map(|a| CopiaDuplicada { ruta: a.ruta.clone(), carpeta: a.carpeta.clone() }).collect(),
+            }
+        })
+        .collect();
+    grupos.sort_by(|a, b| {
+        b.total_mb
+            .partial_cmp(&a.total_mb)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.nombre.cmp(&b.nombre))
+    });
+    grupos.truncate(MAX_GRUPOS_DUPLICADOS);
+    grupos
+}
+
+/// Recorre una carpeta con las mismas reglas que archivos pesados: sin enlaces simbólicos, sin carpetas de dependencias
+/// (node_modules, .git, target...), con tope de profundidad, de entradas y de tiempo. Devuelve `false` si algo no se pudo revisar.
+fn listar_archivos(dir: &Path, casa: Option<&Path>, profundidad: u32, pres: &mut sistema::Presupuesto, salida: &mut Vec<ArchivoListado>) -> bool {
+    if profundidad > sistema::PROFUNDIDAD_MAXIMA || pres.agotado() {
+        return false;
+    }
+    let Ok(entradas) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    let mut completa = true;
+    let proyecto_rust = dir.join("Cargo.toml").is_file();
+    for entrada in entradas.flatten() {
+        pres.entradas += 1;
+        if pres.agotado() {
+            return false;
+        }
+        let Ok(meta) = entrada.metadata() else { continue };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        let nombre = entrada.file_name().to_string_lossy().into_owned();
+        let ruta = entrada.path();
+        if meta.is_dir() {
+            if sistema::es_carpeta_ajena(&nombre, proyecto_rust) {
+                continue;
+            }
+            completa &= listar_archivos(&ruta, casa, profundidad + 1, pres, salida);
+        } else if meta.is_file() {
+            let carpeta = ruta.parent().map(|p| sistema::mostrar_ruta(p, casa)).unwrap_or_default();
+            salida.push(ArchivoListado { nombre, bytes: meta.len(), ruta: ruta.display().to_string(), carpeta });
+        }
+    }
+    completa
+}
+
+/// Una raíz por hilo, como en archivos pesados. Devuelve todo lo listado y si se revisó completo.
+fn listar_en_raices(raices: &[std::path::PathBuf], casa: Option<&Path>) -> (Vec<ArchivoListado>, bool) {
+    std::thread::scope(|s| {
+        let hilos: Vec<_> = raices
+            .iter()
+            .map(|raiz| {
+                s.spawn(move || {
+                    let mut pres = sistema::Presupuesto::nuevo(sistema::MAX_ENTRADAS, sistema::TIEMPO_MAXIMO);
+                    let mut salida = Vec::new();
+                    let completa = listar_archivos(raiz, casa, 0, &mut pres, &mut salida);
+                    (salida, completa)
+                })
+            })
+            .collect();
+        let mut todos = Vec::new();
+        let mut completa = true;
+        for hilo in hilos {
+            let (salida, ok) = hilo.join().unwrap_or((Vec::new(), false));
+            todos.extend(salida);
+            completa &= ok;
+        }
+        (todos, completa)
+    })
+}
+
+fn nota_duplicados(grupos: usize, completa: bool) -> String {
+    let mut nota = String::new();
+    if grupos == 0 {
+        nota.push_str("No encontré archivos con el mismo nombre y tamaño (de más de 1 MB) en tus carpetas personales. ");
+    }
+    if !completa {
+        nota.push_str("No alcancé a revisar todo: puede haber más. ");
+    }
+    nota.push_str("Mismo nombre y mismo tamaño no siempre es el mismo archivo: revisá antes de borrar.");
+    nota
+}
+
+/// Posibles duplicados en las carpetas personales (las mismas que archivos pesados). Solo lectura: no borra ni mueve nada.
+#[tauri::command]
+pub async fn ver_duplicados_posibles() -> Result<DuplicadosPosibles, String> {
+    let raices = sistema::raices_del_usuario();
+    if raices.is_empty() {
+        return Err("No encontré tus carpetas personales para revisar".to_string());
+    }
+    let casa = sistema::carpeta_personal()
+        .and_then(|c| std::fs::canonicalize(c).ok())
+        .map(|c| sistema::sin_prefijo_verbatim(&c));
+    tauri::async_runtime::spawn_blocking(move || {
+        let (archivos, completa) = listar_en_raices(&raices, casa.as_deref());
+        let grupos = agrupar_duplicados(&archivos, MINIMO_BYTES_DUPLICADO);
+        let nota = nota_duplicados(grupos.len(), completa);
+        DuplicadosPosibles { grupos, completa, nota }
     })
     .await
     .map_err(|e| e.to_string())
@@ -392,6 +565,83 @@ mod tests {
         assert!(nota_puntos(0).contains("No hay puntos"));
         assert!(NOTA_SIN_LECTURA.contains("administrador"));
         assert!(nota_puntos(2).contains("no crea ni borra"));
+    }
+
+    fn archivo(nombre: &str, bytes: u64, carpeta: &str) -> ArchivoListado {
+        ArchivoListado { nombre: nombre.to_string(), bytes, ruta: format!("{carpeta}\\{nombre}"), carpeta: carpeta.to_string() }
+    }
+
+    #[test]
+    fn agrupa_por_nombre_sin_mayusculas_y_tamano_exacto() {
+        let archivos = vec![
+            archivo("Foto.jpg", 2_000_000, "~\\Downloads"),
+            archivo("foto.JPG", 2_000_000, "~\\Pictures"),
+            archivo("foto.jpg", 2_000_001, "~\\Desktop"), // otro tamaño: no es el mismo
+            archivo("otra.pdf", 2_000_000, "~\\Documents"),
+        ];
+        let grupos = agrupar_duplicados(&archivos, 1);
+        assert_eq!(grupos.len(), 1);
+        assert_eq!(grupos[0].cantidad, 2);
+        assert_eq!(grupos[0].copias.len(), 2);
+        assert!((grupos[0].total_mb - 2.0 * 2_000_000.0 / MB_BYTES).abs() < 1e-9);
+    }
+
+    #[test]
+    fn los_archivos_chicos_y_los_unicos_no_son_grupo() {
+        let archivos = vec![archivo("a.txt", 10, "~"), archivo("a.txt", 10, "~\\x"), archivo("b.bin", 5_000_000, "~")];
+        assert!(agrupar_duplicados(&archivos, MINIMO_BYTES_DUPLICADO).is_empty());
+        assert_eq!(agrupar_duplicados(&archivos, 1).len(), 1);
+    }
+
+    #[test]
+    fn el_grupo_que_mas_ocupa_va_primero() {
+        let archivos = vec![
+            archivo("chico.zip", 3_000_000, "~"), archivo("chico.zip", 3_000_000, "~\\a"),
+            archivo("grande.mp4", 900_000_000, "~"), archivo("grande.mp4", 900_000_000, "~\\b"),
+        ];
+        let grupos = agrupar_duplicados(&archivos, MINIMO_BYTES_DUPLICADO);
+        assert_eq!(grupos[0].nombre, "grande.mp4");
+    }
+
+    #[test]
+    fn la_nota_avisa_que_son_posibles_y_que_revise() {
+        assert!(nota_duplicados(2, true).contains("revisá antes de borrar"));
+        assert!(nota_duplicados(0, true).contains("No encontré"));
+        assert!(nota_duplicados(1, false).contains("puede haber más"));
+    }
+
+    #[test]
+    fn el_recorrido_salta_dependencias_y_lista_solo_metadatos() {
+        let raiz = std::env::temp_dir().join(format!("kerni-dup-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0)));
+        std::fs::create_dir_all(raiz.join("sub")).unwrap();
+        std::fs::create_dir_all(raiz.join("node_modules")).unwrap();
+        std::fs::write(raiz.join("a.txt"), b"hola").unwrap();
+        std::fs::write(raiz.join("sub").join("a.txt"), b"hola").unwrap();
+        std::fs::write(raiz.join("node_modules").join("ignorado.js"), b"x").unwrap();
+        let mut pres = sistema::Presupuesto::nuevo(1000, std::time::Duration::from_secs(10));
+        let mut salida = Vec::new();
+        let completa = listar_archivos(&raiz, None, 0, &mut pres, &mut salida);
+        let _ = std::fs::remove_dir_all(&raiz);
+        assert!(completa);
+        assert_eq!(salida.len(), 2, "node_modules no se recorre");
+        assert!(salida.iter().all(|a| a.nombre == "a.txt" && a.bytes == 4));
+        // con dos iguales de 4 bytes y un mínimo de 1 byte, forman un grupo
+        assert_eq!(agrupar_duplicados(&salida, 1).len(), 1);
+    }
+
+    #[test]
+    fn un_tope_de_entradas_marca_la_lista_como_incompleta() {
+        let raiz = std::env::temp_dir().join(format!("kerni-dup-tope-{}", std::process::id()));
+        std::fs::create_dir_all(&raiz).unwrap();
+        for i in 0..5 {
+            std::fs::write(raiz.join(format!("f{i}.txt")), b"x").unwrap();
+        }
+        let mut pres = sistema::Presupuesto::nuevo(2, std::time::Duration::from_secs(10));
+        let mut salida = Vec::new();
+        let completa = listar_archivos(&raiz, None, 0, &mut pres, &mut salida);
+        let _ = std::fs::remove_dir_all(&raiz);
+        assert!(!completa);
+        assert!(salida.len() < 5);
     }
 
 }
