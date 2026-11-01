@@ -54,3 +54,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-10-29 | Recognize laptop type questions locally | [2026-10-29-laptop-type-intent.md](2026-10-29-laptop-type-intent.md) |
 | 2026-11-01 | Pending items and low-cost improvements: freeze, browser cache, slow-PC diagnosis, AI chip, recovery, icon | [2026-11-01-pendientes-y-mejoras.md](2026-11-01-pendientes-y-mejoras.md) |
 | 2026-11-01 | Follow-ups: chat error code, startup count, clipboard link monitor, daily summary | [2026-11-01-seguimientos-resumen-portapapeles.md](2026-11-01-seguimientos-resumen-portapapeles.md) |
+| 2026-11-01 | MCP client and read-only Microsoft Learn search (opt-in, off by default) | [2026-11-01-mcp-microsoft-learn.md](2026-11-01-mcp-microsoft-learn.md) |
