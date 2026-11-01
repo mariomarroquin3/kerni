@@ -220,7 +220,7 @@ pub struct ProgramaInicio {
 const GUION_INICIO: &str = "$base='Software\\Microsoft\\Windows\\CurrentVersion';\
 $f=@(@{c=\"HKCU:\\$base\\Run\";a=\"HKCU:\\$base\\Explorer\\StartupApproved\\Run\";m='usuario';p=$true},\
 @{c=\"HKLM:\\$base\\Run\";a=\"HKLM:\\$base\\Explorer\\StartupApproved\\Run\";m='equipo';p=$false},\
-@{c=\"HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\";a=\"HKLM:\\$base\\Explorer\\StartupApproved\\Run\";m='equipo';p=$false});\
+@{c=\"HKLM:\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run\";a=\"HKLM:\\$base\\Explorer\\StartupApproved\\Run32\";m='equipo';p=$false});\
 $auto=@('PSPath','PSParentPath','PSChildName','PSDrive','PSProvider');\
 $r=foreach($x in $f){$k=Get-ItemProperty -Path $x.c -ErrorAction SilentlyContinue;if(-not $k){continue};$ap=Get-ItemProperty -Path $x.a -ErrorAction SilentlyContinue;\
 foreach($n in $k.PSObject.Properties){if($auto -contains $n.Name){continue};$act=$true;\
@@ -685,6 +685,18 @@ mod tests {
         assert!(parsear_inicio("").is_empty());
         assert!(parsear_inicio("[]").is_empty());
         assert!(aplicar_cambio_inicio("", true).is_err() || cfg!(windows));
+    }
+
+    #[test]
+    fn el_run_de_32_bits_del_equipo_lee_su_interruptor_en_run32() {
+        // Cada entrada del guion es `c` (la clave Run) y `a` (dónde está su interruptor). Un Run de 32 bits en
+        // Windows de 64 bits guarda el interruptor en StartupApproved\Run32; los demás, en StartupApproved\Run.
+        let entradas: Vec<&str> = GUION_INICIO.split("@{").skip(1).collect();
+        let wow = entradas.iter().find(|e| e.contains("WOW6432Node")).expect("falta la entrada WOW6432Node");
+        assert!(wow.contains(r#"StartupApproved\Run32""#), "{wow}");
+        let equipo = entradas.iter().find(|e| e.contains(r#"HKLM:\$base\Run""#)).expect("falta el Run del equipo");
+        assert!(equipo.contains(r#"StartupApproved\Run""#), "{equipo}");
+        assert!(!equipo.contains("Run32"));
     }
 
     #[test]
