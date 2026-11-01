@@ -41,6 +41,9 @@ export function loadConfig(env = process.env) {
     // Revisión de enlaces: la llave gratuita de Google Safe Browsing es opcional. Sin ella solo se revisa la dirección.
     safeBrowsing: { apiKey: env.SAFE_BROWSING_API_KEY || '' },
 
+    // Documentación oficial de Microsoft por MCP (apagada por defecto). Solo "1" la enciende; sale de la PC solo el texto de la pregunta.
+    microsoftLearn: { activo: env.MICROSOFT_LEARN_MCP === '1' },
+
     // Memoria en Supabase (opcional). Sin estas dos variables Kerni funciona igual, pero no recuerda nada.
     supabase: {
       url: env.SUPABASE_URL || '',
