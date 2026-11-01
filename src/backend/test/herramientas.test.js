@@ -157,3 +157,13 @@ describe('A2: dispositivos de red, igual que en la app', () => {
     expect(detectarAccion('tengo internet')?.accion).toBe('ver_estado_red');
   });
 });
+
+// A3 en el backend: el mismo pedido, las mismas negaciones.
+describe('A3: vaciar la papelera con cualquier forma del verbo', () => {
+  it('vacié / limpié / borré el reciclaje propone vaciar_papelera, y la negación no', () => {
+    for (const q of ['vacié el reciclaje', 'limpié el reciclaje', 'borré la papelera', 'vacié mi reciclaje', 'limpiá el reciclaje']) {
+      expect(detectarAccion(q)?.accion, q).toBe('vaciar_papelera');
+    }
+    expect(detectarAccion('no vacíes el reciclaje')).toBeNull();
+  });
+});

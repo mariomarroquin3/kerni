@@ -272,3 +272,12 @@ test('actualizaciones: las definiciones del antivirus se instalan solas y no cue
   assert.match(mixto.estado, /Hay 1 actualización pendiente \(hasta 512 MB\), 1 crítica/);
   assert.match(mixto.estado, /1 del antivirus que se instala sola/);
 });
+
+// A3: formas comunes del verbo en pasado y "el reciclaje" (no solo "la|mi papelera").
+test('A3: vacié / limpié / borré el reciclaje propone vaciar la papelera', () => {
+  for (const q of ['vacié el reciclaje', 'limpié el reciclaje', 'borré la papelera', 'vacié mi reciclaje', 'limpiá el reciclaje']) {
+    assert.equal(accionLocalNueva(q)?.proponer.accion, 'vaciar_papelera', q);
+  }
+  assert.equal(accionLocalNueva('no vacíes el reciclaje'), null);
+  assert.equal(accionLocalNueva('la papelera de la cocina está llena'), null);
+});

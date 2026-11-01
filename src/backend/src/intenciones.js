@@ -40,7 +40,7 @@ const PROPUESTAS = {
 
 // Cada pedido, de lo más específico a lo más general. Se prueban sobre el texto ya normalizado (sin tildes).
 const REGLAS = [
-  { accion: 'vaciar_papelera', patron: /\b(vaci\w+|limpi\w+|borr\w+|elimin\w+)\s+(la\s+|mi\s+)?(papelera|reciclaje)\b/ },
+  { accion: 'vaciar_papelera', patron: /\b(vaci\w+|limpi\w+|borr\w+|elimin\w+)\s+((el|la|mi|los|las)\s+)?(papelera|reciclaje)\b/ },
   {
     accion: 'ver_programas_inicio',
     patron: /\b(programas?|apps?|aplicaciones?)\s+de\s+(inicio|arranque)\b|\b(abre\w*|inicia\w*|arranca\w*|carga\w*)\s+(solos?\s+)?(al|cuando|con)\s+(inicia\w*|prende\w*|encender\w*|arranca\w*|windows|la\s+(compu\w*|pc))|\b(compu\w*|pc)\s+(tarda|demora)\s+(en\s+)?(prender|arrancar|iniciar|encender)/,
