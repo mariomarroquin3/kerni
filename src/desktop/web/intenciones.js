@@ -140,6 +140,65 @@ export function porcentajeDisco(m) {
   return Math.round(((m.disco.totalGb - m.disco.libreGb) / m.disco.totalGb) * 100);
 }
 
+// ---------- Diagnóstico: "mi compu va lenta" ----------
+// Sin modelo y sin tokens: mira la foto del momento y dice cuál de los tres (procesador, memoria, disco) frena más.
+const HABLA_EQUIPO_LENTO = /\b(compu|compus|pc|computadora|computador|laptop|equipo|maquina|windows)\b/;
+const DICE_LENTO = /\b(lent[oa]s?|tarda\w*|demor\w*|anda mal|va mal)\b/;
+// "Tarda en prender" es el arranque (ver_arranque), no la lentitud de ahora.
+const NO_ES_DIAGNOSTICO = /\b(prender|encender|arranc\w*|inici\w*|apag\w*|reinici\w*|bateria|cargar)\b/;
+const UMBRAL_CPU_DIAG = 80;
+const UMBRAL_RAM_DIAG = 85;
+
+/** @param {string} t texto ya normalizado (sin tildes, en minúsculas) */
+export function pideDiagnostico(t) {
+  return palabras(t) <= 10 && HABLA_EQUIPO_LENTO.test(t) && DICE_LENTO.test(t) && !NO_ES_DIAGNOSTICO.test(t);
+}
+
+// Un nombre de proceso viene del sistema: se limpia antes de decirlo (sin control, sin < >, corto).
+const nombreSeguro = (n) => String(n ?? '').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+/**
+ * El recurso que más frena, comparado contra su umbral (el mayor cociente gana). Con un cuello claro propone UNA
+ * acción existente: ver_programas_inicio (memoria) o limpiar_temporales (disco casi lleno). Nunca cierra nada.
+ * @returns {{ texto: string, proponer?: object }}
+ */
+export function diagnosticoLento(m) {
+  const cpu = Number(m.cpu) || 0;
+  const ram = (m.ram.usadaMb / m.ram.totalMb) * 100;
+  const disco = porcentajeDisco(m);
+  const razones = [
+    { recurso: 'disco', ratio: disco / DISCO_APRETADO_PCT },
+    { recurso: 'memoria', ratio: ram / UMBRAL_RAM_DIAG },
+    { recurso: 'procesador', ratio: cpu / UMBRAL_CPU_DIAG },
+  ];
+  const cuello = razones.reduce((mayor, r) => (r.ratio > mayor.ratio ? r : mayor));
+  const resumen = `Ahora: procesador ${Math.round(cpu)} %, memoria ${Math.round(ram)} %, disco ${disco} % lleno.`;
+  const procesos = m.procesos ?? [];
+
+  if (cuello.ratio < 1) {
+    return { texto: `${resumen} Ninguno está al tope, así que no veo un culpable claro en este momento. Si sigue lenta, reiniciarla suele ayudar.` };
+  }
+  if (cuello.recurso === 'disco') {
+    return {
+      texto: `${resumen} Lo que más la frena es el disco: está casi lleno. Si querés, borro los temporales de más de 24 horas, con tu visto bueno.`,
+      proponer: { accion: 'limpiar_temporales', motivo: `El disco está al ${disco} %.` },
+    };
+  }
+  if (cuello.recurso === 'memoria') {
+    const top = [...procesos].sort((a, b) => b.memoriaMb - a.memoriaMb)[0];
+    const quien = top ? `: ${nombreSeguro(top.nombre)} usa ${Math.round(top.memoriaMb)} MB` : '';
+    return {
+      texto: `${resumen} Lo que más la frena es la memoria${quien}. Los programas que se abren al iniciar suelen gastarla; los miro si querés.`,
+      proponer: { accion: 'ver_programas_inicio', motivo: 'Los programas que arrancan con Windows suelen gastar memoria.' },
+    };
+  }
+  const top = [...procesos].sort((a, b) => b.cpu - a.cpu)[0];
+  const quien = top ? `: ${nombreSeguro(top.nombre)} usa ${Math.round(top.cpu)} %` : '';
+  return {
+    texto: `${resumen} Lo que más la frena es el procesador${quien}. Podés revisarlo en el Administrador de tareas y decidir vos qué hacer con él.`,
+  };
+}
+
 /**
  * @param {string} texto lo que escribió la persona
  * @param {object|null} m última lectura de `metricas`
@@ -178,6 +237,8 @@ export function responderLocal(texto, m) {
     const ahora = new Date().toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit', timeZone: 'America/El_Salvador' });
     return { texto: `En El Salvador son las ${ahora}` };
   }
+
+  if (m && pideDiagnostico(t)) return diagnosticoLento(m);
 
   if (!m) return null;
 
