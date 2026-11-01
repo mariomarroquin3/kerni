@@ -4,6 +4,7 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 
 | Fecha | Tema | Archivo |
 |---|---|---|
+| 2026-11-01 | Bug fixes, safe improvements and six read-only tools | [2026-11-01-bugs-mejoras-tools.md](2026-11-01-bugs-mejoras-tools.md) |
 | 2026-11-01 | Review fixes: memory, process close, temp folders, Windows startup, bin, network, UI | [2026-11-01-review-fixes.md](2026-11-01-review-fixes.md) |
 | 2026-11-01 | Claude Code project skills for the development workflow | [2026-11-01-dev-skills.md](2026-11-01-dev-skills.md) |
 | 2026-10-31 | Cleanup unnecessary files | [2026-10-31-cleanup-unnecessary-files.md](2026-10-31-cleanup-unnecessary-files.md) |
