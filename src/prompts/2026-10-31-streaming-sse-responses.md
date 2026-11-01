@@ -22,3 +22,4 @@ Implement real-time response streaming from the Fastify backend to the Tauri des
 - Desktop tests: `npm test` in `src/desktop` — 106 passed.
 - Desktop build: `npm run web:build` in `src/desktop` — succeeded.
 - Rust tests: `cargo test` in `src/desktop/src-tauri` — 34 passed (1 ignored).
+

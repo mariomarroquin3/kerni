@@ -4,6 +4,7 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 
 | Fecha | Tema | Archivo |
 |---|---|---|
+| 2026-11-01 | Expand RAG knowledge base for Windows troubleshooting and security | [2026-11-01-expand-rag-knowledge-base.md](2026-11-01-expand-rag-knowledge-base.md) |
 | 2026-10-31 | Response streaming via Server-Sent Events (SSE) | [2026-10-31-streaming-sse-responses.md](2026-10-31-streaming-sse-responses.md) |
 | 2026-10-31 | Liquid Glass and UI enhancements | [2026-10-31-liquid-glass-and-ui-enhancements.md](2026-10-31-liquid-glass-and-ui-enhancements.md) |
 | 2026-10-31 | Cleanup unnecessary files | [2026-10-31-cleanup-unnecessary-files.md](2026-10-31-cleanup-unnecessary-files.md) |
