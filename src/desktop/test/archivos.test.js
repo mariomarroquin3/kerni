@@ -78,3 +78,11 @@ test('un pedido más largo de saber qué archivos viejos borrar también abre la
   assert.equal(responderLocal('explicame por qué debería borrar archivos viejos si el disco tiene espacio de sobra', null), null);
   assert.equal(responderLocal('Tengo muchos archivos viejos de la universidad en una carpeta y quiero entender cómo organizarlos mejor para no perder nada de lo importante que tengo ahí guardado', null), null);
 });
+
+// A4: una pregunta de "por qué" sobre los archivos pesados es explicación, no la lista (igual que en el backend).
+test('A4: "por qué mis archivos pesados crecen" no abre la tarjeta, pero sí si pide borrar', () => {
+  assert.equal(responderLocal('por qué mis archivos pesados crecen', null), null);
+  const medida = { cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 100, totalGb: 500 }, procesos: [] };
+  assert.equal(responderLocal('por qué mis archivos pesados crecen', medida), null);
+  assert.equal(responderLocal('qué archivos pesados puedo borrar', null)?.proponer?.accion, 'ver_archivos_pesados');
+});

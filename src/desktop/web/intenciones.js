@@ -20,6 +20,8 @@ const TEMA_PESADOS = /\b((archivos?|carpetas?|cosas)\s+(pesad\w*|grandes?|enorme
 const MAX_PALABRAS_BORRAR = 20;
 const QUIERE_BORRAR_VIEJOS = /(archivos?|carpetas?|cosas)\s+(\w+\s+)?(viej\w*|antigu\w*|obsolet\w*)|(qu[eé]|cu[aá]les?)\s+(\w+\s+){0,4}(puedo|podr[ií]a|debo|conviene)\s+(borrar|eliminar)/i;
 const PIDE_EXPLICAR = /\b(por ?qu[eé]|c[oó]mo|explic\w*)\b/i;
+// Igual que el backend: "por qué ... pesados" es explicación, salvo que también pregunte qué puede borrar.
+const PIDE_BORRAR = /\b(borrar|eliminar|puedo|sobra\w*)\b/i;
 
 const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
 
@@ -121,8 +123,9 @@ export function responderLocal(texto, m) {
   if (!texto || esNegacion(texto)) return null;
   const t = norm(texto).replace(/[¿?¡!.,;:]/g, ' ').replace(/\s+/g, ' ').trim();
   const w = palabras(t);
-  const pideVer = palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto);
-  const pideBorrarViejos = palabras(texto) <= MAX_PALABRAS_BORRAR && QUIERE_BORRAR_VIEJOS.test(texto) && !PIDE_EXPLICAR.test(texto);
+  // Sobre el texto sin tildes: en JavaScript "qué" no tiene \b después de la "é", así que "por qué" no coincidiría.
+  const pideVer = palabras(texto) <= MAX_PALABRAS && TEMA_PESADOS.test(texto) && (!PIDE_EXPLICAR.test(t) || PIDE_BORRAR.test(t));
+  const pideBorrarViejos = palabras(texto) <= MAX_PALABRAS_BORRAR && QUIERE_BORRAR_VIEJOS.test(texto) && !PIDE_EXPLICAR.test(t);
   if (pideVer || pideBorrarViejos) {
     // No hace falta la lectura del sistema: la búsqueda la hace la app, y solo después de que la persona apruebe.
     return {

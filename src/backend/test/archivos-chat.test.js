@@ -65,3 +65,12 @@ describe('el chat propone la búsqueda aunque el modelo solo la comente', () => 
     expect((await chat(app, 'hola, cómo andás')).json().acciones).toEqual([]);
   });
 });
+
+// A4 en el backend: la misma frase, la misma respuesta que en la app.
+describe('A4: explicar archivos pesados no propone la tarjeta', () => {
+  it('"por qué mis archivos pesados crecen" no propone nada', async () => {
+    const { detectarAccion } = await import('../src/intenciones.js');
+    expect(detectarAccion('por qué mis archivos pesados crecen')).toBeNull();
+    expect(detectarAccion('qué archivos pesados puedo borrar')?.accion).toBe('ver_archivos_pesados');
+  });
+});
