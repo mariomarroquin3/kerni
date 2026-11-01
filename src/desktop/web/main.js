@@ -205,13 +205,31 @@ function pintar(m) {
   $('txt-disco').textContent = `${m.disco.libreGb.toFixed(0)} GB libres`;
 }
 
+// Filas del panel de pánico. Se reconstruyen solo si cambia el conjunto o el orden de pids: si no, una fila
+// se movería bajo el puntero cada 2 s y el clic caería en otra. Entre medias solo se actualizan los números.
+let panicoClave = null;
+let panicoFilas = [];
 function pintarPanico(m, activo) {
   const panel = $('panico');
   panel.hidden = !activo;
-  if (!activo) return;
+  if (!activo) {
+    panicoClave = null;
+    return;
+  }
   const lista = $('panico-lista');
+  const procesos = sospechosos(m.procesos);
+  const clave = procesos.map((p) => p.pid).join(',');
+  if (clave === panicoClave) {
+    procesos.forEach((p, i) => {
+      panicoFilas[i].dato.p = p;
+      panicoFilas[i].nombre.textContent = `${p.nombre} · ${p.cpu.toFixed(0)}%`;
+    });
+    return;
+  }
+  panicoClave = clave;
   lista.replaceChildren();
-  for (const p of sospechosos(m.procesos)) {
+  panicoFilas = procesos.map((p) => {
+    const dato = { p };
     const li = document.createElement('li');
     const nombre = document.createElement('span');
     nombre.textContent = `${p.nombre} · ${p.cpu.toFixed(0)}%`;
@@ -219,13 +237,14 @@ function pintarPanico(m, activo) {
     boton.type = 'button';
     boton.textContent = 'Cerrar…';
     boton.addEventListener('click', () => proponer({
-      accion: 'terminar_proceso', pid: p.pid, nombre: p.nombre, inicio: p.inicio,
-      motivo: `Usa ${p.cpu.toFixed(0)}% de CPU mientras la PC está al tope.`,
+      accion: 'terminar_proceso', pid: dato.p.pid, nombre: dato.p.nombre, inicio: dato.p.inicio,
+      motivo: `Usa ${dato.p.cpu.toFixed(0)}% de CPU mientras la PC está al tope.`,
     }));
     li.append(nombre, boton);
     lista.append(li);
-  }
-  if (!lista.children.length) {
+    return { nombre, dato };
+  });
+  if (!procesos.length) {
     const li = document.createElement('li');
     li.textContent = 'No veo un culpable claro; puede ser Windows trabajando.';
     lista.append(li);

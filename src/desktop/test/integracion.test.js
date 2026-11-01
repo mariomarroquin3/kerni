@@ -271,3 +271,8 @@ test('cada llamada al backend desde la interfaz tiene plazo: un backend colgado 
   assert.equal(con_plazo.length, llamadas, `${llamadas} fetch y ${con_plazo.length} con plazo`);
   assert.match(main, /const PLAZO_BACKEND_MS = 15000;/);
 });
+
+test('el panel de pánico no se reconstruye cada 2 s: solo cuando cambian los procesos o su orden', () => {
+  assert.match(main, /const clave = procesos\.map\(\(p\) => p\.pid\)\.join\(','\);\s*\n\s*if \(clave === panicoClave\)/);
+  assert.match(main, /panicoFilas\[i\]\.nombre\.textContent = /);
+});
