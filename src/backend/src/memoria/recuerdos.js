@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { limpiarTextoNoConfiable } from '../seguridad/texto.js';
 
 export const MAX_HECHOS = 50;
 export const MAX_VALOR = 200;
@@ -17,15 +18,9 @@ const PARECE_SECRETO = /(api[_ -]?key|password|contrase[ñn]a|passwd|secret|toke
 const LARGA_OPACA = /[A-Za-z0-9_\-+/=]{32,}/;
 const RUTA_CON_USUARIO = /[a-z]:\\users\\[^\\\s]+/i;
 
-/** Sanea texto para bloques <memoria> y <conocimiento>: control, <>, >, bidireccionales, ancho cero, BOM. */
+/** Sanea texto para bloques <memoria> y <conocimiento>. La regla vive en seguridad/texto.js (una sola copia). */
 export function sanearParaBloque(texto, max) {
-  const limpio = String(texto ?? '')
-    .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
-    // Caracteres bidireccionales, de ancho cero y BOM
-    .replace(/[\u200B-\u200F\u2028-\u202E\u2066-\u2069\uFEFF]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return Number.isFinite(max) ? limpio.slice(0, max) : limpio;
+  return limpiarTextoNoConfiable(texto, { max: Number.isFinite(max) ? max : Infinity });
 }
 
 /** Texto libre → una línea sin etiquetas ni caracteres de control (es dato, no instrucción). */

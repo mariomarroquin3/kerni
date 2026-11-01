@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { limpiarTextoNoConfiable, quitarInvisibles } from './seguridad/texto.js';
 
 /**
  * Foto del estado de la PC que manda la app en cada turno. Es lo único que
@@ -41,17 +42,12 @@ export const PROCESOS_PROTEGIDOS = new Set([
   'networkmanager', 'dhcpcd', 'wpa_supplicant', 'modemmanager', 'bluetoothd', 'cron', 'rsyslog',
 ]);
 
-export const esProtegido = (nombre) => PROCESOS_PROTEGIDOS.has(String(nombre).trim().toLowerCase());
+/** Compara sin invisibles (un nombre con ancho cero sigue siendo el mismo proceso). Igual que `es_protegido` en Rust. */
+export const esProtegido = (nombre) => PROCESOS_PROTEGIDOS.has(quitarInvisibles(nombre).trim().toLowerCase());
 
-/** Un nombre de proceso es dato no confiable: sin saltos de línea ni caracteres de control, y corto. */
+/** Un nombre de proceso es dato no confiable: sin saltos de línea, sin invisibles, sin "|" y corto. */
 export function limpiarNombre(nombre) {
-  return String(nombre)
-    .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
-    // Caracteres bidireccionales, de ancho cero y BOM
-    .replace(/[\u200B-\u200F\u2028-\u202E\u2066-\u2069\uFEFF]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80);
+  return limpiarTextoNoConfiable(nombre, { max: 80 });
 }
 
 /** Texto para el modelo. Va entre etiquetas para que se lea como datos. */
