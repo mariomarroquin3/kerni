@@ -94,6 +94,35 @@ describe('POST /chat', () => {
     const res = await post(app, { mensaje: 'hola' });
     expect(res.statusCode).toBe(502);
   });
+
+  it('emite eventos SSE si el cliente pide text/event-stream', async () => {
+    const { app } = createTestApp({ respuestas: [texto('Hola amigo de Kerni')] });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/chat',
+      headers: { accept: 'text/event-stream' },
+      payload: { mensaje: 'hola' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+    expect(res.payload).toContain('event: delta');
+    expect(res.payload).toContain('event: done');
+    expect(res.payload).toContain('Hola amigo de Kerni');
+  });
+
+  it('emite evento done en SSE en respuestas de respaldo sin proveedor', async () => {
+    const { app } = createTestApp({ sinProveedor: true });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/chat',
+      headers: { accept: 'text/event-stream' },
+      payload: { mensaje: 'qué dispositivos están conectados a la red' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
+    expect(res.payload).toContain('event: done');
+    expect(res.payload).toContain('ver_dispositivos_red');
+  });
 });
 
 describe('POST /chat: codigo estable en los errores', () => {

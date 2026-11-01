@@ -73,7 +73,8 @@ test('el texto no nombra procesos ni archivos y no tiene etiquetas', () => {
 });
 
 test('main.js: el resumen usa textContent, va en localStorage con try/catch y no hace red ni consulta al modelo', () => {
-  const main = readFileSync(new URL('../web/main.js', import.meta.url), 'utf8');
+  // Finales de línea normalizados: con core.autocrlf=true el archivo en disco tiene \r\n y el bloque se corta en "\n}\n".
+  const main = readFileSync(new URL('../web/main.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const inicio = main.indexOf('function revisarResumenDiario');
   assert.ok(inicio > 0, 'falta revisarResumenDiario');
   const bloque = main.slice(inicio, main.indexOf('\n}\n', inicio));

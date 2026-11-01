@@ -28,6 +28,17 @@ export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 /** Plazo de un turno con el modelo. La app corta a los 60 s (desktop/web/main.js): el backend tiene que terminar antes. */
 export const PLAZO_TURNO_MS = 50_000;
 
+/** Respuesta completa (sin deltas) para un cliente que pidió streaming: un único evento "done" y se cierra. */
+function enviarSoloDone(reply, cuerpo) {
+  reply.raw.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+  });
+  reply.raw.write(`event: done\ndata: ${JSON.stringify(cuerpo)}\n\n`);
+  return reply.raw.end();
+}
+
 export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, motorGuias = crearMotorGuias({ memoria }), now = () => Date.now(), plazoTurnoMs = PLAZO_TURNO_MS }) {
   /** La memoria es un extra: si falla (disco, base bloqueada), el chat sigue sin ella. */
   const seguro = async (etiqueta, fn, vacio) => {
@@ -123,15 +134,32 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     // Una sola persona usa la app: la clave del límite es la sesión local.
     if (limitador && !limitador.permitir('local')) return reply.code(429).send({ error: 'Muchos mensajes seguidos; esperá un momento.' });
 
+    const quiereStream = req.headers.accept?.includes('text/event-stream') || req.query?.stream === 'true';
     const deviceId = esUuid(req.body?.device_id) && memoria?.habilitada ? req.body.device_id : null;
 
     // Guías: el comando de un paso o el pedido de empezar una se resuelve aquí, sin gastar el modelo.
+    // Si la app pidió streaming, la respuesta viaja como un solo evento "done" para que el cliente la lea igual.
     const porGuia = await turnoDeGuia({ mensaje, deviceId, sessionId: req.body?.session_id });
-    if (porGuia) return porGuia.code ? reply.code(porGuia.code).send(porGuia.body) : porGuia.body;
+    if (porGuia) {
+      if (porGuia.code) return reply.code(porGuia.code).send(porGuia.body);
+      if (quiereStream) return enviarSoloDone(reply, porGuia.body);
+      return porGuia.body;
+    }
 
     if (!provider) {
       const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_cupo' });
-      if (respaldo) return { session_id: randomUUID(), ...respaldo };
+      if (respaldo) {
+        if (quiereStream) {
+          reply.raw.writeHead(200, {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache, no-transform',
+            Connection: 'keep-alive',
+          });
+          reply.raw.write(`event: done\ndata: ${JSON.stringify({ session_id: randomUUID(), ...respaldo })}\n\n`);
+          return reply.raw.end();
+        }
+        return { session_id: randomUUID(), ...respaldo };
+      }
       return reply.code(503).send({
         error: 'No hay una llave de modelo configurada. Kerni probará las respuestas automáticas locales.',
         codigo: 'sin_llave',
@@ -160,23 +188,58 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     sesion.ocupada = true;
     // El turno entero tiene un plazo menor que los 60 s que espera la app: si se pasa, o si la app cortó, se aborta
     // (sin seguir gastando cupo) y la sesión queda libre para el siguiente mensaje en vez de responder 409.
+    // Vale también con streaming: si la app cierra la conexión a mitad del stream, el turno se corta.
     const corte = new AbortController();
     const alCerrar = () => { if (!reply.raw.writableEnded) corte.abort(); };
     reply.raw.once('close', alCerrar);
     const signal = AbortSignal.any([corte.signal, AbortSignal.timeout(plazoTurnoMs)]);
+    let sseIniciado = false;
     try {
       // La base de conocimiento ya no se busca aquí: el modelo la consulta con la herramienta buscar_conocimiento solo cuando hace falta.
       const recuerdos = deviceId ? await seguro('leer el contexto', () => memoria.contexto(deviceId), '') : '';
       // Con una guía en curso, el modelo ve el paso actual y la respuesta termina repitiéndolo (el paso lo guarda la base, no el modelo).
       const guia = deviceId ? await seguro('leer la guía', () => motorGuias.activa(deviceId), null) : null;
-      const { respuesta: respuestaModelo, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId), signal, guia });
+
+      if (quiereStream) {
+        reply.raw.writeHead(200, {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        });
+        sseIniciado = true;
+      }
+
+      const { respuesta: respuestaModelo, acciones, traza } = await agent.runTurn({
+        sessionId,
+        history: sesion.history,
+        mensaje,
+        snapshot,
+        equipo,
+        memoria: recuerdos,
+        puedeRecordar: Boolean(deviceId),
+        signal,
+        guia,
+        onDelta: (chunk) => {
+          if (sseIniciado) reply.raw.write(`event: delta\ndata: ${JSON.stringify({ text: chunk })}\n\n`);
+        },
+        onStatus: (st) => {
+          if (sseIniciado) reply.raw.write(`event: status\ndata: ${JSON.stringify(st)}\n\n`);
+        },
+      });
       const respuesta = guia ? cerrarConPaso(respuestaModelo, guia) : respuestaModelo;
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
         seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);
         seguro('encolar la reflexión', () => motorReflexion.encolarReflexion({ deviceId, mensaje }), undefined);
       }
-      return { session_id: sessionId, respuesta, acciones, traza, ...(guia ? { guia: { id: guia.id, titulo: guia.titulo, paso: guia.paso, total: guia.total } } : {}) };
+      const cuerpo = { session_id: sessionId, respuesta, acciones, traza, ...(guia ? { guia: { id: guia.id, titulo: guia.titulo, paso: guia.paso, total: guia.total } } : {}) };
+
+      if (sseIniciado) {
+        reply.raw.write(`event: done\ndata: ${JSON.stringify(cuerpo)}\n\n`);
+        return reply.raw.end();
+      }
+
+      return cuerpo;
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo, red: err.red }, 'falló el turno');
       // Sin cupo o con el servicio caído, lo que se pueda sin el modelo se hace igual: las guías y las tarjetas de siempre.
@@ -185,13 +248,27 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
         : ['llave_invalida', 'sin_red'].includes(err.codigo) ? null : 'fallo';
       if (motivo) {
         const respaldo = await responderSinModelo({ mensaje, equipo, motivo });
-        if (respaldo) return { session_id: sessionId, ...respaldo };
+        if (respaldo) {
+          if (sseIniciado) {
+            reply.raw.write(`event: done\ndata: ${JSON.stringify({ session_id: sessionId, ...respaldo })}\n\n`);
+            return reply.raw.end();
+          }
+          return { session_id: sessionId, ...respaldo };
+        }
       }
       // Los errores de la API traen un mensaje pensado para la persona (llave inválida, cupo agotado, sin red).
       const claro = ['llave_invalida', 'sin_cupo', 'sin_red'].includes(err.codigo) || err.status === 402;
+      const errorMsg = claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.';
+      const codigo = claro ? (err.status === 402 ? 'sin_cupo' : err.codigo) : 'fallo';
+
+      if (sseIniciado) {
+        reply.raw.write(`event: error\ndata: ${JSON.stringify({ error: errorMsg, codigo, ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}) })}\n\n`);
+        return reply.raw.end();
+      }
+
       return reply.code(claro ? 503 : 502).send({
-        error: claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.',
-        codigo: claro ? (err.status === 402 ? 'sin_cupo' : err.codigo) : 'fallo',
+        error: errorMsg,
+        codigo,
         ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}),
       });
     } finally {

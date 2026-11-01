@@ -279,3 +279,11 @@ test('el panel de pánico no se reconstruye cada 2 s: solo cuando cambian los pr
   assert.match(main, /const clave = procesos\.map\(\(p\) => `[^`]*`\)\.join\(','\);\s*\n\s*if \(clave === panicoClave\)/);
   assert.match(main, /panicoFilas\[i\]\.nombre\.textContent = /);
 });
+
+test('el HUD cuenta con un indicador de salud visual y niveles de estado', () => {
+  assert.match(html, /id="salud-badge"/);
+  assert.match(html, /id="salud-texto"/);
+  assert.match(main, /salud-optimo/);
+  assert.match(main, /salud-aviso/);
+  assert.match(main, /salud-critico/);
+});

@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
-const leer = (...ruta) => readFileSync(join(AQUI, '..', ...ruta), 'utf8');
+// Finales de línea normalizados: con core.autocrlf=true el archivo en disco tiene \r\n y los bloques se buscan con \n.
+const leer = (...ruta) => readFileSync(join(AQUI, '..', ...ruta), 'utf8').replace(/\r\n/g, '\n');
 
 const html = leer('web', 'index.html');
 const main = leer('web', 'main.js');

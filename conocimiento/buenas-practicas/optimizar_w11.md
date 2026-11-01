@@ -2,154 +2,136 @@
 fuente: "Optimizar W11.pdf"
 ---
 
-El dispositivo Windows puede ejecutarse lentamente por varias razones, como espacio de almacenamiento limitado, demasiadas aplicaciones de inicio ejecutándose en segundo plano, software obsoleto o hardware que ya no satisface las necesidades de rendimiento modernas. Para ayudar a diagnosticar y resolver muchos de estos problemas, puedes usar la **aplicación Microsoft Administrador de PC** , que proporciona herramientas para limpiar el almacenamiento, administrar las aplicaciones de inicio y optimizar el rendimiento del sistema.
+# Optimizar el rendimiento en Windows 11
 
-En este artículo se enumeran varias soluciones que pueden ayudar a mejorar el rendimiento del equipo. Se recomienda probar todas las soluciones enumeradas, ya que varios factores pueden favorecer un rendimiento lento.
+El dispositivo Windows puede ejecutarse lentamente por varias razones, como espacio de almacenamiento limitado, demasiadas aplicaciones de inicio ejecutándose en segundo plano, software obsoleto o hardware que ya no satisface las necesidades de rendimiento modernas. Para ayudar a diagnosticar y resolver muchos de estos problemas, puedes usar la aplicación **Microsoft Administrador de PC**, que proporciona herramientas para limpiar el almacenamiento, administrar las aplicaciones de inicio y optimizar el rendimiento del sistema.
 
-# **Nota**
+En este artículo se enumeran varias soluciones que pueden ayudar a mejorar el rendimiento del equipo. Se recomienda probar todas las soluciones enumeradas, ya que varios factores pueden influir en un rendimiento lento.
 
-Es posible que los equipos más antiguos con hardware obsoleto no vean mejoras significativas con estos pasos. En esos casos, actualizar el dispositivo puede ser la mejor solución a largo plazo.
+> **Nota:** Es posible que los equipos más antiguos con hardware obsoleto no vean mejoras significativas con estos pasos. En esos casos, actualizar el dispositivo puede ser la mejor solución a largo plazo.
 
-Solución 1. Instalar actualizaciones de Windows y actualizaciones de controladores opcionales
+---
+
+## Solución 1. Instalar actualizaciones de Windows y controladores opcionales
 
 Las novedades de Windows suelen incluir correcciones y mejoras de rendimiento.
 
-# **Buscar actualizaciones de Windows:**
+### Buscar actualizaciones de Windows
+1. Selecciona **Inicio** > **Configuración** > **Windows Update** > **Buscar actualizaciones**.
+2. Si el estado es **Estás actualizado**, ve a actualizaciones opcionales.
+3. Si hay actualizaciones disponibles, selecciona **Descargar e instalar**.
 
-1. Seleccione **Inicio** > **Configuración** > **:Windows Update** > **Buscar actualizaciones** .
+### Comprobar si hay actualizaciones opcionales
+A veces habrá disponible una actualización opcional, como un nuevo controlador no crítico, que puede ayudar.
+1. Selecciona **Inicio** > **Configuración** > **Windows Update** > **Opciones avanzadas** > **Actualizaciones opcionales**.
+2. Si hay actualizaciones adicionales disponibles, selecciónalas y haz clic en **Descargar e instalar**.
 
-**<u>Buscar actualizaciones de Windows</u>**
+> **Nota:** El dispositivo puede reiniciarse si es necesario para completar el proceso de instalación.
 
-2. Si el estado es **Estás actualizado** , ve a actualizaciones opcionales.
+---
 
-3. Si hay actualizaciones disponibles, selecciona **Descargar & instalar** . Su dispositivo descargará e instalará las actualizaciones.
+## Solución 2. Ejecutar un examen de malware
 
-# **Compruebe si hay actualizaciones opcionales:**
+El malware puede consumir recursos de CPU y disco, reduciendo el rendimiento del sistema.
 
-A veces, habrá disponible una actualización opcional, como un nuevo controlador no crítico, que puede ayudar.
+1. Selecciona **Inicio** > **Configuración** > **Privacidad y seguridad** > **Seguridad de Windows** > **Protección contra virus y amenazas**.
+2. Selecciona **Examen rápido**.
 
-1. Seleccionar **Inicio** > **Configuración** > **, Windows Update** > **y Opciones** > **avanzadas, Actualizaciones opcionales** .
+> **Nota:** El dispositivo puede reiniciarse si es necesario para completar el proceso.
 
-2. Si hay actualizaciones adicionales disponibles, selecciónalas y, después, selecciona **Descargar e instalar** .
+---
 
-# **Nota**
-
-El dispositivo puede reiniciarse si es necesario para completar el proceso de instalación.
-
-Solución 2. Ejecutar un examen de malware para detectar y eliminar las amenazas que ralentizan el rendimiento del equipo
-
-El malware puede consumir recursos de CPU y disco, lo que puede reducir el rendimiento del sistema. La ejecución de un examen de malware puede ayudar a detectar y eliminar amenazas.
-
-1. Selecciona **Configuración de** > **Inicio** > **Privacidad & seguridad** > **Seguridad de WindowsProtección contra amenazas &** > virus.
-
-2. Selecciona **Examen rápido.**
-
-# **Nota**
-
-El dispositivo puede reiniciarse si es necesario para completar el proceso.
-
-Solución 3. Liberar espacio en disco para aumentar el rendimiento del equipo
+## Solución 3. Liberar espacio en disco
 
 Poco espacio en disco puede reducir el rendimiento del sistema. Usa el Sensor de almacenamiento y las herramientas de limpieza para quitar los archivos temporales.
 
-**Ejecuta el Sensor de almacenamiento para eliminar automáticamente los archivos temporales:**
+### Sensor de almacenamiento
+1. Selecciona **Inicio** > **Configuración** > **Sistema** > **Almacenamiento**.
+2. Selecciona **Sensor de almacenamiento**.
+3. Selecciona **Ejecutar sensor de almacenamiento ahora**.
 
-1. Selecciona **Inicio** > **Configuración** > **Almacenamiento del sistema** >.
+### Borrar archivos temporales manualmente
+1. Selecciona **Inicio** > **Configuración** > **Sistema** > **Almacenamiento**.
+2. Selecciona **Archivos temporales**, marca los archivos que quieras quitar y selecciona **Quitar archivos**.
 
-2. Selecciona **Sensor de almacenamiento** .
-
-3. Selecciona **Ejecutar sensor de almacenamiento ahora** .
-
-**Borrar archivos temporales manualmente:**
-
-1. Selecciona **Inicio** > **Configuración** > **Almacenamiento del sistema** >.
-
-2. Selecciona **Archivos temporales** y marca todos los archivos que quieras quitar. Después, selecciona **Quitar archivos** .
-
-# **Liberador de espacio en disco:**
-
-1. Selecciona **Inicio** y escribe _Liberador de espacio en disco y,_ a continuación, selecciona **Liberador de espacio en disco** en los resultados.
-
+### Liberador de espacio en disco
+1. Selecciona **Inicio**, escribe **Liberador de espacio en disco** y selecciónalo en los resultados.
 2. Selecciona la unidad que deseas limpiar.
 
-Solución 4. Desinstalar aplicaciones sin usar para liberar espacio y aumentar el rendimiento
+---
 
-Quitar las aplicaciones que ya no uses puede liberar almacenamiento y reducir la actividad en segundo plano.
+## Solución 4. Desinstalar aplicaciones sin usar
 
-1. Selecciona **Inicio** > **Configuración** > **Aplicaciones** > **instaladas aplicaciones** .
+Quitar las aplicaciones que ya no uses libera almacenamiento y reduce la actividad en segundo plano.
 
-2. Busque las aplicaciones que desea quitar, seleccione **Más opciones** ( **...** ) y, a continuación, seleccione **Desinstalar** .
+1. Selecciona **Inicio** > **Configuración** > **Aplicaciones** > **Aplicaciones instaladas**.
+2. Busca la aplicación que deseas quitar, selecciona **Más opciones (...)** y haz clic en **Desinstalar**.
 
-Solución 5. Deshabilita las aplicaciones de inicio para reducir la actividad en segundo plano
+---
 
-Las aplicaciones que se ejecutan en el inicio pueden ralentizar el tiempo de inicio y aumentar el uso en segundo plano. Deshabilita las aplicaciones que no es necesario que se inicien automáticamente.
+## Solución 5. Deshabilitar aplicaciones de inicio
 
-1. Presione **Ctrl** + **Mayús** + **Esc** para abrir el Administrador de tareas.
+Las aplicaciones que se ejecutan al iniciar pueden ralentizar el arranque y aumentar el uso en segundo plano.
 
-2. Selecciona **Aplicaciones de inicio** en el menú de la izquierda.
+1. Presiona **Ctrl + Mayús + Esc** para abrir el **Administrador de tareas**.
+2. Selecciona la pestaña **Aplicaciones de inicio** en el menú de la izquierda.
+3. Haz clic derecho en las aplicaciones que quieras deshabilitar y selecciona **Deshabilitar**.
 
-3. Haz clic con el botón derecho en las aplicaciones que quieras deshabilitar y selecciona **Deshabilitar** .
+---
 
-Solución 6. Desactivar las aplicaciones en segundo plano y los permisos en segundo plano
+## Solución 6. Desactivar permisos y aplicaciones en segundo plano
 
-Algunas aplicaciones ejecutan procesos en segundo plano incluso cuando no están en uso. Desactivar la actividad en segundo plano puede mejorar el rendimiento.
+Algunas aplicaciones ejecutan procesos en segundo plano incluso cuando no están en uso.
 
-1. Selecciona **Inicio** > **Configuración** > **Aplicaciones** > **instaladas aplicaciones** .
+1. Selecciona **Inicio** > **Configuración** > **Aplicaciones** > **Aplicaciones instaladas**.
+2. Busca la aplicación, selecciona **Más opciones (...)** > **Opciones avanzadas**.
+3. En **Permisos de aplicación en segundo plano**, selecciona **Nunca**.
 
-2. Busca la aplicación que quieras administrar, selecciona **Más opciones** ( **...** ) y después selecciona **Opciones avanzadas.**
+---
 
-3. En **Permisos de aplicación en segundo plano** , en la lista **Permitir que esta aplicación se ejecute en segundo plano** , selecciona **Nunca** .
+## Solución 7. Elegir la mejor opción de rendimiento
 
-Solución 7. Elija la mejor opción de rendimiento en Panel de control
+Los efectos visuales de Windows 11 pueden usar recursos del sistema. Ajustar esta configuración mejora la capacidad de respuesta.
 
-Los efectos visuales de Windows 11 pueden usar recursos del sistema. Ajustar esta configuración puede mejorar la capacidad de respuesta.
+1. Selecciona **Inicio**, escribe **Ajustar la apariencia y el rendimiento de Windows** y ábrelo.
+2. En la pestaña **Efectos visuales**, selecciona **Ajustar para obtener el mejor rendimiento**.
 
-1. Selecciona **Inicio** , escribe **Ajustar la apariencia y el rendimiento de Windows** y ábrelo.
+---
 
-2. En la pestaña **Efectos visuales** , selecciona **Ajustar para obtener el mejor rendimiento** .
+## Solución 8. Establecer el modo de energía en Mejor rendimiento
 
-Solución 8. Establezca el modo de energía en Mejor rendimiento
+Permite que la CPU funcione con mayor velocidad cuando sea necesario.
 
-Si el uso de energía no es un problema, seleccionar el mejor rendimiento puede ayudar a que la CPU funcione con un mayor rendimiento cuando sea necesario.
+1. Selecciona **Inicio** > **Configuración** > **Sistema** > **Energía y batería**.
+2. En la lista desplegable **Modo de energía**, selecciona **Mejor rendimiento**.
 
-1. Selecciona **Inicio** > **Configuración** > **del sistema** > **Alimentación & batería** .
+> **Nota:** Esto aumenta el consumo de energía y agotará la batería más rápidamente en portátiles.
 
-2. En la lista desplegable Modo **de energía** , selecciona **Mejor rendimiento** .
+---
 
-# **Nota**
+## Solución 9. Optimizar unidades de almacenamiento
 
-Si selecciona **Mejor rendimiento** , aumenta el consumo de energía. En los portátiles, esta configuración agotará la batería más rápidamente y puede hacer que el dispositivo se caliente más. Use esta opción solo cuando necesite el máximo rendimiento y cuando la disponibilidad de energía no sea una limitación.
+Optimizar las unidades de estado sólido (SSD) o discos duros mejora el rendimiento del PC.
 
-Solución 9. Optimizar las unidades para aumentar el rendimiento del PC
+1. Selecciona **Inicio**, escribe **Desfragmentar y optimizar unidades** y ábrelo.
+2. Selecciona la unidad y haz clic en **Optimizar**.
 
-La optimización de la unidad de disco duro puede mejorar el rendimiento del PC.
+---
 
-1. Seleccione **Inicio** , escriba **Desfragmentar y Optimizar unidades y ábralo** .
+## Solución 10. Supervisar el uso de recursos
 
-2. Selecciona la unidad que deseas optimizar y, a continuación, selecciona **Optimizar** .
+1. Presiona **Ctrl + Mayús + Esc** para abrir el **Administrador de tareas**.
+2. En la pestaña **Procesos**, revisa y cierra las aplicaciones que no utilices.
 
-Solución 10. Supervisar el uso de recursos y solucionar problemas de procesos pesados
+---
 
-Supervisar el uso de la CPU, la memoria y el disco puede ayudar a identificar los procesos que pueden estar ralentizando el equipo.
+## Solución 11. Desactivar notificaciones innecesarias
 
-1. Presione **Ctrl** + **Mayús** + **Esc** para abrir el Administrador de tareas.
-
-2. En la pestaña **Procesos** , haga clic con el botón derecho y cierre las aplicaciones que no esté utilizando.
-
-3. Revisa las pestañas de **las aplicaciones de rendimiento** y **de inicio** para identificar los componentes que usan recursos elevados.
-
-Solución 11. Desactivar las notificaciones de aplicaciones innecesarias
-
-Si desactivas las notificaciones que no necesites, puedes reducir las interrupciones y proporcionar pequeñas mejoras de rendimiento.
-
-1. Selecciona **Inicio** > **Configuración** > **Notificaciones del sistema** >.
-
+1. Selecciona **Inicio** > **Configuración** > **Sistema** > **Notificaciones**.
 2. Desactiva las notificaciones de las aplicaciones que no necesites.
 
-Solución 12. Cerrar las aplicaciones que no se usan y reiniciar el equipo
+---
 
-Tener muchas aplicaciones o pestañas del explorador abiertas puede ralentizar el rendimiento. Cierra las aplicaciones o pestañas que no necesites. Si el rendimiento no mejora, reinicia el equipo.
+## Solución 12. Cerrar aplicaciones y reiniciar el equipo
 
-1. Selecciona **Iniciar** > **reinicio de energía** >.
-
-2. Después del reinicio, abre solo las aplicaciones que necesites y ciérralas cuando hayas terminado.
+Cierra aplicaciones o pestañas que no necesites. Si el rendimiento no mejora, reinicia el equipo desde **Inicio > Reiniciar**.

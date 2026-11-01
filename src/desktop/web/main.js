@@ -418,18 +418,53 @@ $('leccion-no').addEventListener('click', () => { $('leccion').hidden = true; de
 
 // ---------- Globo de texto ----------
 let timerGlobo;
+let animacionTipeo = null;
+
+function cancelarTipeo() {
+  if (animacionTipeo !== null) {
+    cancelAnimationFrame(animacionTipeo);
+    animacionTipeo = null;
+  }
+}
+
 function ocultarGlobo() {
+  cancelarTipeo();
   $('globo').hidden = true;
   pintarReposo();
 }
+
 /** `ms` es el mínimo: si el texto es largo se queda lo que se tarda en leerlo (ver `duracionGlobo`). */
 function decir(texto, ms = 15000) {
   const globo = $('globo');
-  globo.textContent = texto; // textContent: lo que dice el modelo nunca se interpreta como HTML
+  cancelarTipeo();
   globo.hidden = false;
   clearTimeout(timerGlobo);
   timerGlobo = setTimeout(ocultarGlobo, duracionGlobo(texto, ms));
   pintarReposo();
+
+  const reduceMovimiento = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMovimiento || !texto || texto.length <= 15) {
+    globo.textContent = texto; // textContent: lo que dice el modelo nunca se interpreta como HTML
+    return;
+  }
+
+  let i = 0;
+  globo.textContent = '';
+  const paso = Math.max(1, Math.floor(texto.length / 50));
+  let ultimo = performance.now();
+  function escribir(ahora) {
+    if (ahora - ultimo >= 16) {
+      i = Math.min(texto.length, i + paso);
+      globo.textContent = texto.slice(0, i);
+      ultimo = ahora;
+    }
+    if (i < texto.length) {
+      animacionTipeo = requestAnimationFrame(escribir);
+    } else {
+      animacionTipeo = null;
+    }
+  }
+  animacionTipeo = requestAnimationFrame(escribir);
 }
 // Mientras el puntero está encima no se cierra (para leer con calma); al salir queda unos segundos más. Un clic lo cierra.
 $('globo').addEventListener('mouseenter', () => clearTimeout(timerGlobo));
@@ -454,6 +489,21 @@ function pintar(m) {
   $('txt-cpu').textContent = `${Math.round(m.cpu)}%`;
   $('txt-ram').textContent = `${(m.ram.usadaMb / 1024).toFixed(1)} GB`;
   $('txt-disco').textContent = `${m.disco.libreGb.toFixed(0)} GB libres`;
+
+  const badge = $('salud-badge');
+  const texto = $('salud-texto');
+  if (badge && texto) {
+    if (m.cpu >= 90 || ramPct >= 90) {
+      badge.className = 'salud-badge salud-critico';
+      texto.textContent = 'Exigido';
+    } else if (m.cpu >= 70 || ramPct >= 75 || discoPct >= 85) {
+      badge.className = 'salud-badge salud-aviso';
+      texto.textContent = 'Atención';
+    } else {
+      badge.className = 'salud-badge salud-optimo';
+      texto.textContent = 'Óptimo';
+    }
+  }
 }
 
 // Filas del panel de pánico. Se reconstruyen solo si cambia el conjunto o el orden de pids: si no, una fila
@@ -1164,7 +1214,7 @@ $('chat').addEventListener('submit', async (e) => {
     const timeout = setTimeout(() => controller.abort(), 60000);
     const res = await fetch(`${BACKEND}/chat`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream, application/json' },
       body: JSON.stringify({
         mensaje,
         session_id: sessionId ?? undefined,
@@ -1174,14 +1224,60 @@ $('chat').addEventListener('submit', async (e) => {
       }),
       signal: controller.signal,
     });
-    // El plazo cubre también la lectura del cuerpo.
-    const data = await res.json().finally(() => clearTimeout(timeout));
-    const motivo = motivoDeRespuesta(res.ok, data);
+    // El plazo cubre también la lectura del cuerpo (JSON o stream): se limpia recién al terminar de leer.
+    let data;
+    try {
+    if (res.headers.get('content-type')?.includes('text/event-stream') && res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acumulado = '';
+      let buffer = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const bloques = buffer.split('\n\n');
+        buffer = bloques.pop() ?? '';
+        for (const bloque of bloques) {
+          let evento = 'message';
+          let datos = '';
+          for (const linea of bloque.split('\n')) {
+            if (linea.startsWith('event:')) evento = linea.slice(6).trim();
+            else if (linea.startsWith('data:')) datos = linea.slice(5).trim();
+          }
+          if (!datos) continue;
+          try {
+            const parsed = JSON.parse(datos);
+            if (evento === 'delta') {
+              acumulado += parsed.text;
+              const globo = $('globo');
+              globo.textContent = acumulado;
+              globo.hidden = false;
+            } else if (evento === 'status' && parsed.herramienta === 'buscar_conocimiento') {
+              $('chat-estado').textContent = 'Kerni está consultando sus guías…';
+            } else if (evento === 'done') {
+              data = parsed;
+            } else if (evento === 'error') {
+              data = { error: parsed.error, codigo: parsed.codigo, fallbackLocal: parsed.fallbackLocal };
+            }
+          } catch {}
+        }
+      }
+    } else {
+      data = await res.json();
+    }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // Con streaming, un error llega como evento dentro de una respuesta 200: cuenta como fallo igual.
+    const ok = res.ok && !data?.error;
+    const motivo = motivoDeRespuesta(ok, data ?? {});
     if (motivo) {
       ultimaIA = motivo;
       pintarIA();
     }
-    if (!res.ok) {
+    if (!ok) {
       if (data.fallbackLocal) {
         const enlace = enlaceParaRevisar(mensaje);
         if (enlace) {

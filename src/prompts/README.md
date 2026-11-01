@@ -11,6 +11,9 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-01 | Bug fixes, safe improvements and six read-only tools | [2026-11-01-bugs-mejoras-tools.md](2026-11-01-bugs-mejoras-tools.md) |
 | 2026-11-01 | Review fixes: memory, process close, temp folders, Windows startup, bin, network, UI | [2026-11-01-review-fixes.md](2026-11-01-review-fixes.md) |
 | 2026-11-01 | Claude Code project skills for the development workflow | [2026-11-01-dev-skills.md](2026-11-01-dev-skills.md) |
+| 2026-11-01 | Expand RAG knowledge base for Windows troubleshooting and security | [2026-11-01-expand-rag-knowledge-base.md](2026-11-01-expand-rag-knowledge-base.md) |
+| 2026-10-31 | Response streaming via Server-Sent Events (SSE) | [2026-10-31-streaming-sse-responses.md](2026-10-31-streaming-sse-responses.md) |
+| 2026-10-31 | Liquid Glass and UI enhancements | [2026-10-31-liquid-glass-and-ui-enhancements.md](2026-10-31-liquid-glass-and-ui-enhancements.md) |
 | 2026-10-31 | Cleanup unnecessary files | [2026-10-31-cleanup-unnecessary-files.md](2026-10-31-cleanup-unnecessary-files.md) |
 | 2026-10-31 | Restore contextual menu navigation | [2026-10-31-restore-context-menu-navigation.md](2026-10-31-restore-context-menu-navigation.md) |
 | 2026-10-31 | Reorganize the contextual menu | [2026-10-31-reorganize-context-menu.md](2026-10-31-reorganize-context-menu.md) |
