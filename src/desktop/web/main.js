@@ -9,6 +9,7 @@ import { ayudaContada, contarAyuda, contarTarjeta, debeOfrecerLeccion, estadoDeH
 import { proximosConsejos, siguienteConsejo } from './consejos.js';
 import { explicarAccion } from './explicaciones.js';
 import { crearVigilanteEnlaces, debeLeerPortapapeles } from './vigilancia.js';
+import { debeMostrarResumen, diaSV, textoResumenDiario } from './resumen.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -521,6 +522,33 @@ function pintarPanico(m, activo) {
   }
 }
 
+// ---------- Resumen diario (opcional, encendido por defecto) ----------
+// Un mensaje por día, a partir de las 9:00 (El Salvador), con lo que la app ya mide. No abre tarjetas ni llama a nada.
+let resumenDiarioActivo = leerResumenDiario();
+function leerResumenDiario() {
+  try { return localStorage.getItem('kerni.resumenDiario') !== '0'; } catch { return true; }
+}
+function pintarMenuResumenDiario() {
+  $('menu-resumen-diario').textContent = resumenDiarioActivo ? 'Resumen diario: activado' : 'Resumen diario: desactivado';
+}
+function alternarResumenDiario() {
+  resumenDiarioActivo = !resumenDiarioActivo;
+  try { localStorage.setItem('kerni.resumenDiario', resumenDiarioActivo ? '1' : '0'); } catch { /* sin almacenamiento: dura lo que la sesión */ }
+  pintarMenuResumenDiario();
+}
+function revisarResumenDiario(m) {
+  const ahora = Date.now();
+  let ultimoDia = null;
+  try { ultimoDia = localStorage.getItem('kerni.resumenDiarioDia'); } catch { /* sin almacenamiento: puede repetirse en la sesión */ }
+  const toca = debeMostrarResumen({
+    activo: resumenDiarioActivo, ahora, ultimoDia, panico: enPanico,
+    tarjetaAbierta: pendiente !== null, burbujaAbierta: !$('globo').hidden, lectura: m,
+  });
+  if (!toca) return;
+  try { localStorage.setItem('kerni.resumenDiarioDia', diaSV(ahora)); } catch { /* idem */ }
+  decir(textoResumenDiario(m), 20000);
+}
+
 let eraPanico = false;
 let avisoReinicioRevisado = false;
 let leyendo = null;
@@ -541,6 +569,7 @@ async function leerYPintar() {
     actualizarModo();
     pintar(m);
     pintarPanico(m, panico);
+    revisarResumenDiario(m);
     if (panico && !eraPanico) decir('¡Ay, ay, ay! La CPU lleva rato al 95% o más y tu compu anda sudando. ¡Mirá quién la está usando!', 15000);
     eraPanico = panico;
 
@@ -1280,6 +1309,9 @@ menuContextual.addEventListener('click', async (e) => {
       case 'vigilar_enlaces':
         alternarVigilaEnlaces();
         break;
+      case 'resumen_diario':
+        alternarResumenDiario();
+        break;
       case 'equipo': await verEquipo(); break;
       case 'reporte': await verReporte(); break;
       case 'inicio': await verInicio(); break;
@@ -1331,6 +1363,7 @@ setInterval(() => { if (progreso.disponible !== true) cargarProgreso(); }, 60000
 pintarMenuConsejos();
 pintarMenuVigilaEnlaces();
 arrancarVigilanciaPortapapeles();
+pintarMenuResumenDiario();
 // Un consejo a lo sumo por sesión, después del saludo (ver intentarConsejo).
 setTimeout(intentarConsejo, 14000);
 
