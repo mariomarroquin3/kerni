@@ -18,6 +18,21 @@ export const TEXTO_TERMINADA = 'Guía terminada. Si algo no cuadra, pedime la gu
 
 const paso = (i, total) => `Paso ${i + 1} de ${total}`;
 
+/** La línea con el paso actual, tal como la ve la persona. El chat la usa para cerrar cada respuesta del modelo. */
+export function lineaDePaso({ paso: n, total, texto }) {
+  return `Paso ${n} de ${total}: ${texto}`;
+}
+
+/** Un mensaje corto de la persona como comando de guía, o null si no es uno. Sin tildes ni signos. */
+export function comandoDeGuia(mensaje) {
+  const t = String(mensaje ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[.!?¡¿,;:]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t === 'listo') return 'listo';
+  if (t === 'no pude') return 'no_pude';
+  if (t === 'salir') return 'salir';
+  return null;
+}
+
 /**
  * @param {object} deps
  * @param {object} deps.memoria  debe tener guiaActual, iniciarGuia, avanzarGuia y borrarGuia (ver memoria/sqlite.js)

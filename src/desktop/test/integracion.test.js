@@ -110,9 +110,11 @@ test('lo que dice el modelo se pinta con textContent, nunca con innerHTML', () =
 });
 
 test('las solicitudes locales claras evitan el modelo y las respuestas locales sirven de fallback explícito', () => {
-  const localAntesDelModelo = main.indexOf('if (responderAutomatico(mensaje)) return;');
+  const localAntesDelModelo = main.indexOf('responderAutomatico(mensaje)) return;');
   const llamadaChat = main.indexOf("fetch(`${BACKEND}/chat`,");
   assert.ok(localAntesDelModelo >= 0 && localAntesDelModelo < llamadaChat);
+  // Con una guía en curso (o un pedido de guía), el backend decide: las reglas locales no cortan el paso.
+  assert.match(main, /if \(!guiaVisible\(guia\) && !pideGuia\(mensaje\) && responderAutomatico\(mensaje\)\) return;/);
   assert.match(main, /function responderAutomatico\(mensaje\) \{\s*const local = responderLocal\(mensaje, lecturaConInicio\(\)\)/);
   assert.equal([...main.matchAll(/responderLocal\(mensaje, lecturaConInicio\(\)\)/g)].length, 1);
   // Las reglas locales también muestran tarjeta: nada se ejecuta directo desde el enrutador.

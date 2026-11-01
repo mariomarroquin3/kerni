@@ -10,6 +10,7 @@ import { proximosConsejos, siguienteConsejo } from './consejos.js';
 import { explicarAccion } from './explicaciones.js';
 import { crearVigilanteEnlaces, debeLeerPortapapeles } from './vigilancia.js';
 import { debeMostrarResumen, diaSV, textoResumenDiario } from './resumen.js';
+import { BOTONES_GUIA, etiquetaGuia, guiaVisible, pideGuia } from './guias.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -169,6 +170,8 @@ const vigilanteRam = crearVigilanteRam();
 let ultimas = null;
 let pendiente = null; // acción que espera aprobación
 let sessionId = null;
+let guia = null; // guía paso a paso en curso: { id, titulo, paso, total } o null (lo manda el backend)
+let guiaOcupada = false; // evita dos avances seguidos con doble clic
 
 // Identidad anónima de esta PC para la memoria (un UUID al azar; no es un dato personal).
 function idDeEstaPc() {
@@ -1100,6 +1103,44 @@ function pedirLimpieza() {
 }
 $('limpiar').addEventListener('click', pedirLimpieza);
 
+// ---------- Guías paso a paso ----------
+// La línea de guía se ve solo con una guía en curso. Los textos llegan del backend; aquí solo se pintan (textContent).
+function pintarGuia() {
+  const visible = guiaVisible(guia);
+  $('guia').hidden = !visible;
+  if (visible) $('guia-etiqueta').textContent = etiquetaGuia(guia);
+}
+
+/** Manda Listo, No pude o Salir al backend. Sin modelo: el paso lo decide la base, no la pantalla. */
+async function enviarRespuestaGuia(respuesta) {
+  if (!deviceId || !guiaVisible(guia) || guiaOcupada) return;
+  guiaOcupada = true;
+  try {
+    const res = await fetch(`${BACKEND}/guias/responder`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, respuesta }),
+      signal: AbortSignal.timeout(PLAZO_BACKEND_MS),
+    });
+    const data = await res.json();
+    if (res.status === 409) guia = null; // ya no hay guía en el backend
+    if (!res.ok) {
+      decir(data.error ?? 'No pude seguir la guía.');
+    } else {
+      guia = data.guia ?? null;
+      decir(data.respuesta, 25000);
+      // La tarjeta de un paso de acción: la persona la aprueba o no; la guía no ejecuta nada.
+      if (data.propuesta) proponer(data.propuesta, true);
+    }
+  } catch (err) {
+    decir(textoDeError(err));
+  } finally {
+    guiaOcupada = false;
+    pintarGuia();
+  }
+}
+BOTONES_GUIA.forEach((b) => $(b.id).addEventListener('click', () => enviarRespuestaGuia(b.respuesta)));
+
 // ---------- Chat ----------
 $('chat').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1109,7 +1150,8 @@ $('chat').addEventListener('submit', async (e) => {
   input.value = '';
 
   // Solicitudes breves y deterministas usan las reglas/datos locales. Las dudas y preguntas abiertas van al modelo.
-  if (responderAutomatico(mensaje)) return;
+  // Con una guía en curso, o si la persona pide una guía, el backend decide (las reglas locales podrían cortar el paso).
+  if (!guiaVisible(guia) && !pideGuia(mensaje) && responderAutomatico(mensaje)) return;
 
   input.disabled = true;
   pensando = true;
@@ -1163,6 +1205,11 @@ $('chat').addEventListener('submit', async (e) => {
       throw new Error(data.error ?? `error ${res.status}`);
     }
     sessionId = data.session_id;
+    // `guia` solo viene cuando el turno tiene que ver con una guía (empezarla, avanzarla, cerrarla o preguntar en medio).
+    if ('guia' in data) {
+      guia = data.guia ?? null;
+      pintarGuia();
+    }
     decir(data.respuesta, 25000);
     $('chat-estado').textContent = 'Kerni respondió.';
     // Solo la última propuesta espera aprobación; la persona decide, no el modelo.

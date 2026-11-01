@@ -2,9 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { SnapshotSchema } from '../telemetria.js';
 import { esUuid } from '../memoria/memoria.js';
 import { crearMotorReflexion } from '../memoria/reflexion.js';
-import { detectarAccion } from '../intenciones.js';
+import { detectarAccion, detectarGuia } from '../intenciones.js';
 import { textoEquipo } from '../agent/agent.js';
 import { textoDeRespaldo } from '../rag/respaldo.js';
+import { crearMotorGuias, comandoDeGuia, lineaDePaso } from '../guias/motor.js';
+
+/** Sin memoria no hay dónde guardar el paso: la guía se rechaza con un mensaje claro (decisión en AGENTS.md). */
+/** La respuesta del modelo termina con el paso actual de la guía, diga lo que diga el modelo. */
+export function cerrarConPaso(respuesta, guia) {
+  const linea = lineaDePaso(guia);
+  return respuesta.endsWith(linea) ? respuesta : `${respuesta}\n\n${linea}`;
+}
+
+export const MENSAJE_SIN_MEMORIA_GUIA ='Las guías guardan dónde vas en la memoria local, y ahora no está disponible. Podemos ir por partes en la conversación: decime qué necesitás.';
 
 /**
  * Chat por texto con la foto del sistema.
@@ -18,11 +28,45 @@ export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 /** Plazo de un turno con el modelo. La app corta a los 60 s (desktop/web/main.js): el backend tiene que terminar antes. */
 export const PLAZO_TURNO_MS = 50_000;
 
-export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, now = () => Date.now(), plazoTurnoMs = PLAZO_TURNO_MS }) {
+export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, motorGuias = crearMotorGuias({ memoria }), now = () => Date.now(), plazoTurnoMs = PLAZO_TURNO_MS }) {
   /** La memoria es un extra: si falla (disco, base bloqueada), el chat sigue sin ella. */
   const seguro = async (etiqueta, fn, vacio) => {
     try { return await fn(); } catch (err) { app.log.error({ err: err.message }, `memoria: falló ${etiqueta}`); return vacio; }
   };
+
+  /** Respuesta de una guía con la forma de /chat: el paso como texto, su tarjeta si es de acción, y `guia` (null al cerrar). */
+  function respuestaDeGuia(r, sessionId) {
+    if (!r.ok) return { code: 503, body: { error: 'No pude guardar tu avance ahora mismo. Probá de nuevo en un momento.', codigo: 'fallo' } };
+    return {
+      body: {
+        session_id: sessionId,
+        respuesta: r.respuesta,
+        acciones: r.propuesta ? [r.propuesta] : [],
+        traza: [{ tipo: 'guia', paso: r.guia?.paso ?? null, guia: r.guia?.id ?? null }],
+        guia: r.guia ?? null,
+      },
+    };
+  }
+
+  /**
+   * Guías sin modelo: un comando (listo, no pude, salir) mientras hay una guía en curso, o el pedido de empezar una.
+   * Devuelve { code?, body } o null si el turno sigue al modelo.
+   */
+  async function turnoDeGuia({ mensaje, deviceId, sessionId }) {
+    const comando = comandoDeGuia(mensaje);
+    const inicio = detectarGuia(mensaje);
+    if (!comando && !inicio) return null;
+    const sid = typeof sessionId === 'string' && sessionId ? sessionId : randomUUID();
+    if (!deviceId) {
+      if (!inicio) return null;
+      return { body: { session_id: sid, respuesta: MENSAJE_SIN_MEMORIA_GUIA, acciones: [], traza: [{ tipo: 'guia', motivo: 'sin_memoria' }], guia: null } };
+    }
+    if (comando && await seguro('leer la guía', () => motorGuias.activa(deviceId), null)) {
+      return respuestaDeGuia(await motorGuias.siguiente(deviceId, comando), sid);
+    }
+    if (inicio) return respuestaDeGuia(await motorGuias.iniciar(deviceId, inicio), sid);
+    return null;
+  }
 
   // Historial por sesión en memoria del proceso; las inactivas se descartan.
   const sesiones = new Map();
@@ -79,6 +123,12 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     // Una sola persona usa la app: la clave del límite es la sesión local.
     if (limitador && !limitador.permitir('local')) return reply.code(429).send({ error: 'Muchos mensajes seguidos; esperá un momento.' });
 
+    const deviceId = esUuid(req.body?.device_id) && memoria?.habilitada ? req.body.device_id : null;
+
+    // Guías: el comando de un paso o el pedido de empezar una se resuelve aquí, sin gastar el modelo.
+    const porGuia = await turnoDeGuia({ mensaje, deviceId, sessionId: req.body?.session_id });
+    if (porGuia) return porGuia.code ? reply.code(porGuia.code).send(porGuia.body) : porGuia.body;
+
     if (!provider) {
       const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_cupo' });
       if (respaldo) return { session_id: randomUUID(), ...respaldo };
@@ -88,8 +138,6 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
         fallbackLocal: true,
       });
     }
-
-    const deviceId = esUuid(req.body?.device_id) && memoria?.habilitada ? req.body.device_id : null;
 
     limpiarInactivas();
     let sessionId = req.body?.session_id;
@@ -119,13 +167,16 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     try {
       // La base de conocimiento ya no se busca aquí: el modelo la consulta con la herramienta buscar_conocimiento solo cuando hace falta.
       const recuerdos = deviceId ? await seguro('leer el contexto', () => memoria.contexto(deviceId), '') : '';
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId), signal });
+      // Con una guía en curso, el modelo ve el paso actual y la respuesta termina repitiéndolo (el paso lo guarda la base, no el modelo).
+      const guia = deviceId ? await seguro('leer la guía', () => motorGuias.activa(deviceId), null) : null;
+      const { respuesta: respuestaModelo, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId), signal, guia });
+      const respuesta = guia ? cerrarConPaso(respuestaModelo, guia) : respuestaModelo;
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
         seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);
         seguro('encolar la reflexión', () => motorReflexion.encolarReflexion({ deviceId, mensaje }), undefined);
       }
-      return { session_id: sessionId, respuesta, acciones, traza };
+      return { session_id: sessionId, respuesta, acciones, traza, ...(guia ? { guia: { id: guia.id, titulo: guia.titulo, paso: guia.paso, total: guia.total } } : {}) };
     } catch (err) {
       req.log.error({ err: err.message, codigo: err.codigo, red: err.red }, 'falló el turno');
       // Sin cupo o con el servicio caído, lo que se pueda sin el modelo se hace igual: las guías y las tarjetas de siempre.

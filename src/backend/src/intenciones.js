@@ -155,3 +155,31 @@ export function detectarAccion(texto) {
 }
 
 export const PROPUESTA_ARCHIVOS = Object.freeze({ tipo: 'proponer_accion', accion: 'ver_archivos_pesados', motivo: PROPUESTAS.ver_archivos_pesados });
+
+// ---------- Guías paso a paso (guias/guias.js) ----------
+// Solo arrancan cuando la persona las pide por su nombre ("guíame", "paso a paso"). "Mi PC va lenta" sigue siendo
+// el diagnóstico de siempre. El orden importa: la primera regla que calza gana; las guías son fijas, nunca se inventan.
+const PIDE_GUIA = /\b(guiam\w*|paso\s+a\s+paso)\b/;
+const GUIA_REGLAS = [
+  // "tarda en prender" es arranque, no lentitud: esa pregunta no arranca la guía de lentitud.
+  {
+    guia: 'pc-lenta',
+    tema: /\b(pc|compu\w*|computadora|laptop|equipo|maquina)\b.{0,25}\b(lent[oa]s?|tard\w*|demor\w*)\b|\b(lent[oa]s?|tard\w*|demor\w*)\b.{0,25}\b(pc|compu\w*|computadora|laptop|equipo|maquina)\b/,
+    excepto: /\b(prender|encender|arranc\w*|inici\w*|apag\w*)\b/,
+  },
+  { guia: 'impresora-fuera-de-linea', tema: /\b(impresora|impresoras)\b/ },
+  { guia: 'actualizaciones-pendientes', tema: /\bactualizaci\w*\b|\bwindows\s+update\b/ },
+  { guia: 'espacio-en-disco', tema: /\b(espacio|disco|almacenamiento|papelera)\b/ },
+];
+
+/**
+ * La guía que la persona pide, o null. Ids de guias/guias.js.
+ * Pide tres cosas a la vez: el verbo de guiar, un tema de la guía y que no diga que no quiere una guía.
+ */
+export function detectarGuia(texto) {
+  const t = norm(texto);
+  if (!t || palabras(t) > MAX_PALABRAS_INTENCION) return null;
+  if (NEGACION.test(t) || !PIDE_GUIA.test(t)) return null;
+  const regla = GUIA_REGLAS.find((r) => r.tema.test(t) && !(r.excepto && r.excepto.test(t)));
+  return regla?.guia ?? null;
+}

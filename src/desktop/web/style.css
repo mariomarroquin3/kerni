@@ -190,6 +190,10 @@ body[data-reposo='1'] #hud { opacity: 0.55; }
 
 /* ---- Chat ---- */
 #chat { display: flex; gap: 8px; align-items: center; }
+/* Guía paso a paso: una línea encima del chat. `hidden` gana aunque la clase ponga display. */
+#guia[hidden] { display: none; }
+#guia { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 0.85em; }
+.guia-etiqueta { flex: 1 1 auto; min-width: 0; }
 #mensaje {
   flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--texto);
   background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08);
