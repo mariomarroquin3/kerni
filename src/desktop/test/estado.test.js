@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearDetectorPanico, calcularAnimo, sospechosos, snapshotParaBackend, modoKerni, nivelDeCarga, crearNivelCarga, MODOS_REPOSO, duracionGlobo, GLOBO_BASE_MS, GLOBO_MAXIMO_MS } from '../web/estado.js';
+import { crearDetectorPanico, calcularAnimo, sospechosos, snapshotParaBackend, modoKerni, nivelDeCarga, crearNivelCarga, MODOS_REPOSO, duracionGlobo, GLOBO_BASE_MS, GLOBO_MAXIMO_MS, contarInicioActivos, conInicioActivos, INICIO_VIGENTE_MS } from '../web/estado.js';
 
 const sano = { cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 200, totalGb: 476 }, procesos: [] };
 
@@ -131,4 +131,35 @@ test('A7: snapshotParaBackend manda la hora de inicio de cada proceso, y no inve
   assert.deepEqual(snapshotParaBackend(m).procesos[0], { pid: 7, nombre: 'a.exe', cpu: 1, memoriaMb: 5, inicio: 1700000000 });
   const sinHora = { ...m, procesos: [{ pid: 7, nombre: 'a.exe', cpu: 1, memoriaMb: 5 }] };
   assert.equal('inicio' in snapshotParaBackend(sinHora).procesos[0], false);
+});
+
+// ---------- Programas de inicio activos ----------
+const LECTURA = { cpu: 5, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 200, totalGb: 500 }, procesos: [] };
+const lista = (activos, inactivos = 0) => [
+  ...Array.from({ length: activos }, (_, i) => ({ nombre: `a${i}`, activo: true, ambito: i % 2 ? 'usuario' : 'equipo' })),
+  ...Array.from({ length: inactivos }, (_, i) => ({ nombre: `i${i}`, activo: false, ambito: 'usuario' })),
+];
+
+test('contarInicioActivos cuenta solo los activos, de usuario y de equipo', () => {
+  assert.equal(contarInicioActivos(lista(4, 3)), 4);
+  assert.equal(contarInicioActivos([]), 0);
+  assert.equal(contarInicioActivos(null), 0);
+});
+
+test('conInicioActivos: con una lista reciente agrega el conteo; sin lista o vencida no agrega nada', () => {
+  const ahora = 1_000_000_000;
+  const reciente = { lista: lista(16), cuando: ahora - 1000 };
+  assert.equal(conInicioActivos(LECTURA, reciente, ahora).inicioActivos, 16);
+  assert.equal('inicioActivos' in conInicioActivos(LECTURA, null, ahora), false);
+  assert.equal('inicioActivos' in conInicioActivos(LECTURA, { lista: lista(16), cuando: ahora - INICIO_VIGENTE_MS - 1 }, ahora), false);
+  assert.equal('inicioActivos' in conInicioActivos(LECTURA, { lista: lista(16), cuando: ahora + 5000 }, ahora), false);
+  assert.equal(conInicioActivos(null, reciente, ahora), null);
+});
+
+test('snapshotParaBackend manda inicioActivos solo si existe; sin el campo la foto queda igual que antes', () => {
+  const sin = snapshotParaBackend(LECTURA);
+  assert.equal('inicioActivos' in sin, false);
+  assert.deepEqual(sin, { cpu: 5, ram: LECTURA.ram, disco: LECTURA.disco, procesos: [] });
+  assert.equal(snapshotParaBackend({ ...LECTURA, inicioActivos: 15 }).inicioActivos, 15);
+  assert.equal('inicioActivos' in snapshotParaBackend({ ...LECTURA, inicioActivos: -3 }), false);
 });

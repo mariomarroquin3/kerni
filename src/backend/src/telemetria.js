@@ -20,6 +20,8 @@ export const SnapshotSchema = z.object({
       }),
     )
     .max(25),
+  // Programas de inicio activos (usuario y equipo), contados por la app solo si la lista se leyó hace poco. Opcional.
+  inicioActivos: z.number().int().min(0).max(5000).optional(),
 });
 
 /** Procesos que Kerni nunca propone cerrar (la app Rust los vuelve a revisar). */

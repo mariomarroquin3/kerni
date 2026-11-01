@@ -149,6 +149,8 @@ const DICE_LENTO = /\b(lent[oa]s?|tarda\w*|demor\w*|anda mal|va mal)\b/;
 const NO_ES_DIAGNOSTICO = /\b(prender|encender|arranc\w*|inici\w*|apag\w*|reinici\w*|bateria|cargar)\b/;
 const UMBRAL_CPU_DIAG = 80;
 const UMBRAL_RAM_DIAG = 85;
+/** Con este número de programas de inicio activos, sin cuello de botella claro, el diagnóstico ofrece verlos. */
+export const UMBRAL_INICIO_ACTIVOS = 15;
 
 /** @param {string} t texto ya normalizado (sin tildes, en minúsculas) */
 export function pideDiagnostico(t) {
@@ -160,7 +162,8 @@ const nombreSeguro = (n) => String(n ?? '').replace(/[\u0000-\u001f\u007f<>]/g, 
 
 /**
  * El recurso que más frena, comparado contra su umbral (el mayor cociente gana). Con un cuello claro propone UNA
- * acción existente: ver_programas_inicio (memoria) o limpiar_temporales (disco casi lleno). Nunca cierra nada.
+ * acción existente: ver_programas_inicio (memoria, o sin cuello y con muchos programas al iniciar) o limpiar_temporales
+ * (disco casi lleno). Con el procesador al tope no propone nada. Nunca cierra nada.
  * @returns {{ texto: string, proponer?: object }}
  */
 export function diagnosticoLento(m) {
@@ -177,6 +180,13 @@ export function diagnosticoLento(m) {
   const procesos = m.procesos ?? [];
 
   if (cuello.ratio < 1) {
+    const inicio = m.inicioActivos;
+    if (Number.isInteger(inicio) && inicio >= UMBRAL_INICIO_ACTIVOS) {
+      return {
+        texto: `${resumen} Ninguno está al tope, pero tenés ${inicio} programas que se abren al iniciar. Eso suele frenar el arranque y la marcha; los miro si querés y vos decidís qué desactivar.`,
+        proponer: { accion: 'ver_programas_inicio', motivo: `Hay ${inicio} programas activos al iniciar Windows.` },
+      };
+    }
     return { texto: `${resumen} Ninguno está al tope, así que no veo un culpable claro en este momento. Si sigue lenta, reiniciarla suele ayudar.` };
   }
   if (cuello.recurso === 'disco') {

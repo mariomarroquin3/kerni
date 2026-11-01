@@ -1,4 +1,4 @@
-import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
+import { calcularAnimo, conInicioActivos, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
 import { estadoIA, motivoDeRespuesta } from './estado-ia.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
@@ -788,7 +788,16 @@ async function conPanel(titulo, espera, leer, armar) {
 }
 
 const verEquipo = () => conPanel('Tu equipo', 'Mirando tu equipo…', () => llamar('info_equipo'), panelEquipo);
-const verInicio = () => conPanel('Programas de inicio', 'Mirando qué se abre al iniciar…', () => llamar('programas_inicio'), panelInicio);
+// Última lista de programas de inicio que leyó la app: de ahí sale el conteo para el diagnóstico (ver estado.js).
+let inicioLeido = null; // { lista, cuando } | null
+async function leerInicio() {
+  const lista = await llamar('programas_inicio');
+  inicioLeido = { lista, cuando: Date.now() };
+  return lista;
+}
+/** La última lectura del sistema, con el conteo de inicio si la lista es reciente. */
+const lecturaConInicio = () => conInicioActivos(ultimas, inicioLeido, Date.now());
+const verInicio = () => conPanel('Programas de inicio', 'Mirando qué se abre al iniciar…', leerInicio, panelInicio);
 const verEspacio = () => conPanel('Espacio por carpeta', 'Midiendo tus carpetas… puede tardar unos segundos.', () => llamar('espacio_por_carpeta'), panelEspacio);
 const verRed = () => conPanel('Estado de la red', 'Probando la conexión…', () => llamar('estado_red'), panelRed);
 const verActualizaciones = () => conPanel('Actualizaciones de Windows', 'Preguntándole a Windows Update… puede tardar unos minutos.', () => llamar('actualizaciones_windows'), panelActualizaciones);
@@ -805,7 +814,7 @@ const verArranque = () => conPanel('Por qué tarda en prender', 'Mirando tu últ
 /** Junta lo que ya sabe la app (equipo, memoria, disco, inicio y red). Lo que no se pueda leer simplemente no aparece. */
 async function juntarReporte() {
   const seguro = async (fn) => { try { return await fn(); } catch { return undefined; } };
-  const [info, inicio, red] = await Promise.all([seguro(() => llamar('info_equipo')), seguro(() => llamar('programas_inicio')), seguro(() => llamar('estado_red'))]);
+  const [info, inicio, red] = await Promise.all([seguro(() => llamar('info_equipo')), seguro(leerInicio), seguro(() => llamar('estado_red'))]);
   return armarReporte({ equipo: info ?? equipo ?? undefined, metricas: ultimas ?? undefined, inicio, red });
 }
 const verReporte = () => conPanel('Resumen para soporte técnico', 'Juntando los datos de tu equipo…', juntarReporte, panelReporte);
@@ -972,7 +981,7 @@ $('memoria-olvidar-todo').addEventListener('click', async () => {
 });
 
 function responderAutomatico(mensaje) {
-  const local = responderLocal(mensaje, ultimas);
+  const local = responderLocal(mensaje, lecturaConInicio());
   if (!local) return false;
   decir(local.texto, 20000);
   $('chat-estado').textContent = 'Kerni respondió con información local.';
@@ -1017,7 +1026,7 @@ $('chat').addEventListener('submit', async (e) => {
         session_id: sessionId ?? undefined,
         ...(deviceId ? { device_id: deviceId } : {}),
         ...(equipo ? { equipo: { fabricante: equipo.fabricante, modelo: equipo.modelo, so: equipo.so } } : {}),
-        ...(ultimas ? { snapshot: snapshotParaBackend(ultimas) } : {}),
+        ...(ultimas ? { snapshot: snapshotParaBackend(lecturaConInicio()) } : {}),
       }),
       signal: controller.signal,
     });

@@ -148,3 +148,19 @@ describe('POST /chat: codigo estable en los errores', () => {
     expect(res.json().error).not.toMatch(/stack interno/);
   });
 });
+
+describe('POST /chat: inicioActivos en la foto', () => {
+  it('acepta la foto sin el campo (clientes anteriores) y con él', async () => {
+    const { app } = createTestApp({ respuestas: [texto('ok'), texto('ok')] });
+    expect((await post(app, { mensaje: 'hola', snapshot: SNAPSHOT })).statusCode).toBe(200);
+    expect((await post(app, { mensaje: 'hola', snapshot: { ...SNAPSHOT, inicioActivos: 17 } })).statusCode).toBe(200);
+  });
+
+  it('rechaza un conteo que no es un entero no negativo, sin dejar pasar la foto', async () => {
+    const { app } = createTestApp();
+    for (const inicioActivos of [-1, 2.5, '17', 999999]) {
+      const res = await post(app, { mensaje: 'hola', snapshot: { ...SNAPSHOT, inicioActivos } });
+      expect(res.statusCode, String(inicioActivos)).toBe(400);
+    }
+  });
+});

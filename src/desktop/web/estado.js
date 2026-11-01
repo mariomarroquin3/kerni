@@ -63,6 +63,8 @@ export function snapshotParaBackend(m) {
     procesos: m.procesos.map(({ pid, nombre, cpu, memoriaMb, inicio }) => ({
       pid, nombre, cpu, memoriaMb, ...(Number.isInteger(inicio) ? { inicio } : {}),
     })),
+    // Cuántos programas de inicio están activos (solo si la lista se leyó hace poco; si no, no va).
+    ...(Number.isInteger(m.inicioActivos) && m.inicioActivos >= 0 ? { inicioActivos: m.inicioActivos } : {}),
   };
 }
 
@@ -135,4 +137,24 @@ export const GLOBO_MAXIMO_MS = 90000;
 export function duracionGlobo(texto, minimoMs = 0) {
   const lectura = GLOBO_BASE_MS + String(texto ?? '').length * GLOBO_MS_POR_CARACTER;
   return Math.min(GLOBO_MAXIMO_MS, Math.max(minimoMs, lectura));
+}
+
+// ---------- Programas de inicio activos (para el diagnóstico y el snapshot) ----------
+/** Una lectura de inicio vale esto: pasado el plazo, la lectura se descarta y no se manda el conteo. */
+export const INICIO_VIGENTE_MS = 30 * 60 * 1000;
+
+/** Cuenta los programas de inicio activos, de usuario y del equipo. */
+export function contarInicioActivos(lista) {
+  return (Array.isArray(lista) ? lista : []).filter((p) => p?.activo === true).length;
+}
+
+/**
+ * Devuelve la lectura con `inicioActivos` si la lista de inicio se leyó hace poco (`inicio` = { lista, cuando }).
+ * Si no hay lista, o está vencida, o el reloj va hacia atrás, devuelve la lectura sin tocar (sin el campo).
+ */
+export function conInicioActivos(m, inicio, ahora) {
+  if (!m || !inicio || !Array.isArray(inicio.lista) || !Number.isFinite(inicio.cuando)) return m;
+  const edad = ahora - inicio.cuando;
+  if (edad < 0 || edad > INICIO_VIGENTE_MS) return m;
+  return { ...m, inicioActivos: contarInicioActivos(inicio.lista) };
 }

@@ -113,8 +113,8 @@ test('las solicitudes locales claras evitan el modelo y las respuestas locales s
   const localAntesDelModelo = main.indexOf('if (responderAutomatico(mensaje)) return;');
   const llamadaChat = main.indexOf("fetch(`${BACKEND}/chat`,");
   assert.ok(localAntesDelModelo >= 0 && localAntesDelModelo < llamadaChat);
-  assert.match(main, /function responderAutomatico\(mensaje\) \{\s*const local = responderLocal\(mensaje, ultimas\)/);
-  assert.equal([...main.matchAll(/responderLocal\(mensaje, ultimas\)/g)].length, 1);
+  assert.match(main, /function responderAutomatico\(mensaje\) \{\s*const local = responderLocal\(mensaje, lecturaConInicio\(\)\)/);
+  assert.equal([...main.matchAll(/responderLocal\(mensaje, lecturaConInicio\(\)\)/g)].length, 1);
   // Las reglas locales también muestran tarjeta: nada se ejecuta directo desde el enrutador.
   assert.match(main, /if \(local\.proponer\) proponer\(local\.proponer, false\);/);
   assert.doesNotMatch(main, /void buscarArchivosPesados\(\);\s*\} else if/);

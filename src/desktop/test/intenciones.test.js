@@ -160,6 +160,35 @@ test('diagnóstico: memoria al tope nombra el proceso que más usa y propone sol
   assert.deepEqual(r.proponer, { accion: 'ver_programas_inicio', motivo: 'Los programas que arrancan con Windows suelen gastar memoria.' });
 });
 
+test('diagnóstico con inicioActivos: sin cuello de botella y con 15 o más programas al iniciar propone solo ver_programas_inicio', () => {
+  const r = responderLocal('mi compu va lenta', { ...foto(), inicioActivos: 15 });
+  assert.match(r.texto, /15 programas que se abren al iniciar/);
+  assert.deepEqual(r.proponer, { accion: 'ver_programas_inicio', motivo: 'Hay 15 programas activos al iniciar Windows.' });
+});
+
+test('diagnóstico con inicioActivos: por debajo del umbral (14) o sin el campo, sigue igual que antes', () => {
+  for (const m of [{ ...foto(), inicioActivos: 14 }, foto()]) {
+    const r = responderLocal('mi compu va lenta', m);
+    assert.match(r.texto, /no veo un culpable claro/);
+    assert.equal(r.proponer, undefined);
+  }
+});
+
+test('diagnóstico con inicioActivos: con el procesador al tope no propone nada aunque haya muchos programas', () => {
+  const m = { ...foto({ cpu: 97, procesos: [{ nombre: 'minero.exe', memoriaMb: 300, cpu: 95 }] }), inicioActivos: 40 };
+  const r = responderLocal('mi computadora va lenta', m);
+  assert.match(r.texto, /el procesador/);
+  assert.equal(r.proponer, undefined);
+});
+
+test('diagnóstico con inicioActivos: con la memoria al tope sigue proponiendo ver_programas_inicio con su texto de siempre', () => {
+  const m = { ...foto({ ramUsada: 15000 }), inicioActivos: 3 };
+  const r = responderLocal('por qué tarda tanto la compu', m);
+  assert.match(r.texto, /la memoria/);
+  assert.equal(r.proponer.accion, 'ver_programas_inicio');
+  assert.equal(r.proponer.motivo, 'Los programas que arrancan con Windows suelen gastar memoria.');
+});
+
 test('diagnóstico: disco casi lleno propone limpiar_temporales y no otra cosa', () => {
   const r = responderLocal('mi pc anda lenta', foto({ disco: 93 }));
   assert.match(r.texto, /el disco/);
