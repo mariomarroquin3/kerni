@@ -1,4 +1,5 @@
 import { sanearParaBloque } from './recuerdos.js';
+import { ACCIONES } from '../acciones.js';
 
 export const CATEGORIAS_VALIDAS = ['perfil', 'preferencia', 'equipo', 'proyecto', 'episodio'];
 export const OPERACIONES_VALIDAS = ['agregar', 'reemplazar', 'retirar'];
@@ -9,16 +10,32 @@ export const TIMEOUT_EXTRACCION_MS = 8000;
 export const FALLOS_CIRCUITO = 5;
 export const TIEMPO_CIRCUITO_MS = 10 * 60_000;
 
-// Patrones de inyección o meta-instrucciones no permitidos en reflexiones
+// Filtro de reflexiones: es una LISTA DE BLOQUEO, no una garantía. Lo que de verdad protege es que una reflexión es
+// contexto y nunca instrucción: no aprueba acciones ni toca los procesos protegidos (AGENTS.md, memoria reflexiva).
+// Los patrones se comparan sobre el texto normalizado (sin tildes, en minúsculas), así "Aprobá", "IGNORÁ" o "sin preguntár" caen igual.
 const PATRONES_INSTRUCCION = [
-  /\bignora\b/i,
-  /\bolvida tus reglas\b/i,
-  /\bsiempre (ejecuta|aprueba|acepta)\b/i,
-  /\bnunca pidas (confirmaci[oó]n|permiso)\b/i,
-  /\bsystem prompt\b/i,
-  /\bprompt injection\b/i,
-  /\bhaz lo que diga\b/i,
+  /\bignor(a|ar|alo|ala)\b/,
+  /\bolvid(a|ar|ate|alo)\b/,
+  /\bsiempre (ejecuta|aprueba|aproba|acepta)\b/,
+  /\bnunca pidas\b/,
+  /\bno (me |nos )?preguntes\b/,
+  /\bsystem prompt\b/,
+  /\bprompt injection\b/,
+  /\bhaz lo que diga\b/,
+  /\bde ahora en adelante\b/,
+  /\ba partir de ahora\b/,
+  /\bsin (preguntar|confirmar)\b/,
+  /\btus (reglas|instrucciones)\b/,
+  // Imperativos hacia Kerni o sus acciones (con o sin voseo, con clítico: "cerrala", "vaciarla").
+  /\b(cierra|cerra|cerrar|borra|borrar|elimina|eliminar|vacia|vaciar|aprueba|aproba|aprobar|congela|congelar|ejecuta|ejecutar|instala|instalar|desinstala|desinstalar)(lo|la|los|las|le|les|se|me|te|nos)?\b/,
 ];
+
+// Una reflexión no nombra procesos ni acciones: eso es una orden disfrazada de recuerdo ("chrome.exe", "vaciar_papelera").
+const EJECUTABLE = /\b[\w-]+\.(exe|dll|msi|bat|cmd|ps1|vbs|scr|lnk)\b/;
+const ACCION_NOMBRADA = new RegExp('\\b(' + [
+  ...ACCIONES, 'cambiar_inicio', 'reanudar_proceso', 'proponer_accion', 'proponer_recuerdo',
+  'buscar_conocimiento', 'revisar_enlace', 'mostrar_en_carpeta',
+].join('|') + ')\\b');
 
 // Patrones de secretos o información privada
 const PATRONES_SECRETOS = [
@@ -28,6 +45,11 @@ const PATRONES_SECRETOS = [
   /(\+?\d{1,3}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{4}/, // teléfono
   /([A-Z]:\\[Uu]sers\\[^\\]+|\/home\/[^\/]+)/, // ruta personal
 ];
+
+/** Minúsculas, sin tildes ni diéresis y con NFKC: lo que comparan los patrones. */
+export function normalizarParaFiltro(texto) {
+  return String(texto).normalize('NFKC').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
 
 /** Filtro previo para determinar si el mensaje amerita reflexión sin gastar LLM. */
 export function pasaFiltroPrevio(mensaje) {
@@ -47,13 +69,10 @@ export function pasaFiltroPrevio(mensaje) {
 
 export function contieneInstruccionesOSecretos(contenido) {
   if (!contenido || typeof contenido !== 'string') return true;
-  for (const p of PATRONES_INSTRUCCION) {
-    if (p.test(contenido)) return true;
-  }
-  for (const s of PATRONES_SECRETOS) {
-    if (s.test(contenido)) return true;
-  }
-  return false;
+  const normal = normalizarParaFiltro(contenido);
+  if (PATRONES_INSTRUCCION.some((p) => p.test(normal))) return true;
+  if (EJECUTABLE.test(normal) || ACCION_NOMBRADA.test(normal)) return true;
+  return PATRONES_SECRETOS.some((s) => s.test(contenido) || s.test(normal));
 }
 
 const PROMPT_EXTRACTOR = `Eres un extractor de memoria para Kerni, una mascota que cuida la salud de la PC.
