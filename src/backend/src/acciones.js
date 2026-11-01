@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { esProtegido, limpiarNombre } from './telemetria.js';
-import { tieneInvisibles } from './seguridad/texto.js';
+import { limpiarTextoNoConfiable, quitarUrls, tieneInvisibles } from './seguridad/texto.js';
 
 /**
  * Acciones que Kerni puede proponer. El esquema es plano (un solo objeto) porque
@@ -32,6 +32,29 @@ export const ACCIONES = [
 /** Acciones que no llevan datos del sistema: la app decide qué y cuánto mirar. */
 const CON_PROCESO = ['terminar_proceso', 'congelar_proceso'];
 export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => !CON_PROCESO.includes(a) && a !== 'abrir_ajuste');
+/**
+ * Motivos fijos de las acciones que borran, cierran o pausan. Los escribe el código, no el modelo: así una propuesta
+ * destructiva nunca lleva un enlace ni un "ignora la confirmación" hasta la tarjeta.
+ */
+export const MOTIVOS_FIJOS = Object.freeze({
+  terminar_proceso: 'Cerrarlo puede hacer que pierdas lo que tenías sin guardar.',
+  congelar_proceso: 'Lo pausa sin cerrarlo; lo podés reanudar cuando quieras.',
+  limpiar_temporales: 'Borra archivos temporales de más de 24 horas. No toca tus documentos.',
+  limpiar_cache_navegador: 'Borra la caché de Chrome y Edge. No toca cookies ni contraseñas.',
+  vaciar_papelera: 'Vacía la papelera para siempre. No se puede deshacer.',
+});
+const MOTIVO_SOLO_LECTURA = 'Solo mira datos; no cambia nada.';
+
+/**
+ * Lo que la tarjeta muestra como motivo. Acciones destructivas: texto fijo. Las demás: el texto del modelo limpio
+ * con el mismo saneado que el resto del backend y sin direcciones web. Si no queda nada, el texto genérico.
+ */
+export function motivoSeguro(accion, motivo) {
+  if (Object.hasOwn(MOTIVOS_FIJOS, accion)) return MOTIVOS_FIJOS[accion];
+  const limpio = quitarUrls(limpiarTextoNoConfiable(motivo, { max: 300 }));
+  return limpio.length >= 3 ? limpio : MOTIVO_SOLO_LECTURA;
+}
+
 /** Lista cerrada (la misma que `direccion_de_ajuste` en Rust): el modelo nunca manda una dirección. */
 export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia', 'recuperacion'];
 
@@ -56,10 +79,10 @@ export function validarPropuesta(input, snapshot) {
 
   // Estas no llevan datos del sistema: la app decide qué y cuánto mirar. Casi todas son de solo lectura; limpiar_temporales
   // y vaciar_papelera borran, y por eso la persona siempre ve una tarjeta antes.
-  if (ACCIONES_SIN_DATOS.includes(accion)) return { ok: true, accion: { tipo: 'proponer_accion', accion, motivo } };
+  if (ACCIONES_SIN_DATOS.includes(accion)) return { ok: true, accion: { tipo: 'proponer_accion', accion, motivo: motivoSeguro(accion, motivo) } };
   if (accion === 'abrir_ajuste') {
     if (!destino) return { ok: false, error: `abrir_ajuste necesita un destino: ${DESTINOS_AJUSTE.join(', ')}` };
-    return { ok: true, accion: { tipo: 'proponer_accion', accion, destino, motivo } };
+    return { ok: true, accion: { tipo: 'proponer_accion', accion, destino, motivo: motivoSeguro(accion, motivo) } };
   }
 
   if (!pid || !nombre) return { ok: false, error: `${accion} necesita pid y nombre` };
@@ -88,7 +111,7 @@ export function validarPropuesta(input, snapshot) {
   if (inicioPedido !== undefined && Number.isInteger(proceso.inicio) && inicioPedido !== proceso.inicio) {
     return { ok: false, error: `el pid ${pid} ya es otro proceso (${limpiarNombre(proceso.nombre)} se inició en otro momento)` };
   }
-  const salida = { tipo: 'proponer_accion', accion, pid, nombre: proceso.nombre, motivo };
+  const salida = { tipo: 'proponer_accion', accion, pid, nombre: proceso.nombre, motivo: motivoSeguro(accion, motivo) };
   if (Number.isInteger(proceso.inicio)) salida.inicio = proceso.inicio;
   return { ok: true, accion: salida };
 }

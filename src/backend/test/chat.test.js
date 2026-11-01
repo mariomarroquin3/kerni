@@ -1,3 +1,4 @@
+import { MOTIVOS_FIJOS } from '../src/acciones.js';
 import { describe, expect, it } from 'vitest';
 import { createTestApp, fakeAnthropic, SNAPSHOT, texto, usarTool } from './helpers.js';
 import { createAnthropicProvider } from '../src/llm/anthropic.js';
@@ -26,7 +27,7 @@ describe('POST /chat', () => {
     });
     const body = (await post(app, { mensaje: 'está lenta', snapshot: SNAPSHOT })).json();
     expect(body.acciones).toEqual([
-      { tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa 30% de CPU y no lo reconozco' },
+      { tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: MOTIVOS_FIJOS.terminar_proceso },
     ]);
     expect(body.respuesta).toMatch(/miner/);
   });

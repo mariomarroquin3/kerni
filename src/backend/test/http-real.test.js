@@ -1,3 +1,4 @@
+import { MOTIVOS_FIJOS } from '../src/acciones.js';
 import { createServer } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../src/config.js';
@@ -42,7 +43,7 @@ describe('proveedores contra un servidor HTTP real (imitación)', () => {
     const { url, visto } = await imitar((_, n) => (n === 1 ? tool({ accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa 30% de CPU' }) : texto('Te propongo cerrar miner.exe.')));
     const res = await turno({ GEMINI_API_KEY: 'g-real', GEMINI_BASE_URL: url });
     expect(res.statusCode).toBe(200);
-    expect(res.json().acciones).toEqual([{ tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa 30% de CPU' }]);
+    expect(res.json().acciones).toEqual([{ tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: MOTIVOS_FIJOS.terminar_proceso }]);
     expect(visto).toHaveLength(2);
     expect(visto[0].auth).toBe('Bearer g-real');
     expect(visto[0].body.messages[0].content).toContain('<sistema>');

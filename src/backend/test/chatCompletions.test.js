@@ -1,3 +1,4 @@
+import { MOTIVOS_FIJOS } from '../src/acciones.js';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createChatCompletionsClient, createChatCompletionsProvider, GEMINI_URL, OPENROUTER_URL, segundosDeEspera,
@@ -230,7 +231,7 @@ describe('agente completo con un proveedor compatible con OpenAI', () => {
       ok('Te propongo cerrar miner.exe.'),
     ]);
     const res = (await chat(app, { mensaje: 'está lenta', snapshot: SNAPSHOT })).json();
-    expect(res.acciones).toEqual([{ tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa 30% de CPU' }]);
+    expect(res.acciones).toEqual([{ tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: MOTIVOS_FIJOS.terminar_proceso }]);
     // el historial del segundo pedido tiene el assistant con tool_calls y el mensaje tool con su id
     const msgs = pedidos[1].messages;
     expect(msgs.at(-2).tool_calls[0].function.name).toBe('proponer_accion');

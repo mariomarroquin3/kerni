@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validarPropuesta } from '../src/acciones.js';
+import { validarPropuesta, MOTIVOS_FIJOS } from '../src/acciones.js';
 import { formatearSnapshot, limpiarNombre, esProtegido } from '../src/telemetria.js';
 import { SNAPSHOT } from './helpers.js';
 
@@ -7,7 +7,7 @@ describe('validarPropuesta', () => {
   it('acepta cerrar un proceso que está en la foto con el nombre exacto', () => {
     const r = validarPropuesta({ accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU' }, SNAPSHOT);
     expect(r.ok).toBe(true);
-    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU' });
+    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: MOTIVOS_FIJOS.terminar_proceso });
   });
 
   it('rechaza un pid inventado', () => {
@@ -125,7 +125,7 @@ describe('limpiar_cache_navegador', () => {
   it('es una acción sin datos del sistema: la app decide qué borrar (solo la caché)', async () => {
     const r = validarPropuesta({ accion: 'limpiar_cache_navegador', motivo: 'El navegador va lento.' }, SNAPSHOT);
     expect(r.ok).toBe(true);
-    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'limpiar_cache_navegador', motivo: 'El navegador va lento.' });
+    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'limpiar_cache_navegador', motivo: MOTIVOS_FIJOS.limpiar_cache_navegador });
     const { ACCIONES_SIN_DATOS } = await import('../src/acciones.js');
     expect(ACCIONES_SIN_DATOS).toContain('limpiar_cache_navegador');
   });
@@ -137,7 +137,7 @@ describe('congelar_proceso', () => {
   it('acepta congelar un proceso de la foto con el nombre exacto y lleva la hora de inicio', () => {
     const r = validarPropuesta({ accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU', inicio: 1700000000 }, CON_INICIO);
     expect(r.ok).toBe(true);
-    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU', inicio: 1700000000 });
+    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'congelar_proceso', pid: 5555, nombre: 'miner.exe', motivo: MOTIVOS_FIJOS.congelar_proceso, inicio: 1700000000 });
   });
 
   it('nunca congela procesos protegidos', () => {

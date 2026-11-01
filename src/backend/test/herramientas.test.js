@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCIONES, DESTINOS_AJUSTE, validarPropuesta } from '../src/acciones.js';
+import { ACCIONES, DESTINOS_AJUSTE, MOTIVOS_FIJOS, validarPropuesta } from '../src/acciones.js';
 import { detectarAccion, destinoDeAjuste } from '../src/intenciones.js';
 import { lineaEquipo } from '../src/agent/agent.js';
 import { PERSONA } from '../src/agent/persona.js';
@@ -8,9 +8,9 @@ import { createTestApp, texto, usarTool } from './helpers.js';
 const chat = (app, mensaje, extra = {}) => app.inject({ method: 'POST', url: '/chat', payload: { mensaje, ...extra } });
 
 describe('acciones nuevas: validación', () => {
-  it('las de lectura y la papelera no llevan datos y pasan tal cual', () => {
+  it('las de lectura pasan con su motivo; la papelera lleva el texto fijo', () => {
     for (const accion of ['ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'vaciar_papelera']) {
-      expect(validarPropuesta({ accion, motivo: 'Para ver.' }, null)).toEqual({ ok: true, accion: { tipo: 'proponer_accion', accion, motivo: 'Para ver.' } });
+      expect(validarPropuesta({ accion, motivo: 'Para ver.' }, null)).toEqual({ ok: true, accion: { tipo: 'proponer_accion', accion, motivo: MOTIVOS_FIJOS[accion] ?? 'Para ver.' } });
     }
   });
 
