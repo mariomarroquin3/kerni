@@ -50,8 +50,12 @@ fn limpiar_dir(dir: &std::path::Path, limite: SystemTime, archivos: &mut u32, by
         let Ok(meta) = std::fs::symlink_metadata(&ruta) else { continue };
         if meta.file_type().is_symlink() { continue; }
         if meta.is_dir() {
+            // Vaciar la carpeta cambia su fecha: se mira antes de recorrerla.
+            let vieja = meta.modified().map_or(false, |m| m < limite);
             limpiar_dir(&ruta, limite, archivos, bytes);
-            let _ = std::fs::remove_dir(&ruta);
+            if vieja {
+                let _ = std::fs::remove_dir(&ruta);
+            }
         } else if meta.modified().map_or(false, |m| m < limite) && std::fs::remove_file(&ruta).is_ok() {
             *archivos += 1;
             *bytes += meta.len();

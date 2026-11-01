@@ -350,9 +350,12 @@ fn limpiar_dir(dir: &Path, limite: SystemTime, archivos: &mut u32, bytes: &mut u
             continue;
         }
         if meta.is_dir() {
+            // Se mira la fecha antes de vaciarla (vaciar la cambia). Solo se borra si es vieja y quedó vacía.
+            let vieja = meta.modified().map_or(false, |m| m < limite);
             limpiar_dir(&ruta, limite, archivos, bytes);
-            // Solo se borra si quedó vacía; si no, falla y se deja.
-            let _ = fs::remove_dir(&ruta);
+            if vieja {
+                let _ = fs::remove_dir(&ruta);
+            }
         } else if meta.modified().map_or(false, |m| m < limite) && fs::remove_file(&ruta).is_ok() {
             *archivos += 1;
             *bytes += meta.len();
@@ -747,6 +750,18 @@ mod tests {
         assert_eq!(n, 2);
         assert_eq!(b, 11);
         assert!(!base.join("sub").exists());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn una_carpeta_vacia_y_reciente_no_se_borra() {
+        let base = std::env::temp_dir().join(format!("kerni-test-vacia-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("recien_creada")).unwrap();
+        // Límite en el pasado: la carpeta es de hoy, así que no cuenta como vieja.
+        let (mut n, mut b) = (0, 0);
+        limpiar_dir(&base, SystemTime::now() - Duration::from_secs(3600), &mut n, &mut b);
+        assert!(base.join("recien_creada").is_dir());
         let _ = fs::remove_dir_all(&base);
     }
 
