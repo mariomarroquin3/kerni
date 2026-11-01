@@ -73,7 +73,7 @@ export function crearVigilanteRam({ ahora = () => Date.now() } = {}) {
     return {
       pid: p.pid, nombre: p.nombre, memoriaMb: p.memoriaMb, motivo, texto,
       proponer: {
-        accion: 'terminar_proceso', pid: p.pid, nombre: p.nombre,
+        accion: 'terminar_proceso', pid: p.pid, nombre: p.nombre, inicio: p.inicio,
         motivo: `Usa ${gb(p.memoriaMb)} GB de RAM (${Math.round(ramPct)}% en total).`,
       },
     };

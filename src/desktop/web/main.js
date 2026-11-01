@@ -217,7 +217,7 @@ function pintarPanico(m, activo) {
     boton.type = 'button';
     boton.textContent = 'Cerrar…';
     boton.addEventListener('click', () => proponer({
-      accion: 'terminar_proceso', pid: p.pid, nombre: p.nombre,
+      accion: 'terminar_proceso', pid: p.pid, nombre: p.nombre, inicio: p.inicio,
       motivo: `Usa ${p.cpu.toFixed(0)}% de CPU mientras la PC está al tope.`,
     }));
     li.append(nombre, boton);
@@ -297,7 +297,7 @@ const MAX_COLA = 3;
 // Aprobar no cuenta hasta que la tarjeta lleve un momento a la vista (un doble clic o un clic ya en camino no aprueba lo nuevo).
 const ESPERA_APROBAR_MS = 600;
 let tarjetaMostradaEn = 0;
-const mismaPropuesta = (a, b) => a.accion === b.accion && a.pid === b.pid && a.nombre === b.nombre && a.destino === b.destino && a.clave === b.clave;
+const mismaPropuesta = (a, b) => a.accion === b.accion && a.pid === b.pid && a.nombre === b.nombre && a.inicio === b.inicio && a.destino === b.destino && a.clave === b.clave;
 
 function proponer(accion, porKerni = false) {
   const mia = ++propuestaSeq;
@@ -361,7 +361,8 @@ async function ejecutar(a) {
     decir(await llamar('cambiar_inicio', { nombre: a.nombre, activar: a.activar }));
     await verInicio();
   } else if (a.accion === 'terminar_proceso') {
-    const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre });
+    // Sin `inicio` (propuesta del modelo, que no lo trae) Rust solo compara el nombre del proceso.
+    const msg = await llamar('terminar_proceso', { pid: a.pid, nombre: a.nombre, inicio: a.inicio });
     decir(msg);
   } else if (a.accion === 'limpiar_temporales') {
     const r = await llamar('limpiar_temporales');

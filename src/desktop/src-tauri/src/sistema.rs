@@ -46,6 +46,8 @@ pub struct Proceso {
     pub cpu: f32,
     pub memoria_mb: f64,
     pub protegido: bool,
+    /// Inicio del proceso (segundos desde la época). Con el pid, distingue un proceso de otro que reutilizó el pid.
+    pub inicio: u64,
 }
 
 #[derive(Serialize)]
@@ -229,6 +231,7 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
                 nombre,
                 cpu: (p.cpu_usage() / nucleos).min(100.0),
                 memoria_mb: p.memory() as f64 / MB,
+                inicio: p.start_time(),
             }
         })
         .filter(|p| p.pid != 0)
@@ -270,17 +273,19 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
 }
 
 /// Cierra un proceso. Pide pid y nombre para no cerrar otro que reutilizó el pid.
+/// `inicio` (opcional) es la hora de inicio que la lista mostró: si no coincide, el pid ya es otro proceso.
+/// Sin `inicio` (por ejemplo, una propuesta del modelo) solo se compara el nombre.
 #[tauri::command]
-pub async fn terminar_proceso(pid: u32, nombre: String, monitor: tauri::State<'_, Monitor>) -> Result<String, String> {
+pub async fn terminar_proceso(pid: u32, nombre: String, inicio: Option<u64>, monitor: tauri::State<'_, Monitor>) -> Result<String, String> {
     let sys = Arc::clone(&monitor.0);
-    tauri::async_runtime::spawn_blocking(move || cerrar_proceso(&mut bloquear(&sys), pid, &nombre, std::process::id()))
+    tauri::async_runtime::spawn_blocking(move || cerrar_proceso(&mut bloquear(&sys), pid, &nombre, inicio, std::process::id()))
         .await
         .map_err(|e| e.to_string())?
 }
 
 /// Las revisiones van antes de tocar nada: protegido, uno mismo, pid reutilizado.
 /// `propio` es el pid de Kerni (parámetro para poder probarlo).
-pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> Result<String, String> {
+pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, inicio: Option<u64>, propio: u32) -> Result<String, String> {
     if es_protegido(nombre) {
         return Err(format!("{nombre} es un proceso protegido y no se puede cerrar"));
     }
@@ -296,6 +301,11 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> 
     let real = proceso.name().to_string_lossy().to_string();
     if !real.eq_ignore_ascii_case(nombre.trim()) {
         return Err(format!("el pid {pid} ahora es {real}, no {nombre}; no se cerró nada"));
+    }
+    if let Some(esperado) = inicio {
+        if proceso.start_time() != esperado {
+            return Err(format!("el pid {pid} ya es otro proceso ({real} se inició después); no se cerró nada"));
+        }
     }
     if es_protegido(&real) {
         return Err(format!("{real} es un proceso protegido y no se puede cerrar"));
@@ -783,11 +793,11 @@ mod tests {
     #[test]
     fn no_cierra_protegidos_ni_a_si_mismo() {
         let mut sys = System::new();
-        let r = cerrar_proceso(&mut sys, 4, "System", 99999);
+        let r = cerrar_proceso(&mut sys, 4, "System", None, 99999);
         assert!(r.unwrap_err().contains("protegido"));
-        let r = cerrar_proceso(&mut sys, 4242, "algo.exe", 4242);
+        let r = cerrar_proceso(&mut sys, 4242, "algo.exe", None, 4242);
         assert!(r.unwrap_err().contains("a sí mismo"));
-        let r = cerrar_proceso(&mut sys, u32::MAX - 7, "fantasma.exe", 1);
+        let r = cerrar_proceso(&mut sys, u32::MAX - 7, "fantasma.exe", None, 1);
         assert!(r.unwrap_err().contains("ya no existe"));
     }
 
@@ -804,11 +814,18 @@ mod tests {
         std::thread::sleep(Duration::from_millis(400));
         let mut sys = System::new();
 
-        let r = cerrar_proceso(&mut sys, pid, "otra-cosa.exe", std::process::id());
+        let r = cerrar_proceso(&mut sys, pid, "otra-cosa.exe", None, std::process::id());
         assert!(r.unwrap_err().contains("no se cerró nada"));
         assert!(hijo.try_wait().unwrap().is_none(), "el proceso no debía cerrarse con otro nombre");
 
-        let r = cerrar_proceso(&mut sys, pid, "PING.EXE", std::process::id());
+        // Mismo pid y nombre, pero una hora de inicio que no es la suya: es otro proceso, no se cierra.
+        sys.refresh_processes(ProcessesToUpdate::All, true);
+        let real_inicio = sys.process(sysinfo::Pid::from_u32(pid)).map(|p| p.start_time()).expect("el proceso de prueba debía existir");
+        let r = cerrar_proceso(&mut sys, pid, "PING.EXE", Some(real_inicio + 1000), std::process::id());
+        assert!(r.unwrap_err().contains("ya es otro proceso"));
+        assert!(hijo.try_wait().unwrap().is_none(), "con otra hora de inicio no debía cerrarse");
+
+        let r = cerrar_proceso(&mut sys, pid, "PING.EXE", Some(real_inicio), std::process::id());
         assert!(r.is_ok(), "{r:?}");
         let estado = hijo.wait().expect("el proceso debía terminar");
         assert!(!estado.success());
