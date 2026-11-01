@@ -33,10 +33,13 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
 | `src/desktop/src-tauri/src/sistema.rs` | Código que toca el sistema: métricas, cerrar proceso, limpiar temporales, listar archivos pesados sin uso y espacio por carpeta (solo lectura) |
+| `src/desktop/src-tauri/src/congelar.rs` | Congelar y reanudar procesos (`NtSuspendProcess` de ntdll, sin dependencias nuevas). Mismas revisiones que `terminar_proceso`; reanuda todo al salir |
+| `src/desktop/src-tauri/src/navegadores.rs` | Caché de Chrome y Edge (`Cache` y `Code Cache` de cada perfil). Nunca cookies, historial ni contraseñas |
 | `src/desktop/src-tauri/src/herramientas.rs` | También toca el sistema: datos del equipo, programas de inicio, red, actualizaciones, papelera y ajustes de Windows (ver *Más herramientas*) |
 | `src/desktop/web/herramientas.js` | Cómo se muestran esos resultados y el texto de cada tarjeta (lógica pura, testeable) |
 | `src/backend/src/intenciones.js` | Pedidos que el harness reconoce solo ("qué programas se abren al iniciar", "vaciá la papelera") para proponer la tarjeta aunque el modelo no llame a la herramienta |
 | `src/desktop/web/estado.js` | Lógica pura del ánimo y del modo pánico (testeable sin DOM) |
+| `src/desktop/web/estado-ia.js` | Etiqueta Con IA / Sin IA junto al chat: lógica pura (`/health` y la última respuesta de `/chat`) |
 | `src/desktop/web/reglas.js` | Vigilante de RAM por reglas (proceso grande, fuga), sin modelo |
 | `src/desktop/web/estado.js` (carga) | `nivelDeCarga` y `crearNivelCarga`: umbrales 70 / 30 sobre el porcentaje de **batería**, con histéresis; `modoKerni` elige la cara por carga. La batería llega desde Rust (`Metricas.bateria`, `null` en un equipo sin batería) |
 | `src/desktop/web/intenciones.js` | Enrutamiento local conservador: datos medidos y pedidos cortos, explícitos y deterministas (como armar un reporte). Lo ambiguo, explicativo o de consejo va al modelo |
