@@ -202,7 +202,7 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [x] Personaje en Rive con cuatro modos (idle, sonriente, asustado, research) y saludo; la app cambia de modo según pánico, análisis y reacciones. Ver `personaje/kerni-rive/README.md`.
 - [x] Probado dentro de la ventana real de Tauri (`probar-tauri.mjs`), con `Kerni.bat` para abrirlo.
 - [x] Más herramientas: información del equipo, programas de inicio (con activar/desactivar), espacio por carpeta, estado de la red, actualizaciones pendientes, vaciar papelera y abrir ajustes de Windows. Probadas con lecturas reales en esta PC y con el modelo real; falta probarlas a mano en la ventana de Tauri.
-- [ ] Ícono propio (hoy se usa el de Bitoo).
+- [x] Ícono propio: se generó de la render del personaje (`personaje/kerni-rive/fuente/build/modo_idle.png`) en `src-tauri/icons` (ICO con 16 a 256 px). Falta verlo en la barra de tareas.
 - [ ] Probar a mano el arrastre de la ventana (`data-tauri-drag-region="deep"`): el clic sobre Kerni ya no lo hace saludar porque el arrastre lo captura.
 - [x] Modo pánico: **congelar** procesos no esenciales (suspender) en vez de solo cerrar (`congelar.rs`). Probado solo con pruebas unitarias; falta probar el congelado real en una ventana.
 - [x] Limpiar caché de Chrome y Edge (`limpiar_cache_navegador`, solo `Cache` y `Code Cache`). Probado con carpetas de prueba; falta probarlo con el navegador real cerrado y abierto.
