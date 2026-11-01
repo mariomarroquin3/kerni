@@ -1,0 +1,57 @@
+name: ci
+
+# Pruebas rápidas en cada push y pull request. No compila el instalador (eso lo hace build-windows.yml, a mano).
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Backend tests
+        working-directory: src/backend
+        run: |
+          npm ci
+          npm test
+
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Desktop tests
+        working-directory: src/desktop
+        run: |
+          npm ci
+          npm test
+
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src/desktop/src-tauri
+      # Tauri necesita la carpeta del front (dist) al compilar; por eso se construye antes de cargo test.
+      - name: Build the web front (needed by Tauri)
+        working-directory: src/desktop
+        run: |
+          npm ci
+          npm run web:build
+      - name: Rust tests
+        working-directory: src/desktop/src-tauri
+        run: cargo test
