@@ -252,3 +252,9 @@ body[data-animo='panico'] #kerni .antena-bola { fill: var(--peligro); animation:
 }
 
 [hidden] { display: none !important; }
+
+/* Etiqueta Con IA / Sin IA junto al chat. El color sigue el estado (data-estado). */
+.ia-chip { font-size: 11px; padding: 3px 8px; border-radius: 999px; white-space: nowrap; color: var(--suave); border: 1px solid rgba(255, 255, 255, 0.14); }
+.ia-chip[data-estado="con"] { color: #86efac; }
+.ia-chip[data-estado="sin"], .ia-chip[data-estado="sin_conexion"] { color: #fcd34d; }
+.ia-chip[data-estado="cupo"] { color: #fca5a5; }

@@ -227,4 +227,5 @@ node scripts/probar-tauri.mjs 9222 --captura build/ventana.png                  
 - [x] Tests nuevos: contexto seguro, chat sin Supabase, `conocimiento.habilitado`, rechazar device_id inválido.
 - [x] CI Windows: `.github/workflows/build-windows.yml` corre tests antes de build.
 - [ ] Decidir si el backend vive en la nube (como Bitoo) o se empaqueta local; hoy escucha solo en `127.0.0.1`.
+- [x] Etiqueta Con IA / Sin IA junto al chat (`web/estado-ia.js`): usa `/health` y la traza de la última respuesta de `/chat` para ver el cupo. Probada solo con pruebas unitarias; falta verla en la ventana.
 - [ ] Hitos siguientes de la propuesta: módulo C (seguridad), B (productividad) y E (herramientas).

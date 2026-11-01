@@ -1,5 +1,6 @@
 import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
+import { estadoIA, motivoDeRespuesta } from './estado-ia.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
@@ -837,6 +838,11 @@ $('chat').addEventListener('submit', async (e) => {
     });
     // El plazo cubre también la lectura del cuerpo.
     const data = await res.json().finally(() => clearTimeout(timeout));
+    const motivo = motivoDeRespuesta(res.ok, data);
+    if (motivo) {
+      ultimaIA = motivo;
+      pintarIA();
+    }
     if (!res.ok) {
       if (data.fallbackLocal) {
         const enlace = enlaceParaRevisar(mensaje);
@@ -1022,6 +1028,28 @@ menuContextual.addEventListener('click', async (e) => {
     decir('No pude completar esa opción. Probá de nuevo.', 6000);
   }
 });
+
+// ---------- Con IA / Sin IA: una etiqueta junto al chat (solo texto, con textContent) ----------
+let saludIA; // undefined = todavía no se preguntó; null = no hubo respuesta; objeto = cuerpo de /health
+let ultimaIA = null; // 'ok' | 'sin_cupo' | null: lo que dijo la última respuesta de /chat
+function pintarIA() {
+  const e = estadoIA(saludIA, ultimaIA);
+  const chip = $('ia-chip');
+  chip.textContent = e.texto;
+  chip.dataset.estado = e.clave;
+  chip.title = e.detalle;
+}
+async function refrescarIA() {
+  try {
+    const res = await fetch(`${BACKEND}/health`, { signal: AbortSignal.timeout(PLAZO_BACKEND_MS) });
+    saludIA = res.ok ? await res.json() : null;
+  } catch {
+    saludIA = null;
+  }
+  pintarIA();
+}
+refrescarIA();
+setInterval(refrescarIA, 60000);
 
 // Una lectura a la vez: la siguiente se programa cuando termina la anterior. Con setInterval, si Rust tardaba
 // (una limpieza grande), las lecturas se apilaban y llegaban juntas, todas altas, y podían disparar un pánico falso.
