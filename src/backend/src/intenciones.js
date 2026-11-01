@@ -71,6 +71,7 @@ const EXCEPCIONES = {
   ver_programas_inicio: /\b(inicio|iniciar|inicia|arranque)\s+(de\s+)?sesion\b|\bsesion\b/,
   ver_actualizaciones: /\b(office|word|excel|powerpoint|chrome|firefox|android|iphone|ios|apps?|juegos?|antivirus|drivers?|controlador(es)?)\b/,
   ver_info_equipo: /\bequipo\s+de\b/,
+  ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
 };

@@ -167,3 +167,12 @@ describe('A3: vaciar la papelera con cualquier forma del verbo', () => {
     expect(detectarAccion('no vacíes el reciclaje')).toBeNull();
   });
 });
+
+// A5: preguntar qué lleva un reporte es explicación; el reporte se arma solo si lo pide.
+describe('A5: explicar el reporte de soporte no lo arma', () => {
+  it('"qué debe llevar un reporte de soporte" y "cómo hago un reporte para soporte" van al modelo', () => {
+    expect(detectarAccion('qué debe llevar un reporte de soporte')).toBeNull();
+    expect(detectarAccion('cómo hago un reporte para soporte técnico')).toBeNull();
+    expect(detectarAccion('haceme un reporte del equipo para soporte')?.accion).toBe('ver_reporte_soporte');
+  });
+});
