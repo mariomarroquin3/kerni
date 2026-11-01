@@ -67,6 +67,7 @@ const REGLAS_NUEVAS = [
   { accion: 'ver_info_equipo', patron: /\b(que|cual(es)?)\s+(pc|compu\w*|computadora|laptop|equipo|modelo|procesador)\s+(es|tengo|uso)\b|\b(que|cual(es)?)\s+(modelo|marca)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(que|cual(es)?)\s+(tipo|clase)\s+de\s+(mi\s+|la\s+)?(pc|compu\w*|computadora|laptop|equipo)\s+(teng\w*|tenia|es|uso)\b|\b(modelo|caracteristicas|especificaciones|datos|informacion)\s+(de\s+)?(mi|la|del)\s+(pc|compu\w*|computadora|laptop|equipo)\b|\bque\s+procesador\b/, texto: 'Dale, miro qué equipo tenés.', motivo: 'Ver el modelo y las características del equipo.' },
   { accion: 'ver_reporte_soporte', patron: /\b(haz|hace|arm|prepar|gener|cre|sac|dame|quiero|necesito)\w*\b.{0,30}\b(reporte|informe|resumen|ficha)\b.{0,30}\b(soporte|tecnic\w*|equipo|pc|computadora|compu\w*|laptop)\b|\b(reporte|informe|resumen|ficha)\s+(de|del|para)\s+(el\s+)?(mi\s+)?(equipo|pc|computadora|compu\w*|laptop|soporte|tecnic\w*|ti|informatica|sistemas)\b|\b(soporte|tecnic\w*)\b.{0,30}\b(reporte|informe|resumen)\b|\bpara\s+(el\s+)?(soporte|tecnico)\b.{0,20}\b(datos|informacion|reporte|resumen)/, texto: 'Dale, armo un resumen de tu equipo para el soporte técnico.', motivo: 'Armar un resumen del equipo para mandarlo a soporte técnico.' },
   { accion: 'ver_salud_disco', patron: /\bcomo\s+esta\s+(el\s+|mi\s+|tu\s+)?(disco|ssd|hdd)\b(?!\s+(lleno|llena|casi))|\b(salud|estado)\s+(del\s+|de\s+(mi|el|tu|los)\s+)?(disco|discos|ssd|hdd)\b|\b(disco|ssd|hdd)\s+(esta\s+)?(fallando|muriendo|bien|mal)\b/, texto: 'Reviso la salud de tus discos. Solo miro: no pruebo, no reparo y no borro nada.', motivo: 'Ver si los discos muestran alertas.' },
+  { accion: 'ver_puntos_restauracion', patron: /\b(volver|regresar|retroceder)\s+(atras|para\s+atras)\b|\bpuntos?\s+de\s+restauracion\b|\brestaur\w*\s+(el\s+|mi\s+)?(sistema|windows|pc|compu\w*|computadora)\b/, texto: 'Miro si hay puntos de restauración a los que volver. Solo los listo: no creo ni borro ninguno.', motivo: 'Ver los puntos de restauración que existen.' },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
 ];
 
@@ -90,6 +91,7 @@ const EXCEPCIONES = {
   ver_actualizaciones: /\b(office|word|excel|powerpoint|chrome|firefox|android|iphone|ios|apps?|juegos?|antivirus|drivers?|controlador(es)?)\b/,
   ver_info_equipo: /\bequipo\s+de\b/,
   ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
+  ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
 };

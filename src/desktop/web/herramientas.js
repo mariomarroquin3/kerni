@@ -17,7 +17,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -26,6 +26,7 @@ export function describirNueva(a) {
     case 'ver_programas_inicio': return '¿Miro qué programas se abren solos cuando prendés la compu? Solo los listo; no cambio nada.';
     case 'ver_arranque': return '¿Miro por qué tarda en prender? Solo leo el último arranque de Windows y tus programas de inicio. No cambio nada.';
     case 'ver_salud_disco': return '¿Miro cómo está tu disco? Le pido a Windows la salud de cada disco. Solo leo: no pruebo, no reparo ni borro nada.';
+    case 'ver_puntos_restauracion': return '¿Miro si hay puntos de restauración a los que volver? Solo los listo: no creo ni borro ninguno.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
@@ -255,4 +256,18 @@ export function panelSaludDisco({ discos = [], nota = '' }) {
     return fila;
   });
   return { estado, filas };
+}
+
+/**
+ * "¿Puedo volver atrás si algo sale mal?": los puntos de restauración que existen. Kerni no crea ni borra ninguno.
+ * @param {{ puntos?: object[], nota?: string }} r
+ */
+export function panelPuntos({ puntos = [], nota = '' }) {
+  if (!puntos.length) return { estado: nota || 'No encontré puntos de restauración.', filas: [] };
+  const fechaDe = (p) => (p.fecha ? p.fecha.replace('T', ' ') : 'Fecha desconocida');
+  return {
+    estado: `Hay ${puntos.length} ${puntos.length === 1 ? 'punto de restauración' : 'puntos de restauración'}. El más nuevo es del ${fechaDe(puntos[0])}. `
+      + `Volver a uno lo decidís vos desde Windows; yo no lo hago. ${nota}`.trim(),
+    filas: puntos.map((p) => ({ titulo: p.descripcion, detalle: `${fechaDe(p)} · ${p.tipo}` })),
+  };
 }

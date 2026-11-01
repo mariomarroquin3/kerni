@@ -19,6 +19,7 @@ export const ACCIONES = [
   'ver_dispositivos_red',
   'ver_arranque',
   'ver_salud_disco',
+  'ver_puntos_restauracion',
   'abrir_ajuste',
   'vaciar_papelera',
 ];

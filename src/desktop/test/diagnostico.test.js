@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { describirNueva, panelArranque, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
+import { describirNueva, panelArranque, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
 import { accionLocalNueva } from '../web/intenciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -65,4 +65,31 @@ test('ver_salud_disco: registrado en lib.rs (dos listas) y la interfaz lo llama'
   assert.equal([...lib.matchAll(/diagnostico::ver_salud_disco,/g)].length, 2);
   assert.ok(main.includes("llamar('ver_salud_disco'"));
   assert.match(main, /ver_salud_disco: verSaludDisco/);
+});
+
+test('ver_puntos_restauracion: la tarjeta dice que no crea ni borra, y el pedido corto abre la lista', () => {
+  assert.match(describirNueva({ accion: 'ver_puntos_restauracion' }), /no creo ni borro ninguno/);
+  assert.ok(ACCIONES_PANEL.includes('ver_puntos_restauracion'));
+  assert.equal(accionLocalNueva('¿puedo volver atrás si algo sale mal?')?.proponer.accion, 'ver_puntos_restauracion');
+  assert.equal(accionLocalNueva('cómo puedo volver atrás'), null);
+});
+
+test('ver_puntos_restauracion: lista los puntos del más nuevo, o dice por qué no hay', () => {
+  const p = panelPuntos({ puntos: [
+    { numero: 5, descripcion: 'Controlador GPU', fecha: '2026-10-28T18:01:00', tipo: 'instalación de un controlador' },
+    { numero: 4, descripcion: 'Instalación de Office', fecha: '2026-10-20T09:15:00', tipo: 'instalación de un programa' },
+  ], nota: 'Solo los listo.' });
+  assert.match(p.estado, /Hay 2 puntos de restauración/);
+  assert.match(p.estado, /más nuevo es del 2026-10-28 18:01:00/);
+  assert.match(p.estado, /decidís vos desde Windows/);
+  assert.equal(p.filas[0].titulo, 'Controlador GPU');
+  const vacio = panelPuntos({ puntos: [], nota: 'No hay puntos de restauración. Windows no los crea si la protección del sistema está desactivada.' });
+  assert.match(vacio.estado, /protección del sistema está desactivada/);
+  assert.deepEqual(vacio.filas, []);
+});
+
+test('ver_puntos_restauracion: registrado en lib.rs (dos listas) y la interfaz lo llama', () => {
+  assert.equal([...lib.matchAll(/diagnostico::ver_puntos_restauracion,/g)].length, 2);
+  assert.ok(main.includes("llamar('ver_puntos_restauracion'"));
+  assert.match(main, /ver_puntos_restauracion: verPuntos/);
 });

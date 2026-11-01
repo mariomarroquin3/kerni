@@ -157,6 +157,7 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 | `ver_dispositivos_red` | Lista los equipos que la tabla ARP de la PC ya conoce en la red local (IP y MAC, sin escanear) y tu IP local. No se conecta a ninguno ni manda datos | No |
 | `ver_arranque` | Dice por qué tarda en prender: la duración del último arranque que registró Windows (evento de rendimiento, a veces pide administrador) y cuántos programas se abren solos. Si falta el dato, lo dice | No |
 | `ver_salud_disco` | Salud de cada disco físico según Windows (estado, desgaste, temperatura, errores). Dice "alerta, respalda ya" o "sin alertas", nunca "sano"; sin permisos de administrador faltan datos y lo dice | No |
+| `ver_puntos_restauracion` | Lista los puntos de restauración que existen (fecha, descripción y motivo). Dice si la protección del sistema parece desactivada o si hace falta administrador. No crea ni borra ninguno | No |
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 

@@ -62,6 +62,85 @@ pub async fn ver_arranque() -> Result<Arranque, String> {
     .map_err(|e| e.to_string())
 }
 
+// ---------- C3: puntos de restauración ----------
+
+/// Lista los puntos de restauración que existen (solo lectura). No crea ni borra ninguno.
+/// La fecha sale en formato WMI y se convierte con ManagementDateTimeConverter (Windows PowerShell 5.1, el que usa `ps`).
+const GUION_PUNTOS: &str = r#"$p=@(Get-ComputerRestorePoint -ErrorAction Stop|ForEach-Object{$f='';try{$f=[System.Management.ManagementDateTimeConverter]::ToDateTime($_.CreationTime).ToString('yyyy-MM-ddTHH:mm:ss')}catch{};[pscustomobject]@{numero=[int]$_.SequenceNumber;descripcion=[string]$_.Description;fecha=$f;tipo=[int]$_.RestorePointType}});if($p){@($p)|ConvertTo-Json -Compress}else{'[]'}"#;
+
+const NOTA_SIN_LECTURA: &str = "No pude leer los puntos de restauración. Puede que la restauración del sistema esté desactivada o que haga falta administrador.";
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PuntoRestauracion {
+    pub numero: u32,
+    pub descripcion: String,
+    /// Cuándo se creó (hora local, sin zona).
+    pub fecha: Option<String>,
+    /// Por qué se creó, en español (instalación de programa, controlador, cambio de configuración...).
+    pub tipo: String,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PuntosRestauracion {
+    /// Del más nuevo al más viejo.
+    pub puntos: Vec<PuntoRestauracion>,
+    pub nota: String,
+}
+
+/// Los códigos de RestorePointType de Windows, en palabras.
+fn tipo_de_punto(codigo: i64) -> &'static str {
+    match codigo {
+        0 => "instalación de un programa",
+        10 => "instalación de un controlador",
+        12 => "cambio de configuración",
+        13 => "operación cancelada",
+        _ => "otro motivo",
+    }
+}
+
+/// Interpreta la salida del guion. Las descripciones y fechas son datos del sistema: se limpian.
+pub fn parsear_puntos(salida: &str) -> Vec<PuntoRestauracion> {
+    lista_json(salida)
+        .iter()
+        .map(|v| {
+            let descripcion = texto(v, "descripcion", 120);
+            let fecha = texto(v, "fecha", 30);
+            PuntoRestauracion {
+                numero: numero(v, "numero").max(0.0) as u32,
+                descripcion: if descripcion.is_empty() { "Sin descripción".to_string() } else { descripcion },
+                fecha: (!fecha.is_empty()).then_some(fecha),
+                tipo: tipo_de_punto(numero(v, "tipo") as i64).to_string(),
+            }
+        })
+        .collect()
+}
+
+fn nota_puntos(cantidad: usize) -> String {
+    if cantidad == 0 {
+        "No hay puntos de restauración. Windows no los crea si la protección del sistema está desactivada.".to_string()
+    } else {
+        "Solo los listo: Kerni no crea ni borra puntos de restauración.".to_string()
+    }
+}
+
+/// Puntos de restauración que existen en la PC. Solo lectura.
+#[tauri::command]
+pub async fn ver_puntos_restauracion() -> Result<PuntosRestauracion, String> {
+    tauri::async_runtime::spawn_blocking(|| match ps(GUION_PUNTOS, Duration::from_secs(15)) {
+        Ok(salida) => {
+            let mut puntos = parsear_puntos(&salida);
+            puntos.sort_by(|a, b| b.fecha.cmp(&a.fecha));
+            let nota = nota_puntos(puntos.len());
+            PuntosRestauracion { puntos, nota }
+        }
+        Err(_) => PuntosRestauracion { puntos: Vec::new(), nota: NOTA_SIN_LECTURA.to_string() },
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 // ---------- C2: salud del disco ----------
 
 /// Salud de cada disco físico (Get-PhysicalDisk) y, si Windows la da, la de fiabilidad (Get-StorageReliabilityCounter).
@@ -275,4 +354,44 @@ mod tests {
         assert!(!d[0].nombre.contains('\u{7}'));
         assert!(d[0].nombre.starts_with("SSD"));
     }
+    #[test]
+    fn lee_los_puntos_y_los_traduce_el_motivo() {
+        let p = parsear_puntos(r#"[{"numero":4,"descripcion":"Instalación de Office","fecha":"2026-10-20T09:15:00","tipo":0},{"numero":5,"descripcion":"Controlador GPU","fecha":"2026-10-28T18:01:00","tipo":10}]"#);
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0].descripcion, "Instalación de Office");
+        assert_eq!(p[0].tipo, "instalación de un programa");
+        assert_eq!(p[1].tipo, "instalación de un controlador");
+        assert_eq!(p[1].fecha.as_deref(), Some("2026-10-28T18:01:00"));
+    }
+
+    #[test]
+    fn el_mas_nuevo_va_primero_y_un_motivo_raro_no_rompe_nada() {
+        let mut p = parsear_puntos(r#"[{"numero":1,"descripcion":"viejo","fecha":"2026-01-02T10:00:00","tipo":99},{"numero":2,"descripcion":"nuevo","fecha":"2026-10-30T10:00:00","tipo":12}]"#);
+        p.sort_by(|a, b| b.fecha.cmp(&a.fecha));
+        assert_eq!(p[0].descripcion, "nuevo");
+        assert_eq!(p[1].tipo, "otro motivo");
+    }
+
+    #[test]
+    fn sin_fecha_o_descripcion_no_se_inventa_nada() {
+        let p = parsear_puntos(r#"[{"numero":7,"descripcion":"","fecha":"","tipo":13}]"#);
+        assert_eq!(p[0].fecha, None);
+        assert_eq!(p[0].descripcion, "Sin descripción");
+    }
+
+    #[test]
+    fn las_descripciones_se_limpian_antes_de_mostrarse() {
+        let p = parsear_puntos("[{\"numero\":3,\"descripcion\":\"Punto\\u0007 <img src=x>\",\"tipo\":0}]");
+        assert!(!p[0].descripcion.contains('\u{7}'));
+        assert!(p[0].descripcion.starts_with("Punto"));
+    }
+
+    #[test]
+    fn sin_puntos_o_sin_acceso_lo_dice() {
+        assert!(parsear_puntos("").is_empty());
+        assert!(nota_puntos(0).contains("No hay puntos"));
+        assert!(NOTA_SIN_LECTURA.contains("administrador"));
+        assert!(nota_puntos(2).contains("no crea ni borra"));
+    }
+
 }

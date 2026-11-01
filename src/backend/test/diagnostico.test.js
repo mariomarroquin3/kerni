@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ACCIONES, ACCIONES_SIN_DATOS, validarPropuesta } from '../src/acciones.js';
 import { detectarAccion } from '../src/intenciones.js';
 
-const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco'];
+const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion'];
 
 describe('diagnóstico: solo lectura, sin datos del modelo', () => {
   it('cada herramienta está en ACCIONES y en ACCIONES_SIN_DATOS, y pasa sin foto del sistema', () => {
@@ -33,5 +33,15 @@ describe('ver_salud_disco: frases', () => {
     }
     expect(detectarAccion('cómo está el disco lleno')).toBeNull();
     expect(detectarAccion('cuánto espacio tengo en el disco')).toBeNull();
+  });
+});
+
+describe('ver_puntos_restauracion: frases', () => {
+  it('"¿puedo volver atrás si algo sale mal?" abre la lista; las explicaciones van al modelo', () => {
+    for (const f of ['¿puedo volver atrás si algo sale mal?', 'quiero restaurar el sistema', 'hay puntos de restauración?']) {
+      expect(detectarAccion(f)?.accion, f).toBe('ver_puntos_restauracion');
+    }
+    expect(detectarAccion('cómo puedo volver atrás')).toBeNull();
+    expect(detectarAccion('qué es un punto de restauración')).toBeNull();
   });
 });
