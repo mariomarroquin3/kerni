@@ -15,11 +15,30 @@ export const DEFAULT_ORIGINS = [
 ];
 
 /**
+ * ¿El header Host es de loopback? Con puerto conocido (el de producción) debe ser
+ * exactamente 127.0.0.1:<puerto> o localhost:<puerto>. Sin puerto conocido (pruebas
+ * con inject) basta con el nombre de host.
+ */
+export function hostPermitido(host, puerto) {
+  const m = /^(127\.0\.0\.1|localhost)(?::(\d+))?$/i.exec(String(host ?? ''));
+  if (!m) return false;
+  if (!puerto) return true;
+  return m[2] === String(puerto);
+}
+
+/**
  * Construye la app con dependencias inyectadas, para poder probarla
  * con un proveedor de LLM falso.
  */
 export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), now, logger = false, plazoTurnoMs }) {
   const app = Fastify({ logger });
+
+  // Host: el servidor solo escucha en loopback. Rechazar cualquier otro Host evita
+  // el "DNS rebinding" (una página web que apunta su dominio a 127.0.0.1 para leer la API).
+  app.addHook('onRequest', async (req, reply) => {
+    if (hostPermitido(req.headers.host, config.port)) return;
+    return reply.code(403).send({ error: 'host no permitido' });
+  });
 
   // CORS para la app de escritorio: el WebView de Tauri tiene su propio origen.
   const origenes = new Set(config.corsOrigins ?? DEFAULT_ORIGINS);
