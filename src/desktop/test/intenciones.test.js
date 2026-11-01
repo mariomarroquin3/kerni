@@ -124,3 +124,20 @@ test('A2: quién está conectado a la red abre la lista de dispositivos, no la p
   }
   assert.equal(accionLocalNueva('tengo internet')?.proponer.accion, 'ver_estado_red');
 });
+
+// A6: un plazo vencido se le dice a la persona en español, nunca "aborted due to timeout".
+test('A6: un timeout muestra un mensaje en español', async () => {
+  const { textoDeError } = await import('../web/intenciones.js');
+  const porTimeout = textoDeError(new DOMException('aborted due to timeout', 'TimeoutError'));
+  assert.match(porTimeout, /Kerni tardó demasiado en responder/);
+  assert.doesNotMatch(porTimeout, /timeout|aborted/i);
+  assert.match(textoDeError(new DOMException('The operation was aborted.', 'AbortError')), /tardó demasiado/);
+  assert.equal(textoDeError(new Error('algo salió mal')), 'algo salió mal');
+});
+
+test('A6: main.js no vuelve a mostrar el error crudo del navegador', async () => {
+  const { readFileSync } = await import('node:fs');
+  const main = readFileSync(new URL('../web/main.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(main, /decir\(String\(err\)\)/);
+  assert.match(main, /esTiempoAgotado\(err\)/);
+});

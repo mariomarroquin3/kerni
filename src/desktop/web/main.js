@@ -1,7 +1,7 @@
 import { calcularAnimo, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
-import { enlaceParaRevisar, resumenEnlace, responderLocal } from './intenciones.js';
+import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
 import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
 
@@ -459,7 +459,7 @@ async function buscarArchivosPesados() {
       ver.type = 'button';
       ver.className = 'secundario';
       ver.textContent = 'Ver';
-      ver.addEventListener('click', () => llamar('mostrar_en_carpeta', { ruta: a.ruta }).catch((err) => decir(String(err))));
+      ver.addEventListener('click', () => llamar('mostrar_en_carpeta', { ruta: a.ruta }).catch((err) => decir(textoDeError(err))));
       li.append(info, ver);
       lista.append(li);
     }
@@ -486,7 +486,7 @@ function boton(b, secundario = true) {
   el.type = 'button';
   if (secundario) el.className = 'secundario';
   el.textContent = b.texto;
-  el.addEventListener('click', () => Promise.resolve(Object.hasOwn(ACCIONES_DEL_PANEL, b.tipo) ? ACCIONES_DEL_PANEL[b.tipo](b.dato) : undefined).catch((err) => decir(String(err))));
+  el.addEventListener('click', () => Promise.resolve(Object.hasOwn(ACCIONES_DEL_PANEL, b.tipo) ? ACCIONES_DEL_PANEL[b.tipo](b.dato) : undefined).catch((err) => decir(textoDeError(err))));
   return el;
 }
 
@@ -525,7 +525,7 @@ function mostrarPanel(titulo, { estado, filas, boton: extra }, hablar = true) {
     const nuevo = bExtra.cloneNode(false);
     nuevo.textContent = extra.texto;
     nuevo.hidden = false;
-    nuevo.addEventListener('click', () => Promise.resolve(Object.hasOwn(ACCIONES_DEL_PANEL, extra.tipo) ? ACCIONES_DEL_PANEL[extra.tipo](extra.dato) : undefined).catch((err) => decir(String(err))));
+    nuevo.addEventListener('click', () => Promise.resolve(Object.hasOwn(ACCIONES_DEL_PANEL, extra.tipo) ? ACCIONES_DEL_PANEL[extra.tipo](extra.dato) : undefined).catch((err) => decir(textoDeError(err))));
     bExtra.replaceWith(nuevo);
   }
   $('panel').hidden = false;
@@ -804,8 +804,8 @@ $('chat').addEventListener('submit', async (e) => {
     if (propuesta) proponer(propuesta, true);
     else if (recuerdo) proponer({ accion: 'recordar', clave: recuerdo.clave, valor: recuerdo.valor }, false);
   } catch (err) {
-    if (err.name === 'AbortError' || err.name === 'TimeoutError') {
-      decir('Uy, me tardé demasiado pensando. ¿Probamos de nuevo?');
+    if (esTiempoAgotado(err)) {
+      decir(MENSAJE_TARDO);
       $('chat-estado').textContent = 'La respuesta tardó demasiado.';
     } else {
       decir(err instanceof TypeError ? 'Ay, no logro hablar con mi cerebro. ¿Está encendido el backend?' : String(err.message ?? err));

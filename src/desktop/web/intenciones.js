@@ -4,6 +4,19 @@
 // aquí. Las preguntas abiertas, explicaciones y consejos siguen yendo al modelo.
 
 export const MAX_PALABRAS = 8;
+
+// ---------- Errores que se muestran a la persona ----------
+export const MENSAJE_TARDO = 'Kerni tardó demasiado en responder. Probá de nuevo con algo más corto.';
+
+/** Un plazo vencido (AbortController o AbortSignal.timeout) llega como AbortError o TimeoutError. */
+export function esTiempoAgotado(err) {
+  return err?.name === 'AbortError' || err?.name === 'TimeoutError';
+}
+
+/** Texto para la burbuja: el plazo en español, y cualquier otro error con su mensaje (nunca el texto crudo del navegador). */
+export function textoDeError(err) {
+  return esTiempoAgotado(err) ? MENSAJE_TARDO : String(err?.message ?? err);
+}
 const MAX_PALABRAS_ACCION_LOCAL = 12;
 const MAX_PALABRAS_DATOS = 6;
 export const DISCO_APRETADO_PCT = 85;
