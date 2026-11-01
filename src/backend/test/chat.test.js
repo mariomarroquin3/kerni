@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createTestApp, SNAPSHOT, texto, usarTool } from './helpers.js';
+import { createTestApp, fakeAnthropic, SNAPSHOT, texto, usarTool } from './helpers.js';
+import { createAnthropicProvider } from '../src/llm/anthropic.js';
 
 const post = (app, body) => app.inject({ method: 'POST', url: '/chat', payload: body });
 
@@ -91,5 +92,59 @@ describe('POST /chat', () => {
     const { app } = createTestApp({ respuestas: [] }); // el guion vacío lanza error
     const res = await post(app, { mensaje: 'hola' });
     expect(res.statusCode).toBe(502);
+  });
+});
+
+describe('POST /chat: codigo estable en los errores', () => {
+  /** Un proveedor cuyo step lanza el error indicado (como lo hace llm/anthropic.js o chatCompletions.js). */
+  function conError(err) {
+    const provider = createAnthropicProvider({ anthropic: fakeAnthropic([]) });
+    provider.step = async () => { throw err; };
+    return createTestApp({ provider }).app;
+  }
+
+  it('sin llave configurada: codigo sin_llave, con error y fallbackLocal', async () => {
+    const { app } = createTestApp({ sinProveedor: true });
+    const res = await post(app, { mensaje: 'contame algo que no tenga respuesta automática' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ codigo: 'sin_llave', fallbackLocal: true });
+    expect(res.json().error).toMatch(/llave de modelo/);
+  });
+
+  it('llave inválida: codigo llave_invalida, 503 y el mensaje claro sigue en error', async () => {
+    const app = conError(Object.assign(new Error('La llave no es válida. Revisá el .env.'), { codigo: 'llave_invalida' }));
+    const res = await post(app, { mensaje: 'hola' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ codigo: 'llave_invalida', error: 'La llave no es válida. Revisá el .env.' });
+    expect(res.json().fallbackLocal).toBeUndefined();
+  });
+
+  it('cupo agotado: codigo sin_cupo con fallbackLocal', async () => {
+    const app = conError(Object.assign(new Error('Se agotó el cupo.'), { codigo: 'sin_cupo' }));
+    const res = await post(app, { mensaje: 'contame algo que no tenga respuesta automática' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ codigo: 'sin_cupo', fallbackLocal: true, error: 'Se agotó el cupo.' });
+  });
+
+  it('créditos agotados (402 sin codigo): también es sin_cupo', async () => {
+    const app = conError(Object.assign(new Error('Sin créditos.'), { status: 402 }));
+    const res = await post(app, { mensaje: 'contame algo que no tenga respuesta automática' });
+    expect(res.json()).toMatchObject({ codigo: 'sin_cupo', fallbackLocal: true });
+  });
+
+  it('sin red: codigo sin_red, sin fallbackLocal', async () => {
+    const app = conError(Object.assign(new Error('Sin red.'), { codigo: 'sin_red' }));
+    const res = await post(app, { mensaje: 'hola' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toMatchObject({ codigo: 'sin_red', error: 'Sin red.' });
+    expect(res.json().fallbackLocal).toBeUndefined();
+  });
+
+  it('cualquier otro fallo: 502, codigo fallo y sin detalles internos', async () => {
+    const app = conError(new Error('stack interno'));
+    const res = await post(app, { mensaje: 'hola' });
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toMatchObject({ codigo: 'fallo' });
+    expect(res.json().error).not.toMatch(/stack interno/);
   });
 });

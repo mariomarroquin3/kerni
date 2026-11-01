@@ -9,6 +9,8 @@ import { textoDeRespaldo } from '../rag/respaldo.js';
 /**
  * Chat por texto con la foto del sistema.
  *   POST /chat  { mensaje, snapshot?, equipo?, session_id?, device_id? } → { session_id, respuesta, acciones, traza }
+ *   Errores 503/502: { error, codigo, fallbackLocal? }. `codigo` es estable para el front:
+ *   sin_llave | llave_invalida | sin_cupo | sin_red | fallo.
  * Con `device_id` y memoria conectada, Kerni retoma la charla anterior y recuerda lo guardado.
  */
 export const MAX_MENSAJE = 1000;
@@ -82,6 +84,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       if (respaldo) return { session_id: randomUUID(), ...respaldo };
       return reply.code(503).send({
         error: 'No hay una llave de modelo configurada. Kerni probará las respuestas automáticas locales.',
+        codigo: 'sin_llave',
         fallbackLocal: true,
       });
     }
@@ -137,6 +140,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       const claro = ['llave_invalida', 'sin_cupo', 'sin_red'].includes(err.codigo) || err.status === 402;
       return reply.code(claro ? 503 : 502).send({
         error: claro ? err.message : 'Kerni no pudo pensar ahora mismo. Probá de nuevo en un momento.',
+        codigo: claro ? (err.status === 402 ? 'sin_cupo' : err.codigo) : 'fallo',
         ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}),
       });
     } finally {

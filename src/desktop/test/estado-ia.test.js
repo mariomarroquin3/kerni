@@ -40,6 +40,29 @@ test('motivoDeRespuesta: respuesta normal es ok; respaldo por cupo es sin_cupo; 
   assert.equal(motivoDeRespuesta(false, { error: 'otro' }), null);
 });
 
+test('una llave no válida se muestra como "Llave no válida", con el archivo a revisar en el detalle', () => {
+  const e = estadoIA(conProveedor, 'llave_invalida');
+  assert.equal(e.texto, 'Llave no válida');
+  assert.equal(e.clave, 'llave_invalida');
+  assert.match(e.detalle, /no es válida/);
+  assert.equal(TEXTO_IA.llave_invalida, 'Llave no válida');
+});
+
+test('los otros estados no cambian con la llave: sin conexión y sin proveedor siguen igual', () => {
+  assert.equal(estadoIA(null, 'llave_invalida').clave, 'sin_conexion');
+  assert.equal(estadoIA({ ok: true }, 'llave_invalida').clave, 'sin');
+  assert.equal(estadoIA(conProveedor, 'sin_cupo').clave, 'cupo');
+  assert.equal(estadoIA(conProveedor, 'ok').clave, 'con');
+});
+
+test('motivoDeRespuesta usa codigo: llave_invalida, sin_cupo y sin_llave (que no cambia la etiqueta)', () => {
+  assert.equal(motivoDeRespuesta(false, { error: 'La llave no es válida.', codigo: 'llave_invalida', fallbackLocal: undefined }), 'llave_invalida');
+  assert.equal(motivoDeRespuesta(false, { error: 'Cupo.', codigo: 'sin_cupo', fallbackLocal: true }), 'sin_cupo');
+  assert.equal(motivoDeRespuesta(false, { error: 'No hay llave.', codigo: 'sin_llave', fallbackLocal: true }), null);
+  assert.equal(motivoDeRespuesta(false, { error: 'Sin red.', codigo: 'sin_red' }), null);
+  assert.equal(motivoDeRespuesta(false, { error: 'Algo.', codigo: 'fallo' }), null);
+});
+
 test('la etiqueta existe en la ventana y se pinta con textContent, nunca con innerHTML', () => {
   const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
   const main = readFileSync(new URL('../web/main.js', import.meta.url), 'utf8');
