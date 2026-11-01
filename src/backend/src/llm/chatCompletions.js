@@ -31,6 +31,14 @@ function errorApi(nombre, claveEnv, status, detalle) {
   return err;
 }
 
+/** El turno se quedó sin tiempo (o la app cortó): se trata como "tardó demasiado", con mensaje claro. */
+export function turnoInterrumpido(nombre) {
+  const e = new Error(`${nombre} tardó demasiado en responder.`);
+  e.codigo = 'sin_red';
+  e.interrumpido = true;
+  return e;
+}
+
 /** Más espera que esto no se espera: se avisa y listo (la persona está mirando a Kerni). */
 const ESPERA_MAXIMA_S = 30;
 
@@ -69,17 +77,20 @@ export function createChatCompletionsClient({
   reintentosRed = 1, // cuántas veces se reintenta tras un tiempo agotado o un corte de red
   dormir = (ms) => new Promise((r) => setTimeout(r, ms)),
 }) {
-  return async function complete(body) {
+  // `signal` es el plazo del turno completo (lo pone /chat): si se agota o la persona se fue, no se reintenta más.
+  return async function complete(body, { signal } = {}) {
     for (let intento = 0; ; intento++) {
+      if (signal?.aborted) throw turnoInterrumpido(nombre);
       let res;
       try {
         res = await fetchImpl(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}`, ...headers },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(timeoutMs),
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
         });
       } catch (err) {
+        if (signal?.aborted) throw turnoInterrumpido(nombre);
         // Sin red o tiempo agotado: se reintenta antes de rendirse.
         if (intento < Math.min(reintentos, reintentosRed)) { await dormir(esperaMs); continue; }
         const e = new Error(err?.name === 'TimeoutError' ? `${nombre} tardó demasiado en responder.` : `No pude conectar con ${nombre}.`);
@@ -106,7 +117,7 @@ export function createChatCompletionsClient({
           throw err;
         }
       }
-      if (REINTENTABLES.has(status) && intento < reintentos) {
+      if (REINTENTABLES.has(status) && intento < reintentos && !signal?.aborted) {
         const retryAfter = Number(res.headers?.get?.('retry-after')) || (status === 429 ? espera : 0);
         await dormir(retryAfter > 0 ? retryAfter * 1000 : esperaMs * 2 ** intento);
         continue;
@@ -126,7 +137,7 @@ export function createChatCompletionsProvider({ complete, model, maxTokens = 100
 
     userMessage: (text) => ({ role: 'user', content: text }),
 
-    async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false } = {}) {
+    async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false, signal } = {}) {
       const systemContent = [persona, contexto].filter(Boolean).join('\n\n');
       const systemMessages = systemContent ? [{ role: 'system', content: systemContent }] : [];
       const json = await complete({
@@ -139,7 +150,7 @@ export function createChatCompletionsProvider({ complete, model, maxTokens = 100
           ...(sinTools ? { tool_choice: 'none' } : {}),
         } : {}),
         ...extraBody,
-      });
+      }, { signal });
 
       const choice = json.choices?.[0];
       if (!choice) throw new Error(`${name} no devolvió respuesta`);

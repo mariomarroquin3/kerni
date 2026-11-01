@@ -32,7 +32,7 @@ export function elegirProveedor(config) {
  * sin llamar a nadie.
  * @returns {{ provider: object, nombre: string } | null}
  */
-export function crearProveedor(config, { anthropicFactory = (apiKey) => new Anthropic({ apiKey }), fetchImpl = fetch } = {}) {
+export function crearProveedor(config, { anthropicFactory = (apiKey) => new Anthropic({ apiKey, timeout: 40_000, maxRetries: 1 }), fetchImpl = fetch } = {}) {
   const nombre = elegirProveedor(config);
   if (!nombre) return null;
   const maxTokens = config.maxTokensRespuesta;

@@ -18,7 +18,7 @@ export const DEFAULT_ORIGINS = [
  * Construye la app con dependencias inyectadas, para poder probarla
  * con un proveedor de LLM falso.
  */
-export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), now, logger = false }) {
+export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), now, logger = false, plazoTurnoMs }) {
   const app = Fastify({ logger });
 
   // CORS para la app de escritorio: el WebView de Tauri tiene su propio origen.
@@ -47,7 +47,7 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
     conocimiento: conocimiento.habilitado,
     ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
   }));
-  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, ...(now ? { now } : {}) });
+  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}) });
   app.register(memoriaRoutes, { memoria, limitador });
   app.register(enlacesRoutes, { revisorEnlaces });
   return app;

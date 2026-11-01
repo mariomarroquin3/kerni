@@ -13,8 +13,10 @@ import { textoDeRespaldo } from '../rag/respaldo.js';
  */
 export const MAX_MENSAJE = 1000;
 export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
+/** Plazo de un turno con el modelo. La app corta a los 60 s (desktop/web/main.js): el backend tiene que terminar antes. */
+export const PLAZO_TURNO_MS = 50_000;
 
-export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, now = () => Date.now() }) {
+export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, now = () => Date.now(), plazoTurnoMs = PLAZO_TURNO_MS }) {
   /** La memoria es un extra: si falla (disco, base bloqueada), el chat sigue sin ella. */
   const seguro = async (etiqueta, fn, vacio) => {
     try { return await fn(); } catch (err) { app.log.error({ err: err.message }, `memoria: falló ${etiqueta}`); return vacio; }
@@ -105,10 +107,16 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     if (sesion.ocupada) return reply.code(409).send({ error: 'Kerni todavía está respondiendo el mensaje anterior' });
 
     sesion.ocupada = true;
+    // El turno entero tiene un plazo menor que los 60 s que espera la app: si se pasa, o si la app cortó, se aborta
+    // (sin seguir gastando cupo) y la sesión queda libre para el siguiente mensaje en vez de responder 409.
+    const corte = new AbortController();
+    const alCerrar = () => { if (!reply.raw.writableEnded) corte.abort(); };
+    reply.raw.once('close', alCerrar);
+    const signal = AbortSignal.any([corte.signal, AbortSignal.timeout(plazoTurnoMs)]);
     try {
       // La base de conocimiento ya no se busca aquí: el modelo la consulta con la herramienta buscar_conocimiento solo cuando hace falta.
       const recuerdos = deviceId ? await seguro('leer el contexto', () => memoria.contexto(deviceId), '') : '';
-      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId) });
+      const { respuesta, acciones, traza } = await agent.runTurn({ sessionId, history: sesion.history, mensaje, snapshot, equipo, memoria: recuerdos, puedeRecordar: Boolean(deviceId), signal });
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
         seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);
@@ -132,6 +140,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
         ...(motivo === 'sin_cupo' ? { fallbackLocal: true } : {}),
       });
     } finally {
+      reply.raw.off('close', alCerrar);
       sesion.ocupada = false;
       sesion.ultimoUso = now();
     }

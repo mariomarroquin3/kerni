@@ -100,6 +100,15 @@ export function destinoDeAjuste(texto) {
   return DESTINOS.find(([, patron]) => patron.test(t))?.[0] ?? null;
 }
 
+// "no quiero vaciar la papelera", "no vacíes nada", "mejor no": la persona dice que NO. Nunca se propone nada.
+// Ojo: "archivos que ya no uso" o "no tengo internet" sí son pedidos, por eso solo cuentan los "no" delante de un verbo de pedido.
+export const NEGACION = /\b(no|nunca|jamas|ni)\s+(me\s+|la\s+|lo\s+|los\s+|las\s+)?(quier\w*|quisier\w*|necesit\w*|hace\s+falta|es\s+necesario|vaci\w*|borr\w*|elimin\w*|limpi\w*|abr\w*|toqu\w*|cierr\w*|cerr\w*|mostr\w*|muestr\w*|busqu\w*|busc\w*|revis\w*)\b|\bmejor\s+no\b/;
+
+/** @returns {boolean} el mensaje rechaza o prohíbe una acción ("no quiero vaciar la papelera") */
+export function esNegacion(texto) {
+  return NEGACION.test(norm(texto));
+}
+
 /**
  * La acción que pide el mensaje, o null si no es un pedido claro. Misma forma que devuelve `validarPropuesta`.
  * @returns {null | { tipo: 'proponer_accion', accion: string, motivo: string, destino?: string }}
@@ -107,6 +116,7 @@ export function destinoDeAjuste(texto) {
 export function detectarAccion(texto) {
   const t = norm(texto);
   if (!t || palabras(t) > MAX_PALABRAS_INTENCION) return null;
+  if (NEGACION.test(t)) return null;
   const destino = destinoDeAjuste(t);
   if (destino) return { tipo: 'proponer_accion', accion: 'abrir_ajuste', destino, motivo: `Abrir la configuración de ${destino} en Windows.` };
   if (pideArchivosPesados(t)) return { tipo: 'proponer_accion', accion: 'ver_archivos_pesados', motivo: PROPUESTAS.ver_archivos_pesados };

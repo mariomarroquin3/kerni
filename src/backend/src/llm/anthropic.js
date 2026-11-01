@@ -5,6 +5,38 @@
  */
 export const ANTHROPIC_MODEL = 'claude-haiku-5-5';
 
+/**
+ * Los errores del SDK solo traen `status`; /chat necesita el mismo `codigo` que pone chatCompletions.js
+ * (llave_invalida, sin_cupo, sin_red) para mostrarle a la persona un mensaje claro. Nunca se copia el cuerpo crudo.
+ */
+export function errorAnthropic(err, { signal } = {}) {
+  if (err?.codigo) return err;
+  const nombre = err?.constructor?.name ?? err?.name ?? '';
+  const status = Number(err?.status) || 0;
+  let e;
+  if (signal?.aborted || /UserAbort|Timeout/i.test(nombre)) {
+    e = new Error('Anthropic tardó demasiado en responder.');
+    e.codigo = 'sin_red';
+  } else if (/Connection/i.test(nombre)) {
+    e = new Error('No pude conectar con Anthropic.');
+    e.codigo = 'sin_red';
+  } else if (status === 401 || status === 403) {
+    e = new Error('La llave de Anthropic no es válida. Revisá ANTHROPIC_API_KEY en src/backend/.env.');
+    e.codigo = 'llave_invalida';
+  } else if (status === 429) {
+    e = new Error('Anthropic agotó el cupo de esta llave por ahora. Probá más tarde.');
+    e.codigo = 'sin_cupo';
+  } else if (status === 400 && /credit balance/i.test(String(err?.message))) {
+    e = new Error('Anthropic dice que no hay créditos en la cuenta.');
+    e.codigo = 'sin_cupo';
+  } else {
+    return err;
+  }
+  e.status = status || undefined;
+  e.cause = err;
+  return e;
+}
+
 export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, maxTokens = 600 }) {
   return {
     name: 'anthropic',
@@ -12,31 +44,41 @@ export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, ma
 
     userMessage: (text) => ({ role: 'user', content: text }),
 
-    async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false } = {}) {
-      const response = await anthropic.messages.create({
-        model,
-        max_tokens: maxTokens,
-        system: [
-          { type: 'text', text: persona, cache_control: { type: 'ephemeral' } },
-          ...(contexto ? [{ type: 'text', text: contexto }] : []),
-        ],
-        ...(tools.length ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) } : {}),
-        ...(sinTools && tools.length ? { tool_choice: { type: 'none' } } : {}),
-        messages: history,
-      });
+    async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false, signal } = {}) {
+      let response;
+      try {
+        response = await anthropic.messages.create({
+          model,
+          max_tokens: maxTokens,
+          system: [
+            { type: 'text', text: persona, cache_control: { type: 'ephemeral' } },
+            ...(contexto ? [{ type: 'text', text: contexto }] : []),
+          ],
+          ...(tools.length ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) } : {}),
+          ...(sinTools && tools.length ? { tool_choice: { type: 'none' } } : {}),
+          messages: history,
+        }, signal ? { signal } : undefined);
+      } catch (err) {
+        throw errorAnthropic(err, { signal });
+      }
 
       if (response.stop_reason === 'refusal') return { kind: 'refusal' };
 
       const text = response.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-      const calls = response.content
-        .filter((b) => b.type === 'tool_use')
-        .map((b) => ({ id: b.id, name: b.name, input: b.input }));
+      const completa = response.stop_reason === 'tool_use';
+      const calls = completa
+        ? response.content.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, name: b.name, input: b.input }))
+        : [];
+
+      // Un tool_use cortado por max_tokens (u otro corte) no tiene resultado: si quedara en el historial, cada pedido
+      // siguiente de la sesión daría 400. Se guarda solo el texto.
+      const content = completa ? response.content : response.content.filter((b) => b.type !== 'tool_use');
 
       return {
-        kind: response.stop_reason === 'tool_use' && calls.length ? 'tool_calls' : 'final',
+        kind: completa && calls.length ? 'tool_calls' : 'final',
         text,
         calls,
-        assistantMessage: { role: 'assistant', content: response.content },
+        assistantMessage: { role: 'assistant', content: content.length ? content : [{ type: 'text', text: text || '…' }] },
       };
     },
 
