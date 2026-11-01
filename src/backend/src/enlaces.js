@@ -62,6 +62,19 @@ export function dominioRegistrable(host) {
 const esIp = (host) => /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith('[');
 
 /** @returns {{ url: URL } | { resultado: object }} la URL lista para analizar, o un resultado ya decidido */
+/**
+ * Lo único que sale hacia Google: esquema, dominio y ruta. Sin usuario y
+ * contraseña (pueden venir en el enlace), sin consulta (?token=...) y sin fragmento.
+ */
+export function soloDireccion(url) {
+  const u = new URL(url.href);
+  u.username = '';
+  u.password = '';
+  u.search = '';
+  u.hash = '';
+  return u.href;
+}
+
 function interpretar(entrada) {
   const crudo = String(entrada ?? '').trim().replace(/^[<"'(]+|[>"')\].,;]+$/g, '');
   if (!crudo || crudo.length > MAX_ENLACE) return { resultado: { nivel: 'no_se_puede', motivos: ['No pude entender el enlace: está vacío o es larguísimo.'], dominio: '' } };
@@ -173,7 +186,7 @@ export function createRevisorEnlaces({ apiKey = '', fetch: fetchFn = globalThis.
       const base = analizarEnlace(entrada);
       if (base.nivel === 'no_se_puede' || !base.dominio) return { ...base, listas: { estado: 'no_consultada' }, nota: NOTA };
       const interpretado = interpretar(entrada);
-      const listas = await consultarListas(interpretado.url.href);
+      const listas = await consultarListas(soloDireccion(interpretado.url));
       if (listas.estado === 'aparece') {
         const que = listas.tipos.includes('MALWARE') || listas.tipos.includes('UNWANTED_SOFTWARE') ? 'virus o programas dañinos' : 'estafas';
         return { ...base, nivel: 'peligroso', motivos: [`Google tiene este sitio en su lista de sitios peligrosos (${que}).`, ...base.motivos], listas, nota: NOTA };

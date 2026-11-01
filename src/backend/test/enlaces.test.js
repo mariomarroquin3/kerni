@@ -92,6 +92,17 @@ describe('createRevisorEnlaces (lista de Google opcional)', () => {
     expect(visto[0].cuerpo.threatInfo.threatEntries).toEqual([{ url: 'https://sitio-normal.com/pagina' }]);
   });
 
+  it('a Google solo sale la dirección: sin usuario, contraseña, consulta ni fragmento', async () => {
+    const visto = [];
+    const revisor = createRevisorEnlaces({
+      apiKey: 'k',
+      fetch: async (url, init) => { visto.push(JSON.parse(init.body)); return respuesta({}); },
+    });
+    await revisor.revisar('https://ana:secreta123@sitio-normal.com/cuenta/inicio?token=abc123&x=1#seccion');
+    expect(visto[0].threatInfo.threatEntries).toEqual([{ url: 'https://sitio-normal.com/cuenta/inicio' }]);
+    expect(JSON.stringify(visto)).not.toMatch(/secreta123|abc123|seccion/);
+  });
+
   it('si Google no lo tiene, queda el nivel de la dirección y se anota que no apareció', async () => {
     const revisor = createRevisorEnlaces({ apiKey: 'k', fetch: async () => respuesta({}) });
     const r = await revisor.revisar('https://www.dell.com');
