@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { responderLocal, porcentajeDisco, enlaceParaRevisar, resumenEnlace } from '../web/intenciones.js';
+import { responderLocal, porcentajeDisco, enlaceParaRevisar, resumenEnlace, accionLocalNueva } from '../web/intenciones.js';
 
 const lectura = (libreGb, totalGb = 500) => ({
   cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb, totalGb }, procesos: [],
@@ -101,3 +101,18 @@ test('el resumen del enlace nunca dice "seguro", avisa de los límites y explica
 
   assert.match(resumenEnlace({ nivel: 'no_se_puede', motivos: ['No pude entender ese enlace. ¿Lo copiaste completo?'] }), /copiaste completo/);
 });
+
+// A1: "abre el almacenamiento" pide abrir un ajuste, no el texto del disco.
+test('A1: abrir una pantalla de ajustes con verbo y destino, sin decir "configuración"', () => {
+  for (const q of ['abre el almacenamiento', 'abrí el almacenamiento', 'abrime actualizaciones']) {
+    const r = responderLocal(q, lectura(300));
+    assert.equal(r?.proponer?.accion, 'abrir_ajuste', q);
+  }
+  assert.equal(accionLocalNueva('abre el almacenamiento').proponer.destino, 'almacenamiento');
+  assert.equal(accionLocalNueva('abrí el almacenamiento').proponer.destino, 'almacenamiento');
+  assert.equal(accionLocalNueva('abrime actualizaciones').proponer.destino, 'actualizaciones');
+  // Preguntar por el espacio sigue siendo una respuesta sobre el disco.
+  assert.equal(responderLocal('cuánto espacio tengo', lectura(300)).proponer, undefined);
+  assert.match(responderLocal('cuánto espacio tengo', lectura(300)).texto, /300 GB libres/);
+});
+

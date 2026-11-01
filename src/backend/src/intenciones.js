@@ -94,9 +94,16 @@ const DESTINOS = [
 ];
 const PIDE_ABRIR = /\b(abr\w+|llev\w+|mostr\w+|ir\s+a|and\w+\s+a)\b.{0,30}\b(configuracion|ajustes?|settings)\b/;
 
+// Como en la app: "abre el almacenamiento" sin decir "configuración". Red y wifi quedan fuera a propósito.
+const PIDE_ABRIR_CORTO = /^(?:abr\w+|llev\w+|mostr\w+)\s+(?:me\s+|te\s+)?(?:a\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(almacenamiento|actualizaciones|windows update|aplicaciones instaladas|energia|bateria)\b/;
+const DESTINO_CORTO = { almacenamiento: 'almacenamiento', actualizaciones: 'actualizaciones', 'windows update': 'actualizaciones', 'aplicaciones instaladas': 'aplicaciones', energia: 'energia', bateria: 'energia' };
+
 export function destinoDeAjuste(texto) {
   const t = norm(texto);
-  if (!t || palabras(t) > MAX_PALABRAS_INTENCION || !PIDE_ABRIR.test(t)) return null;
+  if (!t || palabras(t) > MAX_PALABRAS_INTENCION) return null;
+  const corto = t.match(PIDE_ABRIR_CORTO);
+  if (corto) return DESTINO_CORTO[corto[1]];
+  if (!PIDE_ABRIR.test(t)) return null;
   return DESTINOS.find(([, patron]) => patron.test(t))?.[0] ?? null;
 }
 

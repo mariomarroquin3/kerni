@@ -138,3 +138,13 @@ describe('falsos positivos conocidos', () => {
     expect(detectarAccion('hay actualizaciones de windows')?.accion).toBe('ver_actualizaciones');
   });
 });
+
+// A1 y A2 en el backend: los mismos pedidos que en la app.
+describe('A1/A2: abrir ajustes y dispositivos de red, igual que en la app', () => {
+  it('"abre el almacenamiento" pide abrir el ajuste, y "cuánto espacio tengo" no', () => {
+    expect(detectarAccion('abre el almacenamiento')).toMatchObject({ accion: 'abrir_ajuste', destino: 'almacenamiento' });
+    expect(detectarAccion('abrí actualizaciones')).toMatchObject({ accion: 'abrir_ajuste', destino: 'actualizaciones' });
+    expect(detectarAccion('cuánto espacio tengo')).toBeNull();
+  });
+
+});

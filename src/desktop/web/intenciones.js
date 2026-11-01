@@ -37,6 +37,10 @@ const DESTINOS = [
   ['energia', /\b(energia|bateria|suspension)\b/],
 ];
 const PIDE_ABRIR = /\b(abr\w+|llev\w+|mostr\w+|ir\s+a|and\w+\s+a)\b.{0,30}\b(configuracion|ajustes?|settings)\b/;
+// "abre el almacenamiento", "abrime actualizaciones": verbo de abrir + destino concreto, sin decir "configuración".
+// Va antes que el disco (TEMA_DISCO también atrapa "almacenamiento"). Red y wifi quedan fuera: "red social" es otra cosa.
+const PIDE_ABRIR_CORTO = /^(?:abr\w+|llev\w+|mostr\w+)\s+(?:me\s+|te\s+)?(?:a\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(almacenamiento|actualizaciones|windows update|aplicaciones instaladas|energia|bateria)\b/;
+const DESTINO_CORTO = { almacenamiento: 'almacenamiento', actualizaciones: 'actualizaciones', 'windows update': 'actualizaciones', 'aplicaciones instaladas': 'aplicaciones', energia: 'energia', bateria: 'energia' };
 const REGLAS_NUEVAS = [
   { accion: 'vaciar_papelera', patron: /\b(vaci\w+|limpi\w+|borr\w+|elimin\w+)\s+(la\s+|mi\s+)?(papelera|reciclaje)\b/, texto: 'Puedo vaciar la papelera, pero no se puede deshacer. Mirá la tarjeta y decidí vos.', motivo: 'Liberar el espacio que ocupa la papelera.' },
   { accion: 'ver_programas_inicio', patron: /\b(programas?|apps?|aplicaciones?)\s+de\s+(inicio|arranque)\b|\b(abre\w*|inicia\w*|arranca\w*|carga\w*)\s+(solos?\s+)?(al|cuando|con)\s+(inicia\w*|prende\w*|encender\w*|arranca\w*|windows)|\b(compu\w*|pc)\s+(tarda|demora)\s+(en\s+)?(prender|arrancar|iniciar|encender)/, texto: 'Dale, miro qué programas se abren solos al prender la compu.', motivo: 'Ver qué programas se abren solos al iniciar.' },
@@ -87,6 +91,11 @@ export function accionLocalNueva(texto) {
   const t = norm(texto);
   if (!t || palabras(t) > MAX_PALABRAS_ACCION_LOCAL) return null;
   if (NEGACION.test(t)) return null;
+  const corto = t.match(PIDE_ABRIR_CORTO);
+  if (corto) {
+    const destino = DESTINO_CORTO[corto[1]];
+    return { texto: `Te abro "${AJUSTES_NOMBRE[destino]}" en los ajustes de Windows.`, proponer: { accion: 'abrir_ajuste', destino, motivo: `Abrir ${AJUSTES_NOMBRE[destino]} en Windows.` } };
+  }
   if (PIDE_ABRIR.test(t)) {
     const destino = DESTINOS.find(([, patron]) => patron.test(t))?.[0];
     if (destino) {
