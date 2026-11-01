@@ -102,6 +102,7 @@ html.modo-ligero .glass, html.modo-ligero .tarjeta {
   -webkit-backdrop-filter: none;
 }
 #globo { flex: 0 0 auto; user-select: text; }
+#globo button { margin-left: 0.4em; }
 #tarjetas { display: flex; flex-direction: column; gap: 8px; }
 #tarjetas, #chat, #hud { flex-shrink: 0; }
 .tarjeta p { margin: 0 0 6px; }

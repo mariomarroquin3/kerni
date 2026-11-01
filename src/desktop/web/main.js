@@ -8,6 +8,7 @@ import { armarReporte, describirNueva, detalleCache, textoLimpiezaCache, detalle
 import { ayudaContada, contarAyuda, contarTarjeta, debeOfrecerLeccion, estadoDeHoy, listaVistos, marcarLeccion, marcarOfrecida, nivelDeXp, puedeMostrarConsejo, textoInsignia } from './progreso.js';
 import { proximosConsejos, siguienteConsejo } from './consejos.js';
 import { explicarAccion } from './explicaciones.js';
+import { crearVigilanteEnlaces, debeLeerPortapapeles } from './vigilancia.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -199,6 +200,78 @@ function alternarConsejos() {
   pintarMenuConsejos();
   pintarProgreso();
   if (!consejosActivos) $('leccion').hidden = true;
+}
+
+// ---------- Vigilar enlaces copiados (opcional, apagado por defecto) ----------
+// Solo lee el portapapeles con la ventana enfocada, cada pocos segundos y con la opción encendida. Lo último visto
+// vive en memoria (ver vigilancia.js). El enlace solo sale de la PC si la persona aprieta "Revisar".
+const VIGILA_CADA_MS = 4000;
+let vigilaEnlaces = leerVigilaEnlaces();
+const vigilante = crearVigilanteEnlaces();
+let timerPortapapeles = null;
+function leerVigilaEnlaces() {
+  try { return localStorage.getItem('kerni.vigilarEnlaces') === '1'; } catch { return false; }
+}
+function pintarMenuVigilaEnlaces() {
+  $('menu-vigila-enlaces').textContent = vigilaEnlaces ? 'Vigilar enlaces copiados: activado' : 'Vigilar enlaces copiados: desactivado';
+}
+function alternarVigilaEnlaces() {
+  vigilaEnlaces = !vigilaEnlaces;
+  try { localStorage.setItem('kerni.vigilarEnlaces', vigilaEnlaces ? '1' : '0'); } catch { /* sin almacenamiento: dura lo que la sesión */ }
+  pintarMenuVigilaEnlaces();
+  arrancarVigilanciaPortapapeles();
+}
+function arrancarVigilanciaPortapapeles() {
+  clearInterval(timerPortapapeles);
+  timerPortapapeles = null;
+  if (!vigilaEnlaces) return; // apagada: ni timer ni lecturas
+  // Lo que ya estaba copiado al encenderla no molesta: se toma como visto.
+  revisarPortapapeles({ base: true });
+  timerPortapapeles = setInterval(revisarPortapapeles, VIGILA_CADA_MS);
+}
+async function revisarPortapapeles({ base = false } = {}) {
+  if (!debeLeerPortapapeles({ activo: vigilaEnlaces, enfocada: document.hasFocus(), panico: enPanico, tarjetaAbierta: pendiente !== null })) return;
+  let texto;
+  try {
+    texto = await navigator.clipboard.readText();
+  } catch {
+    return; // sin permiso o sin texto: se intenta en la próxima vuelta, sin registrar nada
+  }
+  if (base) { vigilante.marcarVisto(texto); return; }
+  const enlace = vigilante.mirar(texto);
+  if (enlace) ofrecerRevisarEnlace(enlace);
+}
+/** Burbuja con un botón. El texto es fijo; el enlace no se muestra ni sale de la PC hasta el clic. */
+function ofrecerRevisarEnlace(enlace) {
+  const globo = $('globo');
+  globo.textContent = 'Copiaste un enlace. ¿Lo reviso?';
+  const boton = document.createElement('button');
+  boton.type = 'button';
+  boton.textContent = 'Revisar';
+  boton.addEventListener('click', (e) => {
+    e.stopPropagation(); // que el clic no cierre la burbuja antes de la respuesta
+    revisarEnlaceCopiado(enlace);
+  });
+  globo.append(' ', boton);
+  globo.hidden = false;
+  clearTimeout(timerGlobo);
+  timerGlobo = setTimeout(ocultarGlobo, 20000);
+  pintarReposo();
+}
+async function revisarEnlaceCopiado(enlace) {
+  decir('Lo reviso, un momento.', 8000);
+  try {
+    const res = await fetch(`${BACKEND}/enlaces/revisar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url: enlace }),
+      signal: AbortSignal.timeout(PLAZO_BACKEND_MS),
+    });
+    if (!res.ok) throw new Error('No pude revisar ese enlace ahora. Probá de nuevo más tarde.');
+    decir(resumenEnlace(await res.json()), 25000);
+  } catch (err) {
+    decir(err instanceof TypeError ? 'No pude conectar para revisar ese enlace.' : textoDeError(err), 8000);
+  }
 }
 
 function pintarProgreso() {
@@ -1204,6 +1277,9 @@ menuContextual.addEventListener('click', async (e) => {
       case 'consejos':
         alternarConsejos();
         break;
+      case 'vigilar_enlaces':
+        alternarVigilaEnlaces();
+        break;
       case 'equipo': await verEquipo(); break;
       case 'reporte': await verReporte(); break;
       case 'inicio': await verInicio(); break;
@@ -1253,6 +1329,8 @@ pintarProgreso();
 cargarProgreso();
 setInterval(() => { if (progreso.disponible !== true) cargarProgreso(); }, 60000);
 pintarMenuConsejos();
+pintarMenuVigilaEnlaces();
+arrancarVigilanciaPortapapeles();
 // Un consejo a lo sumo por sesión, después del saludo (ver intentarConsejo).
 setTimeout(intentarConsejo, 14000);
 

@@ -312,6 +312,24 @@ export function enlaceParaRevisar(texto) {
   return coincidencias[0].replace(/[.,;:!?)\]"']+$/, '');
 }
 
+/** Extensiones comunes de archivo: si un texto solo termina así, es un archivo, no un sitio. */
+const EXTENSIONES_DE_ARCHIVO = new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'zip', 'rar', '7z', 'exe', 'msi', 'mp3', 'mp4', 'mov', 'avi', 'json', 'xml', 'js', 'ts', 'py', 'log', 'ini', 'bat', 'iso']);
+
+/**
+ * Si TODO el texto copiado al portapapeles es un solo enlace, lo devuelve. Misma heurística que enlaceParaRevisar,
+ * pero anclada: un párrafo, dos enlaces o un nombre de archivo ("informe.pdf") no cuentan.
+ * @returns {string|null}
+ */
+export function enlaceUnicoEnTexto(texto) {
+  const t = String(texto ?? '').trim();
+  if (!t || t.length > 300 || /\s/.test(t)) return null;
+  const limpio = t.replace(/[.,;:!?)\]"']+$/, '');
+  if (!new RegExp(`^${ALGO_COMO_ENLACE.source}$`, 'i').test(limpio)) return null;
+  // Un nombre de archivo ("factura.pdf") parece dominio; no es un enlace que valga la pena revisar.
+  if (!/^(https?:\/\/|www\.)/i.test(limpio) && EXTENSIONES_DE_ARCHIVO.has(limpio.split('.').pop().toLowerCase())) return null;
+  return limpio;
+}
+
 /** Texto para la burbuja a partir del resultado de `/enlaces/revisar`. Nunca dice "seguro": solo "no veo señales de peligro". */
 export function resumenEnlace(r) {
   const motivos = (r.motivos ?? []).slice(0, 2).join(' ');

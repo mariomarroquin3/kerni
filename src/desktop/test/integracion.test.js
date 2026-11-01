@@ -208,7 +208,8 @@ test('los textos de Kerni no llevan emojis (son tokens de más y se ven distinto
 test('revisar enlaces: el chat pasa por el modelo y solo usa revisión directa como fallback', () => {
   const llamadaChat = main.indexOf("fetch(`${BACKEND}/chat`,");
   const fallbackLocal = main.indexOf('if (data.fallbackLocal)');
-  const revisionDirecta = main.indexOf("fetch(`${BACKEND}/enlaces/revisar`,");
+  // La revisión del fallback es la que va después del chat; la de la burbuja del portapapeles está antes y es otra.
+  const revisionDirecta = main.indexOf("fetch(`${BACKEND}/enlaces/revisar`,", fallbackLocal);
   assert.ok(llamadaChat >= 0 && llamadaChat < fallbackLocal);
   assert.ok(fallbackLocal < revisionDirecta);
   assert.match(main, /\$\{BACKEND\}\/enlaces\/revisar/);
