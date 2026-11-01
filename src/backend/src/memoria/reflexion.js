@@ -99,6 +99,8 @@ export async function extraerAprendizajes(provider, { mensaje, existentes = [], 
       tools: [],
       history: [userMsg],
       sinTools: true,
+      // Sin este signal el timeout no corta nada: el proveedor esperaría sin límite
+      signal: controller.signal,
       // Compatibilidad con mocks antiguos
       messages: [userMsg],
       system: PROMPT_EXTRACTOR,

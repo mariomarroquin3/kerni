@@ -349,4 +349,17 @@ describe('revisión de reflexiones: tope, olvido parecido y timeout', () => {
     const again = await m.guardarReflexion(DEVICE, { categoria: 'preferencia', contenido: 'Prefiere modo oscuro siempre', importancia: 5 });
     expect(again.error).toBe('olvidada');
   });
+
+  it('el signal del timeout llega al proveedor y corta la extracción', async () => {
+    let recibido = null;
+    const provider = {
+      step({ signal }) {
+        recibido = signal;
+        return new Promise((_, reject) => signal.addEventListener('abort', () => reject(new Error('abortado'))));
+      },
+    };
+    await expect(extraerAprendizajes(provider, { mensaje: 'Trabajo mucho con Docker cada noche', timeoutMs: 20 })).rejects.toThrow('abortado');
+    expect(recibido).toBeInstanceOf(AbortSignal);
+    expect(recibido.aborted).toBe(true);
+  });
 });
