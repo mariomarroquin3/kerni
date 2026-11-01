@@ -48,7 +48,7 @@ const REGLAS = [
   { accion: 'ver_actualizaciones', patron: /\b(hay|tengo|faltan?|pendientes?|revis\w+|busc\w+)\b.{0,30}\bactualizaci\w+/ },
   {
     accion: 'ver_dispositivos_red',
-    patron: /\b(dispositivos?|aparatos?|equipos?)\b.{0,30}\b(conectad\w*|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\b(quien|quienes)\b.{0,25}\b(conectad\w*|esta|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\bescan\w+\s+(la\s+)?(red|wifi|wi-fi)\b|\b(hay|que|cuales)\b.{0,20}\b(dispositivos?|aparatos?|equipos?)\b.{0,20}\b(red|wifi|wi-fi)\b|\b(dispositivos?|aparatos?|equipos?)\s+(conectados?\s+)?(en\s+)?(la\s+)?red\b/,
+    patron: /\b(dispositivos?|aparatos?|equipos?)\b.{0,30}\b(conectad\w*|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\b(quien|quienes)\b.{0,25}\b(conectad\w*|esta|estan)\b.{0,15}\b(red|wifi|wi-fi)\b|\bescan\w+\s+(la\s+)?(red|wifi|wi-fi)\b|\b(hay|que|cuales)\b.{0,20}\b(dispositivos?|aparatos?|equipos?)\b.{0,20}\b(red|wifi|wi-fi)\b|\b(dispositivos?|aparatos?|equipos?)\s+(conectados?\s+)?(en\s+)?(la\s+)?red\b|\b(alguien|gente|personas?|algun\w*)\b.{0,20}\b(conectad\w*|usando|usan)\b.{0,15}\b(red|wifi|wi-fi)\b/,
   },
   {
     accion: 'ver_estado_red',

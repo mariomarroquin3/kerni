@@ -116,3 +116,11 @@ test('A1: abrir una pantalla de ajustes con verbo y destino, sin decir "configur
   assert.match(responderLocal('cuánto espacio tengo', lectura(300)).texto, /300 GB libres/);
 });
 
+
+// A2: "hay alguien conectado a mi red" pregunta por dispositivos, no por el internet.
+test('A2: quién está conectado a la red abre la lista de dispositivos, no la prueba de internet', () => {
+  for (const q of ['¿hay alguien conectado a mi red?', 'hay alguien conectado al wifi', 'hay gente usando mi wifi']) {
+    assert.equal(accionLocalNueva(q)?.proponer.accion, 'ver_dispositivos_red', q);
+  }
+  assert.equal(accionLocalNueva('tengo internet')?.proponer.accion, 'ver_estado_red');
+});

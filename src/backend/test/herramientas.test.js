@@ -148,3 +148,12 @@ describe('A1/A2: abrir ajustes y dispositivos de red, igual que en la app', () =
   });
 
 });
+
+// A2 en el backend: quién está en la red no es el internet.
+describe('A2: dispositivos de red, igual que en la app', () => {
+  it('"hay alguien conectado a mi red" es la lista de dispositivos, no el internet', () => {
+    expect(detectarAccion('¿hay alguien conectado a mi red?')?.accion).toBe('ver_dispositivos_red');
+    expect(detectarAccion('hay gente usando mi wifi')?.accion).toBe('ver_dispositivos_red');
+    expect(detectarAccion('tengo internet')?.accion).toBe('ver_estado_red');
+  });
+});
