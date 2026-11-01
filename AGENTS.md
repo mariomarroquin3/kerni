@@ -43,6 +43,8 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/desktop/web/reglas.js` | Vigilante de RAM por reglas (proceso grande, fuga), sin modelo |
 | `src/desktop/web/estado.js` (carga) | `nivelDeCarga` y `crearNivelCarga`: umbrales 70 / 30 sobre el porcentaje de **batería**, con histéresis; `modoKerni` elige la cara por carga. La batería llega desde Rust (`Metricas.bateria`, `null` en un equipo sin batería) |
 | `src/desktop/web/intenciones.js` | Enrutamiento local conservador: datos medidos y pedidos cortos, explícitos y deterministas (como armar un reporte). Lo ambiguo, explicativo o de consejo va al modelo |
+| `src/backend/src/guias/` | Guías paso a paso (ver *Guided mode*): `guias.js` (los cuatro guías fijos), `motor.js` (avance, sin HTTP) |
+| `src/desktop/web/guias.js` | Línea "Guía: … (paso N de M)" y sus botones (lógica pura) |
 | `src/desktop/web/character.js` | Controla el rig de Rive (`setModo`, `saludar`, `mirar`); si no carga queda el SVG provisional |
 | `src/desktop/personaje/kerni-rive/` | Rig de Kerni en Rive: `kerni.riv`, README con el contrato y `fuente/` para regenerarlo |
 | `docs/` | Propuesta original (CyberPet AI) y decisiones |
@@ -185,6 +187,16 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 - **Menú del clic con dos dedos**: es un menú **integrado en la ventana** (HTML, `#menu-contextual`), con *Más herramientas* desplegable; el menú nativo de la bandeja tiene las mismas opciones. La papelera, desde ahí, solo abre la tarjeta. **Cerrar y ocultar los hace Rust** (`salir_de_kerni`, `ocultar_kerni`), no el JavaScript: la capability de la ventana no le da permisos de cierre (antes "Cerrar Kerni" fallaba en silencio), y `salir` fuerza la salida a los 3 s si el cierre normal se cuelga.
 - En Rust, lo que se pide a PowerShell son guiones fijos (nunca texto de la persona ni del modelo), con tiempo máximo y sin ventana de consola. Los nombres (por ejemplo el de un programa de inicio) viajan por variables de entorno, nunca dentro del guion, y se leen y escriben con PowerShell en UTF-8 (`reg.exe` rompía los nombres con tildes); `explorer` recibe solo direcciones de una lista cerrada. Fuera de Windows las que dependen de Windows devuelven un aviso.
 - No hay ninguna acción para borrar ni mover archivos sueltos: ver *Archivos pesados*.
+
+## Guided mode (step-by-step guides)
+
+- **What it is.** Four fixed guides, each a short list of steps: `pc-lenta`, `impresora-fuera-de-linea`, `espacio-en-disco` and `actualizaciones-pendientes`. The steps are data in `src/backend/src/guias/guias.js`; the model never writes them and system data never goes into them. Their wording follows the guides in `conocimiento/windows/` and `conocimiento/office/`: change the guide file, then the step text.
+- **One step per turn.** `src/backend/src/guias/motor.js` keeps the position in the `guia_progreso` table (one row per device). The answers are closed: `listo` advances, `no_pude` stays on the same step and offers help, `salir` closes the guide. The last step ends the guide.
+- **Starting a guide.** Only on an explicit request: "guíame con la PC lenta", "paso a paso con la impresora" (`detectarGuia` in `intenciones.js`). A plain "mi PC va lenta" still goes to the slow-PC diagnosis. While a guide is open, `listo`, `no pude` and `salir` are answered without calling the model.
+- **Questions during a guide.** Any other message goes to the model with the current step inside `<guia>`. The model may answer, but the reply always ends with the current step line; the position comes from the database, never from the model's text.
+- **Actions still need a card.** A step of type `accion` only returns a proposal in the same shape `validarPropuesta` expects (`acciones.js`). The card and the click are the same as always; the guide never runs anything (rule 1). Each proposal name must be in `ACCIONES` (a test checks this).
+- **Memory.** Guides save progress in SQLite, so without memory they are refused with a clear message instead of working for the session only. "Olvidar todo" clears the guide too.
+- **Front.** The line "Guía: <título> (paso N de M)" with Listo / No pude / Salir sits above the chat (`web/guias.js`, pure logic). Text is set with `textContent`.
 
 ## Probar la app real de Tauri
 
