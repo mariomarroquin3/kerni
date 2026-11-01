@@ -1,0 +1,121 @@
+# Builds the Windows installers and publishes them to GitHub Releases.
+#
+# NOTE: the current installer does not include the backend (src/backend) yet,
+# so the chat will not work from a downloaded install until the backend is
+# bundled with the app (planned). Local features (metrics, panic mode, temp
+# cleanup, heavy files) work without it.
+#
+# The installers are not code-signed yet, so Windows SmartScreen may warn.
+# Only first-party actions are used; the release is created with the GitHub
+# CLI (preinstalled on the runner) and the job's GITHUB_TOKEN.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create or update (for example v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Rust stable
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+
+      - name: Check the tag format
+        shell: pwsh
+        run: |
+          if ($env:TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            Write-Error "Tag '$env:TAG' does not look like vMAJOR.MINOR.PATCH"
+            exit 1
+          }
+
+      - name: Backend tests
+        working-directory: src/backend
+        run: |
+          npm ci
+          npm test
+
+      - name: Desktop install and tests
+        working-directory: src/desktop
+        run: |
+          npm ci
+          npm test
+
+      - name: Build the web front (needed by Tauri)
+        working-directory: src/desktop
+        run: npm run web:build
+
+      - name: Rust tests
+        working-directory: src/desktop/src-tauri
+        run: cargo test
+
+      - name: Build the app
+        working-directory: src/desktop
+        run: npx tauri build
+
+      - name: Collect the installers
+        shell: pwsh
+        run: |
+          $bundle = "src/desktop/src-tauri/target/release/bundle"
+          $nsis = @(Get-ChildItem "$bundle/nsis/*.exe" -ErrorAction SilentlyContinue)
+          $msi = @(Get-ChildItem "$bundle/msi/*.msi" -ErrorAction SilentlyContinue)
+          if ($nsis.Count -eq 0 -or $msi.Count -eq 0) {
+            Write-Error "Missing installers: nsis=$($nsis.Count) msi=$($msi.Count)"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force dist-release | Out-Null
+          $nsis + $msi | Copy-Item -Destination dist-release
+          Get-ChildItem dist-release | Format-Table Name, Length
+
+      - name: Write the release notes
+        shell: pwsh
+        run: |
+          $notes = @(
+            "Kerni $env:TAG para Windows 10 u 11."
+            ""
+            "- Instalador recomendado: el archivo que termina en _x64-setup.exe. También hay un .msi."
+            "- El instalador todavía no tiene firma digital, por eso Windows SmartScreen puede avisar. Si lo bajaste desde esta página, tocá 'Más información' y luego 'Ejecutar de todas formas'."
+            "- Esta versión todavía no incluye el backend: el chat no funciona en una instalación descargada. Las métricas, el modo pánico, limpiar temporales y los archivos pesados sí funcionan."
+          )
+          Set-Content -Path release-notes.md -Value $notes -Encoding utf8
+
+      - name: Publish to GitHub Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $files = (Get-ChildItem dist-release).FullName
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG @files --clobber
+          } else {
+            gh release create $env:TAG @files --title "Kerni $env:TAG" --notes-file release-notes.md --target $env:GITHUB_SHA
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
