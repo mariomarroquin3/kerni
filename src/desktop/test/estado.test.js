@@ -124,3 +124,11 @@ test('el globo de texto dura lo que se tarda en leerlo, con un mínimo, y tiene 
   assert.equal(duracionGlobo('x'.repeat(5000), 0), GLOBO_MAXIMO_MS);   // nunca se queda para siempre
   assert.equal(duracionGlobo(undefined, 0), GLOBO_BASE_MS);
 });
+
+// A7: la hora de inicio viaja al backend (si la hay), para validar el pid reutilizado.
+test('A7: snapshotParaBackend manda la hora de inicio de cada proceso, y no inventa una si no la hay', () => {
+  const m = { cpu: 1, ram: { usadaMb: 1, totalMb: 2 }, disco: { libreGb: 1, totalGb: 2 }, procesos: [{ pid: 7, nombre: 'a.exe', cpu: 1, memoriaMb: 5, inicio: 1700000000, protegido: false }] };
+  assert.deepEqual(snapshotParaBackend(m).procesos[0], { pid: 7, nombre: 'a.exe', cpu: 1, memoriaMb: 5, inicio: 1700000000 });
+  const sinHora = { ...m, procesos: [{ pid: 7, nombre: 'a.exe', cpu: 1, memoriaMb: 5 }] };
+  assert.equal('inicio' in snapshotParaBackend(sinHora).procesos[0], false);
+});

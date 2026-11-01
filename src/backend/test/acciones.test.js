@@ -92,3 +92,31 @@ describe('vaciar_papelera: las cifras de la tarjeta no las pone el modelo', () =
     expect(r.accion).not.toHaveProperty('mb');
   });
 });
+
+// A7: el pid solo no basta; la hora de inicio de la foto distingue un proceso de otro que reutilizó el pid.
+describe('validarPropuesta: la hora de inicio protege contra el pid reutilizado', () => {
+  const CON_INICIO = { ...SNAPSHOT, procesos: SNAPSHOT.procesos.map((p) => (p.pid === 5555 ? { ...p, inicio: 1700000000 } : p)) };
+
+  it('una propuesta del modelo lleva la hora de inicio de la foto, para que Rust la compruebe al cerrar', () => {
+    const r = validarPropuesta({ accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'Usa mucha CPU' }, CON_INICIO);
+    expect(r.ok).toBe(true);
+    expect(r.accion.inicio).toBe(1700000000);
+  });
+
+  it('refusa si la hora de inicio que llega no es la de la foto (pid reutilizado)', () => {
+    const r = validarPropuesta({ accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'x x x', inicio: 1699999999 }, CON_INICIO);
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/otro proceso/);
+  });
+
+  it('con la hora correcta pasa', () => {
+    const r = validarPropuesta({ accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'x x x', inicio: 1700000000 }, CON_INICIO);
+    expect(r.ok).toBe(true);
+  });
+
+  it('una foto sin hora de inicio (cliente anterior) se valida como antes, solo por pid y nombre', () => {
+    const r = validarPropuesta({ accion: 'terminar_proceso', pid: 5555, nombre: 'miner.exe', motivo: 'x x x' }, SNAPSHOT);
+    expect(r.ok).toBe(true);
+    expect(r.accion).not.toHaveProperty('inicio');
+  });
+});

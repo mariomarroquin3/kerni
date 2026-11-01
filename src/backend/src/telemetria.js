@@ -15,6 +15,8 @@ export const SnapshotSchema = z.object({
         nombre: z.string().min(1).max(260),
         cpu: z.number().min(0),
         memoriaMb: z.number().min(0),
+        // Hora de inicio del proceso (segundos desde la época). Opcional: los clientes anteriores no la mandan.
+        inicio: z.number().int().nonnegative().optional(),
       }),
     )
     .max(25),

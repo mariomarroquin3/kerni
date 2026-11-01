@@ -60,5 +60,13 @@ export function validarPropuesta(input, snapshot) {
     return { ok: false, error: `el pid ${pid} es ${limpiarNombre(proceso.nombre)}, no ${limpiarNombre(nombre)}` };
   }
   if (esProtegido(proceso.nombre)) return { ok: false, error: `${limpiarNombre(proceso.nombre)} es un proceso protegido; no se puede cerrar` };
-  return { ok: true, accion: { tipo: 'proponer_accion', accion, pid, nombre: proceso.nombre, motivo } };
+  // La hora de inicio distingue un proceso de otro que reutilizó el pid. Si la foto no la trae (cliente anterior),
+  // se valida solo por pid y nombre, como antes. Si llega una hora distinta a la de la foto, se rechaza.
+  const inicioPedido = Number.isInteger(input?.inicio) ? input.inicio : undefined;
+  if (inicioPedido !== undefined && Number.isInteger(proceso.inicio) && inicioPedido !== proceso.inicio) {
+    return { ok: false, error: `el pid ${pid} ya es otro proceso (${limpiarNombre(proceso.nombre)} se inició en otro momento)` };
+  }
+  const salida = { tipo: 'proponer_accion', accion, pid, nombre: proceso.nombre, motivo };
+  if (Number.isInteger(proceso.inicio)) salida.inicio = proceso.inicio;
+  return { ok: true, accion: salida };
 }

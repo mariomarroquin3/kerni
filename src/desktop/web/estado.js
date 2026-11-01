@@ -51,13 +51,18 @@ export function sospechosos(procesos, max = 3) {
     .slice(0, max);
 }
 
-/** Lo que se manda al backend: la foto sin el campo interno `protegido`. */
+/**
+ * Lo que se manda al backend: la foto sin el campo interno `protegido`.
+ * `inicio` (hora de inicio del proceso) va solo si la app la tiene: así un cliente anterior sigue igual.
+ */
 export function snapshotParaBackend(m) {
   return {
     cpu: m.cpu,
     ram: m.ram,
     disco: m.disco,
-    procesos: m.procesos.map(({ pid, nombre, cpu, memoriaMb }) => ({ pid, nombre, cpu, memoriaMb })),
+    procesos: m.procesos.map(({ pid, nombre, cpu, memoriaMb, inicio }) => ({
+      pid, nombre, cpu, memoriaMb, ...(Number.isInteger(inicio) ? { inicio } : {}),
+    })),
   };
 }
 
