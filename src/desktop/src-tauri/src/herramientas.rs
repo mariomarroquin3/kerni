@@ -451,7 +451,14 @@ pub fn parsear_dispositivos_red(salida: &str) -> Vec<DispositivoRed> {
             }
         }
     }
+    // Multidifusión y difusión (224.x a 255.x) no son equipos: la tabla ARP las trae y confunden la lista.
+    resultados.retain(|d| !es_multidifusion_o_difusion(&d.ip));
     resultados
+}
+
+/// Primer octeto 224 o más: multidifusión (224-239) o reservado y difusión (240-255). Una IP que no se entiende no pasa.
+fn es_multidifusion_o_difusion(ip: &str) -> bool {
+    ip.split('.').next().and_then(|o| o.parse::<u8>().ok()).map_or(true, |o| o >= 224)
 }
 
 /// Obtiene la IP local de la interfaz de red activa (no loopback, no IPv6).
@@ -772,6 +779,20 @@ mod tests {
         assert_eq!(parsear_papelera("0,0").unwrap().elementos, 0);
         assert!(parsear_papelera("error").is_none());
         assert!(parsear_papelera("a,b").is_none());
+    }
+
+    #[test]
+    fn filtra_multidifusion_y_difusion_de_la_tabla_arp() {
+        let salida = "\
+  192.168.1.1         aa-bb-cc-dd-ee-ff     dynamic
+  224.0.0.22          01-00-5e-00-00-16     static
+  239.255.255.250     01-00-5e-7f-ff-fa     static
+  255.255.255.255     ff-ff-ff-ff-ff-ff     static";
+        let ips: Vec<String> = parsear_dispositivos_red(salida).into_iter().map(|d| d.ip).collect();
+        assert_eq!(ips, vec!["192.168.1.1".to_string()]);
+        assert!(!es_multidifusion_o_difusion("10.0.0.7"));
+        assert!(es_multidifusion_o_difusion("224.0.0.251"));
+        assert!(es_multidifusion_o_difusion("basura"));
     }
 
     #[test]
