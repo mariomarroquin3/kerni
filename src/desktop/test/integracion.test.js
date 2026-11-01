@@ -263,3 +263,11 @@ test('el saludo cubre todas las propiedades que tocan los modos (si no, se apila
     assert.deepEqual(faltan, [], `el modo ${modo} toca propiedades que el saludo no cubre: ${faltan.join(', ')}`);
   }
 });
+
+test('cada llamada al backend desde la interfaz tiene plazo: un backend colgado no deja la app esperando', () => {
+  // /chat tiene su propio plazo (60 s con controller.abort): un turno con el modelo tarda más que 15 s.
+  const llamadas = (main.match(/fetch\(/g) ?? []).length - (main.match(/fetch\(`\$\{BACKEND\}\/chat`/g) ?? []).length;
+  const con_plazo = main.match(/signal: (AbortSignal\.timeout\(PLAZO_BACKEND_MS\)|opciones\.signal \?\? AbortSignal\.timeout\(PLAZO_BACKEND_MS\))/g) ?? [];
+  assert.equal(con_plazo.length, llamadas, `${llamadas} fetch y ${con_plazo.length} con plazo`);
+  assert.match(main, /const PLAZO_BACKEND_MS = 15000;/);
+});

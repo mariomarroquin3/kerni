@@ -6,6 +6,8 @@ import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archi
 import { armarReporte, describirNueva, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, panelReporte } from './herramientas.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
+/** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
+const PLAZO_BACKEND_MS = 15000;
 const CADA_MS = 2000;
 
 const $ = (id) => document.getElementById(id);
@@ -348,6 +350,7 @@ async function ejecutar(a) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ device_id: deviceId, clave: a.clave, valor: a.valor }),
+      signal: AbortSignal.timeout(PLAZO_BACKEND_MS),
     });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `error ${res.status}`);
     decir('¡Anotado! Me lo voy a acordar.');
@@ -560,7 +563,7 @@ function rutaMemoria(ruta) {
 
 async function pedirMemoria(ruta, opciones = {}) {
   if (!deviceId) throw new Error('No pude identificar esta PC para consultar su memoria.');
-  const respuesta = await fetch(rutaMemoria(ruta), opciones);
+  const respuesta = await fetch(rutaMemoria(ruta), { ...opciones, signal: opciones.signal ?? AbortSignal.timeout(PLAZO_BACKEND_MS) });
   const datos = await respuesta.json().catch(() => null);
   if (!respuesta.ok) throw new Error(datos?.error ?? `No pude completar la solicitud (error ${respuesta.status}).`);
   if (!datos) throw new Error('El backend respondió con datos que no pude leer.');
@@ -759,6 +762,7 @@ $('chat').addEventListener('submit', async (e) => {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ url: enlace }),
+              signal: AbortSignal.timeout(PLAZO_BACKEND_MS),
             });
             if (!revision.ok) throw new Error('No pude revisar ese enlace sin el modelo. Probá de nuevo más tarde.');
             decir(resumenEnlace(await revision.json()), 25000);
@@ -950,6 +954,7 @@ if (enTauri && deviceId) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ device_id: deviceId, snapshot: snapshotParaBackend(ultimas) }),
+      signal: AbortSignal.timeout(PLAZO_BACKEND_MS),
     }).catch(() => { /* sin backend o sin memoria: no pasa nada */ });
   }, 10 * 60_000);
 }
