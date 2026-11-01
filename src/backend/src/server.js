@@ -10,6 +10,7 @@ import { createSqliteMemoria } from './memoria/sqlite.js';
 import { crearEmbeddings } from './rag/embeddings.js';
 import { createConocimiento, createConocimientoNulo } from './rag/conocimiento.js';
 import { createRevisorEnlaces } from './enlaces.js';
+import { crearDocsMicrosoft } from './mcp/microsoft-learn.js';
 
 const config = loadConfig();
 
@@ -53,12 +54,16 @@ if (supabaseDb) {
 // Revisión de enlaces: siempre disponible; con SAFE_BROWSING_API_KEY también consulta la lista de sitios peligrosos de Google.
 const revisorEnlaces = createRevisorEnlaces({ apiKey: config.safeBrowsing.apiKey });
 
-const agent = createAgent({ provider: elegido?.provider, memoriaActiva: memoria.habilitada, conocimiento, revisorEnlaces });
+// Documentación oficial de Microsoft por MCP: apagada salvo MICROSOFT_LEARN_MCP=1 (null = la herramienta no se ofrece).
+const docsMicrosoft = crearDocsMicrosoft({ activo: config.microsoftLearn.activo });
+
+const agent = createAgent({ provider: elegido?.provider, memoriaActiva: memoria.habilitada, conocimiento, revisorEnlaces, docsMicrosoft });
 const app = buildApp({ config, agent, provider: elegido?.provider, memoria, conocimiento, revisorEnlaces, logger: true });
 console.log(elegido ? `Cerebro: ${elegido.provider.name} (${elegido.provider.model})` : 'Cerebro: sin llave; respuestas automáticas locales');
 console.log(`Memoria: SQLite local (${dataDir})${supabaseDb ? ' + salud en Supabase' : ''}`);
 console.log(revisorEnlaces.listasDisponibles ? 'Enlaces: dirección + lista de Google' : 'Enlaces: solo la dirección (sin SAFE_BROWSING_API_KEY)');
 console.log(conocimiento.habilitado ? 'Conocimiento (RAG): activo' : 'Conocimiento (RAG): apagado (falta Supabase o una llave de embeddings)');
+console.log(docsMicrosoft ? 'Microsoft Learn (MCP): activo, solo viaja el texto de la pregunta' : 'Microsoft Learn (MCP): apagado (MICROSOFT_LEARN_MCP=1 lo enciende)');
 memoria.mantenimiento();
 
 await app.listen({ port: config.port, host: config.host });

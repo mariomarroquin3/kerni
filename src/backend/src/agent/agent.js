@@ -6,6 +6,8 @@ import { limpiarNombre } from '../telemetria.js';
 import { formatearSnapshot } from '../telemetria.js';
 import { ProponerRecuerdoSchema, validarRecuerdo } from '../memoria/recuerdos.js';
 import { createRevisorEnlaces, MAX_ENLACE } from '../enlaces.js';
+import { ErrorMcp } from '../mcp/cliente.js';
+import { bloqueDocs, NOTA_DOCS, MAX_PREGUNTA, MIN_PREGUNTA } from '../mcp/microsoft-learn.js';
 
 const MAX_ITERATIONS = 4;
 
@@ -47,6 +49,8 @@ export function quitarEmojis(texto) {
 const MAX_BUSQUEDAS_POR_TURNO = 2;
 /** Enlaces revisados por turno: cada uno puede consultar la lista de Google, que tiene su propio cupo. */
 const MAX_ENLACES_POR_TURNO = 3;
+/** Búsquedas en Microsoft Learn por turno (solo lectura, pero cada una sale a internet). */
+const MAX_DOCS_POR_TURNO = 2;
 /** Mensajes del usuario que se conservan en el historial (limita costo y contexto). */
 export const MAX_TURNOS_HISTORIAL = 10;
 
@@ -120,6 +124,19 @@ const DEFINICION_ENLACE = {
   parameters: toInputSchema(RevisarEnlaceSchema),
 };
 
+const BuscarDocsSchema = z.object({
+  pregunta: z.string().min(MIN_PREGUNTA).max(MAX_PREGUNTA).describe('La pregunta sobre un producto de Microsoft, en una frase concreta (ej. "cómo pausar las actualizaciones de Windows 11")'),
+});
+
+const DEFINICION_DOCS = {
+  name: 'buscar_docs_microsoft',
+  description:
+    'Busca en la documentación oficial de Microsoft (Windows, Office, Azure, .NET y más) en Microsoft Learn. Es de solo lectura y no necesita aprobación. '
+    + 'Úsala cuando la persona pregunte cómo hace algo un producto de Microsoft y convenga la fuente oficial. Lo que sale de la PC es solo la pregunta: '
+    + 'nunca la uses para el estado de la PC (ya viene en <sistema>) ni para lo que ya cubre buscar_conocimiento.',
+  parameters: toInputSchema(BuscarDocsSchema),
+};
+
 /**
  * Harness de Kerni: arma el contexto (persona + foto del sistema), corre el
  * bucle de tool calling y devuelve la respuesta con las acciones propuestas.
@@ -128,8 +145,10 @@ const DEFINICION_ENLACE = {
  * valida contra la foto del sistema y la devuelve como `acciones` para que la
  * app le pida confirmación a la persona y la ejecute en Rust.
  */
-export function createAgent({ provider, logger = console, clock = () => performance.now(), memoriaActiva = false, conocimiento = null, revisorEnlaces = createRevisorEnlaces() }) {
+export function createAgent({ provider, logger = console, clock = () => performance.now(), memoriaActiva = false, conocimiento = null, revisorEnlaces = createRevisorEnlaces(), docsMicrosoft = null }) {
   const puedeBuscar = Boolean(conocimiento?.habilitado);
+  // Sin bandera MICROSOFT_LEARN_MCP (docsMicrosoft es null) la herramienta ni se ofrece al modelo.
+  const puedeDocs = Boolean(docsMicrosoft);
   // Sin memoria conectada, el modelo ni se entera de que podría "recordar": no ve la herramienta.
 
   /**
@@ -142,7 +161,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
   async function runTurn({ history, mensaje, snapshot, equipo, memoria = '', puedeRecordar = true, signal }) {
     // Sin device_id no hay dónde guardar: ofrecer la herramienta llevaría a una propuesta que falla al aprobarla.
     const recuerda = memoriaActiva && puedeRecordar;
-    const definiciones = [...DEFINICIONES, DEFINICION_ENLACE, ...(recuerda ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])];
+    const definiciones = [...DEFINICIONES, DEFINICION_ENLACE, ...(recuerda ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : []), ...(puedeDocs ? [DEFINICION_DOCS] : [])];
     const ahora = new Intl.DateTimeFormat('es-SV', {
       timeZone: 'America/El_Salvador', dateStyle: 'full', timeStyle: 'short',
     }).format(new Date());
@@ -163,6 +182,7 @@ export function createAgent({ provider, logger = console, clock = () => performa
     let rechazado = false;
     let busquedas = 0;
     let enlaces = 0;
+    let busquedasDocs = 0;
 
     let reintentoVacio = false;
     try {
@@ -228,6 +248,37 @@ export function createAgent({ provider, logger = console, clock = () => performa
                 : { fragmentos: null, nota: 'No encontré nada relevante en la base de conocimiento; responde con lo que sabes y dilo con honestidad.' }),
             };
           }
+          if (call.name === 'buscar_docs_microsoft' && puedeDocs) {
+            const args = BuscarDocsSchema.safeParse(call.input);
+            if (!args.success) {
+              traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'argumentos inválidos' });
+              return { id: call.id, name: call.name, content: JSON.stringify({ error: `falta la pregunta (entre ${MIN_PREGUNTA} y ${MAX_PREGUNTA} caracteres)` }), isError: true };
+            }
+            if (busquedasDocs >= MAX_DOCS_POR_TURNO) {
+              traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: 'demasiadas búsquedas' });
+              return { id: call.id, name: call.name, content: JSON.stringify({ error: 'ya buscaste suficiente en la documentación en este turno; responde con lo que tienes' }), isError: true };
+            }
+            busquedasDocs++;
+            const t3 = clock();
+            try {
+              const docs = await docsMicrosoft.buscarDocsMicrosoft(args.data.pregunta);
+              // El bloque ya viene saneado (sin enlaces ajenos, sin etiquetas) y con tope de tamaño.
+              const bloque = bloqueDocs(docs);
+              traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: true, encontrado: Boolean(bloque), ms: Math.round(clock() - t3) });
+              return {
+                id: call.id, name: call.name,
+                content: JSON.stringify(bloque
+                  ? { documentacion: bloque, nota: NOTA_DOCS }
+                  : { documentacion: null, nota: 'Microsoft Learn no devolvió nada relevante; responde con lo que sabes y dilo con honestidad.' }),
+              };
+            } catch (err) {
+              // Un fallo de la documentación nunca rompe el turno: el modelo sigue sin ella.
+              traza.push({ paso: i + 1, tipo: 'herramienta', nombre: call.name, ok: false, error: err?.codigo ?? 'ERROR', ms: Math.round(clock() - t3) });
+              logger.error?.({ codigo: err?.codigo }, 'docs de Microsoft: falló la búsqueda');
+              const mensaje = err instanceof ErrorMcp ? err.message : 'No pude consultar la documentación de Microsoft ahora.';
+              return { id: call.id, name: call.name, content: JSON.stringify({ error: mensaje }), isError: true };
+            }
+          }
           if (call.name === 'revisar_enlace') {
             const args = RevisarEnlaceSchema.safeParse(call.input);
             if (!args.success) {
@@ -278,5 +329,5 @@ export function createAgent({ provider, logger = console, clock = () => performa
     return { respuesta, acciones, traza };
   }
 
-  return { runTurn, definitions: [...DEFINICIONES, DEFINICION_ENLACE, ...(memoriaActiva ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : [])] };
+  return { runTurn, definitions: [...DEFINICIONES, DEFINICION_ENLACE, ...(memoriaActiva ? [DEFINICION_RECUERDO] : []), ...(puedeBuscar ? [DEFINICION_BUSCAR] : []), ...(puedeDocs ? [DEFINICION_DOCS] : [])] };
 }

@@ -26,6 +26,11 @@ export function quitarUrls(texto) {
   return String(texto ?? '').replace(URL_RE, '').replace(/\s+/g, ' ').trim();
 }
 
+/** Igual que quitarUrls, pero deja las direcciones que `permitida(url)` acepte (por ejemplo, solo dominios oficiales). */
+export function quitarUrlsSalvo(texto, permitida = () => false) {
+  return String(texto ?? '').replace(URL_RE, (url) => (permitida(url) ? url : ' ')).replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Texto libre -> una línea limpia y acotada. Orden: NFKC (para que la versión de ancho completo de `<` también caiga),
  * quitar invisibles, control y `<>` a espacio, `|` a `/` (para que no simule columnas), espacios colapsados y tope.
