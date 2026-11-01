@@ -8,7 +8,7 @@ export function loadConfig(env = process.env) {
     host: env.HOST || '127.0.0.1',
     turnosPorMinuto: Number(env.TURNOS_POR_MINUTO ?? 20),
     turnosPorDia: Number(env.TURNOS_POR_DIA ?? 300),
-    maxTokensRespuesta: Number(env.MAX_TOKENS_RESPUESTA ?? 600),
+    maxTokensRespuesta: Number(env.MAX_TOKENS_RESPUESTA ?? 1024),
     corsOrigins: env.CORS_ORIGINS ? env.CORS_ORIGINS.split(',').map((o) => o.trim()) : undefined,
 
     // Qué cerebro usar: anthropic | gemini | openrouter. Vacío = el primero que tenga llave.

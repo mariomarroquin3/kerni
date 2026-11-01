@@ -37,7 +37,9 @@ export function errorAnthropic(err, { signal } = {}) {
   return e;
 }
 
-export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, maxTokens = 600 }) {
+// Haiku 5.5 gasta los tokens de salida en razonamiento oculto si se lo dejan: con 600 la respuesta llegaba vacía o cortada.
+// Kerni no necesita razonar en voz baja para charlar y usar herramientas, así que se desactiva y el límite da margen.
+export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, maxTokens = 1024 }) {
   return {
     name: 'anthropic',
     model,
@@ -50,6 +52,7 @@ export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, ma
         response = await anthropic.messages.create({
           model,
           max_tokens: maxTokens,
+          thinking: { type: 'disabled' },
           system: [
             { type: 'text', text: persona, cache_control: { type: 'ephemeral' } },
             ...(contexto ? [{ type: 'text', text: contexto }] : []),
