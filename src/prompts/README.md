@@ -4,6 +4,7 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 
 | Fecha | Tema | Archivo |
 |---|---|---|
+| 2026-11-01 | Hardening Kerni against prompt injection (sanitizer, names, motives, reflections, tests) | [2026-11-01-endurecimiento-inyeccion.md](2026-11-01-endurecimiento-inyeccion.md) |
 | 2026-11-01 | Teaching tips, level badge and "¿Por qué?" on cards (local only) | [2026-11-01-ensenanza-gamificacion.md](2026-11-01-ensenanza-gamificacion.md) |
 | 2026-11-01 | Architecture guide (Markdown and PDF) | [2026-11-01-arquitectura.md](2026-11-01-arquitectura.md) |
 | 2026-11-01 | Bug fixes, safe improvements and six read-only tools | [2026-11-01-bugs-mejoras-tools.md](2026-11-01-bugs-mejoras-tools.md) |
