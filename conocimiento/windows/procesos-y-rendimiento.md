@@ -7,7 +7,16 @@ Se abre con Ctrl + Mayús + Esc. Muestra qué programas y procesos usan CPU, mem
 Un proceso con un nombre raro no es necesariamente un virus. Muchos son partes de Windows o de programas instalados. svchost.exe aparece muchas veces porque aloja varios servicios del sistema. MsMpEng.exe es el antivirus Windows Defender y puede usar bastante CPU mientras escanea. Chrome o Edge crean un proceso por pestaña y extensión, por eso se ven muchos.
 
 ## Programas que arrancan con Windows
-Cada programa que se inicia con la PC alarga el arranque y consume memoria desde el primer minuto. En el Administrador de tareas, la pestaña de aplicaciones de inicio permite deshabilitar los que no se necesitan. Deshabilitar un programa de inicio no lo desinstala; solo evita que arranque solo.
+Cada programa que se inicia con la PC alarga el arranque y consume memoria desde el primer minuto. Deshabilitar un programa de inicio no lo desinstala; solo evita que arranque solo.
+
+Para revisarlos (ruta según Microsoft, Windows 11):
+- Configuración > Aplicaciones > Inicio: cada app tiene un interruptor de Activado o Desactivado.
+- Administrador de tareas > pestaña Aplicaciones de inicio: ahí ves además el impacto de cada una en el arranque (Ninguno, Bajo, Medio o Alto), según el uso de CPU y disco al iniciar. Podés elegir una y usar Habilitar o Deshabilitar.
+
+Qué tener en cuenta:
+- Desactivá solo lo que reconocés y sabés que no necesitás. Si no sabés qué es, buscá el nombre antes de tocarlo.
+- Algunos programas se vuelven a activar solos después de una actualización. Si pasa, revisá la configuración del propio programa.
+- Si todas las apps de inicio están desactivadas, Windows arranca igual.
 
 ## Reiniciar de vez en cuando
 Reiniciar cierra todos los procesos, libera memoria acumulada y aplica actualizaciones pendientes. Si la PC lleva muchos días encendida y está lenta, reiniciar suele resolverlo. Apagar con Inicio puede no ser un reinicio completo si está activado el inicio rápido, por eso reiniciar es mejor para limpiar.
@@ -19,4 +28,8 @@ Terminar un proceso lo corta al instante y el trabajo sin guardar de ese program
 Windows Update descarga e instala en segundo plano y puede consumir CPU y disco por un rato. Es normal que la PC vaya más lenta mientras actualiza. Mantener Windows actualizado corrige fallos y vulnerabilidades, así que no conviene posponerlo indefinidamente.
 
 ## Modo de energía
-En laptops, el modo de ahorro reduce el rendimiento para alargar la batería. Si la PC se siente lenta con la laptop desenchufada, cambiar a un modo más equilibrado o enchufar el cargador puede ayudar.
+En laptops, el modo de ahorro reduce el rendimiento para alargar la batería. Si la PC se siente lenta con la laptop desenchufada, enchufar el cargador o cambiar el modo de energía puede ayudar. En Configuración > Sistema > Energía y batería > Modo de energía, Microsoft documenta la opción "Mejor eficiencia energética", que limita la actividad en segundo plano tanto enchufado como con batería. Puede notarse algo más de demora en algunas tareas.
+
+## Fuentes
+- Microsoft Support, "Configure Startup applications in Windows": https://support.microsoft.com/en-us/windows/experience/startup-boot/configure-startup-applications-in-windows
+- Microsoft Support, "Power settings in Windows 11": https://support.microsoft.com/en-us/windows/power-settings-in-windows-11-0d6a2b6b-2e87-4611-9980-ac9ea2175734
