@@ -20,6 +20,8 @@ export function createMemoriaNula() {
     guardarTurno: async () => undefined,
     ultimosMensajes: async () => [],
     registrarSalud: async () => false,
+    progreso: async () => null,
+    sumarEvento: async () => null,
     mantenimiento: async () => undefined,
   };
 }

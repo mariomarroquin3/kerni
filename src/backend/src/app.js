@@ -4,6 +4,7 @@ import { memoriaRoutes } from './routes/memoria.js';
 import { createMemoriaNula } from './memoria/memoria.js';
 import { createConocimientoNulo } from './rag/conocimiento.js';
 import { enlacesRoutes } from './routes/enlaces.js';
+import { progresoRoutes } from './routes/progreso.js';
 import { createRevisorEnlaces } from './enlaces.js';
 import { createLimitador, combinarLimitadores } from './guardrails/limitador.js';
 
@@ -69,5 +70,6 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
   app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}) });
   app.register(memoriaRoutes, { memoria, limitador });
   app.register(enlacesRoutes, { revisorEnlaces });
+  app.register(progresoRoutes, { memoria });
   return app;
 }

@@ -3,6 +3,7 @@ import { join, dirname } from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { limpiarNombre } from '../telemetria.js';
 import { sanearParaBloque, MAX_HECHOS } from './recuerdos.js';
+import { calcularEvento, diaLocal, TOPE_DIARIO_XP } from '../progreso.js';
 
 export const MENSAJES_A_RETOMAR = 6;
 const HORAS_RESUMEN = 24;
@@ -155,6 +156,18 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
     )
   `);
 
+  // Progreso de aprendizaje: una fila por PC. Los puntos del día se reinician solos cuando cambia el día (ver progreso.js).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS progreso (
+      device_id   TEXT PRIMARY KEY,
+      xp          INTEGER NOT NULL DEFAULT 0 CHECK (xp >= 0),
+      dia         TEXT NOT NULL DEFAULT '',
+      xp_hoy      INTEGER NOT NULL DEFAULT 0 CHECK (xp_hoy >= 0),
+      leccion_hoy INTEGER NOT NULL DEFAULT 0 CHECK (leccion_hoy IN (0, 1)),
+      actualizado TEXT NOT NULL
+    )
+  `);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS ajustes_memoria (
       device_id        TEXT PRIMARY KEY,
@@ -224,6 +237,29 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
   const stmtClavesOlvidadas = db.prepare('SELECT clave FROM reflexiones_olvidadas WHERE device_id = ?');
   const stmtInsertOlvidada = db.prepare('INSERT OR IGNORE INTO reflexiones_olvidadas (device_id, clave, creado) VALUES (?, ?, ?)');
   const stmtDeleteAllOlvidadas = db.prepare('DELETE FROM reflexiones_olvidadas WHERE device_id = ?');
+
+  const stmtGetProgreso = db.prepare('SELECT xp, dia, xp_hoy, leccion_hoy FROM progreso WHERE device_id = ?');
+  const stmtUpsertProgreso = db.prepare(`
+    INSERT INTO progreso (device_id, xp, dia, xp_hoy, leccion_hoy, actualizado) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(device_id) DO UPDATE SET
+      xp = xp + excluded.xp,
+      dia = excluded.dia,
+      xp_hoy = excluded.xp_hoy,
+      leccion_hoy = excluded.leccion_hoy,
+      actualizado = excluded.actualizado
+  `);
+  const stmtDeleteProgreso = db.prepare('DELETE FROM progreso WHERE device_id = ?');
+
+  /** Lo que la persona lleva: XP total y lo ganado hoy (si la fila es de otro día, hoy es 0). */
+  function leerProgreso(deviceId, hoy) {
+    const fila = stmtGetProgreso.get(deviceId);
+    const delDia = Boolean(fila) && fila.dia === hoy;
+    return {
+      xp: fila?.xp ?? 0,
+      xpHoy: delDia ? fila.xp_hoy : 0,
+      leccionHoy: delDia ? Boolean(fila.leccion_hoy) : false,
+    };
+  }
 
   const stmtGetAjuste = db.prepare('SELECT aprendizaje_auto FROM ajustes_memoria WHERE device_id = ?');
   const stmtSetAjuste = db.prepare(`
@@ -501,6 +537,33 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
       }
     },
 
+    async progreso(deviceId, ahoraMs = Date.now()) {
+      return { ...leerProgreso(deviceId, diaLocal(ahoraMs)), topeDiario: TOPE_DIARIO_XP };
+    },
+
+    /**
+     * Suma un evento de la lista cerrada, respetando el tope diario y la lección de una vez por día.
+     * Lo que no entra se devuelve con su motivo; no es un error.
+     */
+    async sumarEvento(deviceId, evento, ahoraMs = Date.now()) {
+      const hoy = diaLocal(ahoraMs);
+      const antes = leerProgreso(deviceId, hoy);
+      const r = calcularEvento({ evento, xpHoy: antes.xpHoy, leccionHoy: antes.leccionHoy });
+      if (r.aplicado) {
+        stmtUpsertProgreso.run(deviceId, r.puntos, hoy, antes.xpHoy + r.puntos, r.leccionHoy ? 1 : 0, new Date(ahoraMs).toISOString());
+      }
+      const despues = r.aplicado
+        ? { xp: antes.xp + r.puntos, xpHoy: antes.xpHoy + r.puntos, leccionHoy: r.leccionHoy }
+        : antes;
+      return {
+        aplicado: r.aplicado,
+        puntos: r.puntos,
+        ...(r.motivo ? { motivo: r.motivo } : {}),
+        ...despues,
+        topeDiario: TOPE_DIARIO_XP,
+      };
+    },
+
     async obtenerAjustes(deviceId) {
       try {
         const row = stmtGetAjuste.get(deviceId);
@@ -526,6 +589,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
         stmtDeleteAllSalud.run(deviceId);
         stmtDeleteAllReflexiones.run(deviceId);
         stmtDeleteAllOlvidadas.run(deviceId);
+        stmtDeleteProgreso.run(deviceId);
         if (tieneSupabase) {
           await seguro('olvidar salud remota', () => supabase.delete('kerni_salud', { device_id: `eq.${deviceId}` }), false);
         }
