@@ -381,7 +381,7 @@ pub struct DispositivoRed {
     pub nombre: String,
 }
 
-#[derive(Serialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DispositivosRedResultado {
     pub dispositivos: Vec<DispositivoRed>,
@@ -470,14 +470,14 @@ fn obtener_ip_local() -> Option<String> {
 }
 
 /// Escanea la tabla ARP local: solo lectura, no envía nada a la red.
-/// Windows usa `arp -a -n`, Linux usa `ip neigh show` o `arp -a`.
+/// Windows usa `arp -a` (ahí `-n` no existe: `-N` pide una interfaz, y `arp -a -n` sale con error); Linux usa `ip neigh show` o `arp -a -n`.
 fn leer_dispositivos_red() -> Result<DispositivosRedResultado, String> {
     let dispositivos = {
         #[cfg(windows)]
         {
             use std::process::Command;
             let mut cmd = Command::new("arp");
-            cmd.arg("-a").arg("-n");
+            cmd.arg("-a");
             let salida = ejecutar(&mut cmd, Duration::from_secs(10))?;
             parsear_dispositivos_red(&salida)
         }
@@ -822,7 +822,7 @@ fe80::1 dev eth0 lladdr 00:11:22:33:44:55 REACHABLE";
         println!("{red:?}");
         println!("{:?}", medir_papelera());
         let dispositivos = leer_dispositivos_red().unwrap_or_default();
-        println!("{} dispositivos en ARP", dispositivos.len());
+        println!("{} dispositivos en ARP", dispositivos.dispositivos.len());
     }
 
     /// Crea un programa de inicio temporal con tildes en el registro REAL del usuario, lo desactiva, lo reactiva y lo borra.

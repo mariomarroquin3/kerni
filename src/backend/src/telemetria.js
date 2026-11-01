@@ -26,6 +26,9 @@ export const PROCESOS_PROTEGIDOS = new Set([
   'services.exe', 'lsass.exe', 'svchost.exe', 'explorer.exe', 'dwm.exe', 'fontdrvhost.exe',
   'msmpeng.exe', 'securityhealthservice.exe', 'memory compression', 'kerni.exe',
   'audiodg.exe', 'spoolsv.exe', 'sihost.exe', 'taskhostw.exe', 'msedgewebview2.exe',
+  // Windows, corren como el usuario (se pueden cerrar sin administrador): escritura, menú Inicio, búsqueda, permisos de apps, seguridad.
+  'ctfmon.exe', 'textinputhost.exe', 'startmenuexperiencehost.exe', 'shellexperiencehost.exe', 'searchhost.exe',
+  'runtimebroker.exe', 'securityhealthsystray.exe', 'smartscreen.exe', 'conhost.exe', 'dllhost.exe',
   // Linux: PID 1 y supervisores del kernel, sesiones graficas, audio, red, servicios base.
   'kthreadd', 'kworker', 'pid', 'systemd', 'init', 'udevd', 'dbus', 'dbus-daemon',
   'systemd-journald', 'systemd-logind', 'systemd-resolved', 'systemd-networkd', 'avahi-daemon',

@@ -15,7 +15,13 @@ use crate::sistema::ResultadoLimpieza;
 /// Nunca toca /tmp o /var/tmp completos: solo la carpeta que la app eligió.
 #[cfg(target_os = "linux")]
 #[tauri::command]
-pub fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
+pub async fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
+    // Fuera del hilo principal: borrar muchos archivos no debe trancar la ventana.
+    tauri::async_runtime::spawn_blocking(limpiar_temporales_ya).await.map_err(|e| e.to_string())?
+}
+
+#[cfg(target_os = "linux")]
+fn limpiar_temporales_ya() -> Result<ResultadoLimpieza, String> {
     let dir = carpeta_temporales();
     let _ = std::fs::create_dir_all(&dir);
     let limite = SystemTime::now() - Duration::from_secs(24 * 60 * 60);

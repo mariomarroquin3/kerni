@@ -8,7 +8,7 @@
 
 use std::fs;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime};
 
 use serde::Serialize;
@@ -21,6 +21,9 @@ const PROTEGIDOS: &[&str] = &[
     "fontdrvhost.exe", "msmpeng.exe", "securityhealthservice.exe", "memory compression",
     "kerni.exe",
     "audiodg.exe", "spoolsv.exe", "sihost.exe", "taskhostw.exe", "msedgewebview2.exe",
+    // Windows, corren como el usuario (se pueden cerrar sin administrador): escritura, menú Inicio, búsqueda, permisos de apps, seguridad.
+    "ctfmon.exe", "textinputhost.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe", "searchhost.exe",
+    "runtimebroker.exe", "securityhealthsystray.exe", "smartscreen.exe", "conhost.exe", "dllhost.exe",
     // Linux: PID 1 y supervisores del kernel, sesiones graficas, audio, red, servicios base.
     "kthreadd", "kworker", "pid", "systemd", "init", "udevd", "dbus", "dbus-daemon",
     "systemd-journald", "systemd-logind", "systemd-resolved", "systemd-networkd", "avahi-daemon",
@@ -172,14 +175,21 @@ pub struct ResultadoLimpieza {
     pub liberado_mb: f64,
 }
 
-pub struct Monitor(Mutex<System>);
+/// El `System` compartido. Va en un `Arc` para poder usarlo fuera del hilo principal (`spawn_blocking`).
+pub struct Monitor(Arc<Mutex<System>>);
 
 impl Default for Monitor {
     fn default() -> Self {
         let mut sys = System::new();
         sys.refresh_cpu_usage();
-        Monitor(Mutex::new(sys))
+        Monitor(Arc::new(Mutex::new(sys)))
     }
+}
+
+/// Si una lectura anterior entró en pánico con el candado tomado, el `System` sigue sirviendo: se recupera
+/// en vez de tumbar cada lectura siguiente.
+fn bloquear(m: &Mutex<System>) -> MutexGuard<'_, System> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 pub fn es_protegido(nombre: &str) -> bool {
@@ -190,10 +200,14 @@ pub fn es_protegido(nombre: &str) -> bool {
 const MB: f64 = 1024.0 * 1024.0;
 const GB: f64 = 1024.0 * 1024.0 * 1024.0;
 
+// Los comandos que no son `async` corren en el hilo principal de Tauri: leer todos los procesos cada 2 s, cerrar uno
+// o limpiar miles de temporales trancaba la ventana (y el clic a través de ella). Van a un hilo aparte.
 #[tauri::command]
-pub fn metricas(monitor: tauri::State<Monitor>) -> Metricas {
-    let mut sys = monitor.0.lock().unwrap();
-    leer_metricas(&mut sys)
+pub async fn metricas(monitor: tauri::State<'_, Monitor>) -> Result<Metricas, String> {
+    let sys = Arc::clone(&monitor.0);
+    tauri::async_runtime::spawn_blocking(move || leer_metricas(&mut bloquear(&sys)))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Lee el estado real de la PC. Separada del comando para poder probarla sin Tauri.
@@ -257,9 +271,11 @@ pub fn leer_metricas(sys: &mut System) -> Metricas {
 
 /// Cierra un proceso. Pide pid y nombre para no cerrar otro que reutilizó el pid.
 #[tauri::command]
-pub fn terminar_proceso(pid: u32, nombre: String, monitor: tauri::State<Monitor>) -> Result<String, String> {
-    let mut sys = monitor.0.lock().unwrap();
-    cerrar_proceso(&mut sys, pid, &nombre, std::process::id())
+pub async fn terminar_proceso(pid: u32, nombre: String, monitor: tauri::State<'_, Monitor>) -> Result<String, String> {
+    let sys = Arc::clone(&monitor.0);
+    tauri::async_runtime::spawn_blocking(move || cerrar_proceso(&mut bloquear(&sys), pid, &nombre, std::process::id()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Las revisiones van antes de tocar nada: protegido, uno mismo, pid reutilizado.
@@ -297,7 +313,12 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, propio: u32) -> 
 /// y solo trabaja dentro de una carpeta que se llame temp o tmp.
 #[cfg(not(target_os = "linux"))]
 #[tauri::command]
-pub fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
+pub async fn limpiar_temporales() -> Result<ResultadoLimpieza, String> {
+    tauri::async_runtime::spawn_blocking(limpiar_temporales_ya).await.map_err(|e| e.to_string())?
+}
+
+#[cfg(not(target_os = "linux"))]
+fn limpiar_temporales_ya() -> Result<ResultadoLimpieza, String> {
     let dir = std::env::temp_dir();
     let nombre = dir.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
     if dir.components().count() < 3 || !(nombre == "temp" || nombre == "tmp") {
