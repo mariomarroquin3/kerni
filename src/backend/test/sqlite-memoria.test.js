@@ -138,3 +138,23 @@ afterAll(() => {
   for (const m of abiertas) m.cerrar?.();
   rmSync(tmpDir, { recursive: true, force: true });
 });
+
+describe('ventanas de tiempo de la salud', () => {
+  it('el resumen cuenta solo lecturas de las últimas 24 h, también las del mismo día', async () => {
+    const { DatabaseSync } = await import('node:sqlite');
+    const { desdeHace } = await import('../src/memoria/sqlite.js');
+    const dataDir = join(tmpDir, `salud-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    mkdirSync(dataDir, { recursive: true });
+    const m = createSqliteMemoria({ dataDir, supabase: null, logger: { error() {} } });
+    abiertas.push(m);
+    // Lecturas viejas (25 h) y recientes (1 h), con el mismo formato que escribe registrarSalud
+    const db = new DatabaseSync(join(dataDir, 'kerni.db'));
+    const ins = db.prepare('INSERT INTO salud (device_id, cpu, ram_pct, disco_pct, proceso_top, proceso_mb, creado) VALUES (?, 10, 10, 10, NULL, NULL, ?)');
+    for (let i = 0; i < 3; i++) {
+      ins.run(DEVICE, desdeHace(25 * 3_600_000 + i));
+      ins.run(DEVICE, desdeHace(3_600_000 + i));
+    }
+    db.close();
+    expect(await m.resumenSalud(DEVICE)).toMatch(/\(3 lecturas\)/);
+  });
+});

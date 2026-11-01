@@ -45,6 +45,15 @@ export function normalizar(texto) {
   };
 }
 
+/**
+ * Fecha ISO (UTC, con milisegundos) de hace `ms` milisegundos. Las columnas
+ * `creado` se guardan con toISOString(), así que la comparación de texto
+ * solo es correcta si el corte tiene el mismo formato (no datetime('now')).
+ */
+export function desdeHace(ms, ahoraMs = Date.now()) {
+  return new Date(ahoraMs - ms).toISOString();
+}
+
 /** Coeficiente de similitud de Jaccard entre dos listas de tokens. */
 export function jaccard(tokensA, tokensB) {
   if (!tokensA.length || !tokensB.length) return 0;
@@ -170,12 +179,13 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
   const stmtLecturasSalud = db.prepare(`
     SELECT cpu, ram_pct, disco_pct, proceso_top, proceso_mb
     FROM salud
-    WHERE device_id = ? AND creado >= datetime('now', '-' || ? || ' hours')
+    WHERE device_id = ? AND creado >= ?
     ORDER BY creado DESC
     LIMIT 300
   `);
   const stmtDeleteAllSalud = db.prepare('DELETE FROM salud WHERE device_id = ?');
-  const stmtDeleteSaludVieja = db.prepare("DELETE FROM salud WHERE creado < datetime('now', '-' || ? || ' days')");
+  const stmtDeleteEpisodiosViejos = db.prepare("DELETE FROM recuerdos_reflexivos WHERE categoria = 'episodio' AND creado < ?");
+  const stmtDeleteSaludVieja = db.prepare('DELETE FROM salud WHERE creado < ?');
   const stmtDeleteMensajesViejos = db.prepare("DELETE FROM mensajes WHERE creado < datetime('now', '-' || ? || ' days')");
 
   // Statements para reflexiones y ajustes
@@ -257,7 +267,7 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
     async resumenSalud(deviceId) {
       // 1. Intentar con lecturas locales (más rápido y disponible offline)
       try {
-        const filasLocales = stmtLecturasSalud.all(deviceId, HORAS_RESUMEN);
+        const filasLocales = stmtLecturasSalud.all(deviceId, desdeHace(HORAS_RESUMEN * 3_600_000));
         if (filasLocales && filasLocales.length >= 3) {
           return formatearResumenSalud(filasLocales, HORAS_RESUMEN);
         }
@@ -542,10 +552,10 @@ export function createSqliteMemoria({ dataDir, supabase = null, logger = console
 
     mantenimiento() {
       try {
-        stmtDeleteSaludVieja.run(DIAS_DE_SALUD);
+        stmtDeleteSaludVieja.run(desdeHace(DIAS_DE_SALUD * 86_400_000));
         stmtDeleteMensajesViejos.run(15);
         // Expirar episodios mayores a 30 días
-        db.exec("DELETE FROM recuerdos_reflexivos WHERE categoria = 'episodio' AND creado < datetime('now', '-30 days')");
+        stmtDeleteEpisodiosViejos.run(desdeHace(30 * 86_400_000));
         // Purgar reflexiones de baja relevancia (>180 días sin mención y puntaje bajo)
         const ahoraMs = Date.now();
         const todas = stmtTodasReflexionesGlobal.all();
