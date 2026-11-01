@@ -196,8 +196,15 @@ pub(crate) fn bloquear(m: &Mutex<System>) -> MutexGuard<'_, System> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Caracteres invisibles que no cambian el nombre para la persona. Misma lista que `quitarInvisibles` del backend.
+fn es_invisible(c: char) -> bool {
+    matches!(c as u32, 0x200B..=0x200F | 0x2028..=0x202E | 0x2060..=0x206F | 0xFEFF)
+}
+
+/// Compara sin invisibles: un nombre con ancho cero es el mismo proceso. Backend y Rust quitan exactamente lo mismo.
 pub fn es_protegido(nombre: &str) -> bool {
-    let n = nombre.trim().to_lowercase();
+    let sin_invisibles: String = nombre.chars().filter(|c| !es_invisible(*c)).collect();
+    let n = sin_invisibles.trim().to_lowercase();
     PROTEGIDOS.contains(&n.as_str())
 }
 
@@ -740,6 +747,18 @@ mod tests {
     }
 
     #[test]
+    fn protegido_aunque_traiga_invisibles() {
+        let zwsp = char::from_u32(0x200B).unwrap();
+        let bidi = char::from_u32(0x202E).unwrap();
+        let bom = char::from_u32(0xFEFF).unwrap();
+        let lri = char::from_u32(0x2066).unwrap();
+        assert!(es_protegido(&format!("sv{zwsp}chost.exe")));
+        assert!(es_protegido(&format!("{bidi}svchost.exe")));
+        assert!(es_protegido(&format!("lsa{bom}ss.exe{lri}")));
+        assert!(!es_protegido(&format!("chro{zwsp}me.exe")));
+    }
+
+    #[test]
     fn limpia_solo_archivos_viejos() {
         let base = std::env::temp_dir().join(format!("kerni-test-{}", std::process::id()));
         fs::create_dir_all(base.join("sub")).unwrap();
@@ -813,6 +832,9 @@ mod tests {
     fn no_cierra_protegidos_ni_a_si_mismo() {
         let mut sys = System::new();
         let r = cerrar_proceso(&mut sys, 4, "System", None, 99999);
+        assert!(r.unwrap_err().contains("protegido"));
+        let zwsp = char::from_u32(0x200B).unwrap();
+        let r = cerrar_proceso(&mut sys, 4, &format!("sv{zwsp}chost.exe"), None, 99999);
         assert!(r.unwrap_err().contains("protegido"));
         let r = cerrar_proceso(&mut sys, 4242, "algo.exe", None, 4242);
         assert!(r.unwrap_err().contains("a sí mismo"));

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { esProtegido, limpiarNombre } from './telemetria.js';
+import { tieneInvisibles } from './seguridad/texto.js';
 
 /**
  * Acciones que Kerni puede proponer. El esquema es plano (un solo objeto) porque
@@ -68,9 +69,18 @@ export function validarPropuesta(input, snapshot) {
   if (proceso.nombre.toLowerCase() !== nombre.trim().toLowerCase()) {
     return { ok: false, error: `el pid ${pid} es ${limpiarNombre(proceso.nombre)}, no ${limpiarNombre(nombre)}` };
   }
+  const verbo = accion === 'congelar_proceso' ? 'congelar' : 'cerrar';
   if (esProtegido(proceso.nombre)) {
-    const verbo = accion === 'congelar_proceso' ? 'congelar' : 'cerrar';
     return { ok: false, error: `${limpiarNombre(proceso.nombre)} es un proceso protegido; no se puede ${verbo}` };
+  }
+  // La tarjeta muestra el nombre tal cual, y Rust lo compara tal cual. Si lo que se ve no es lo que se compara
+  // (caracteres invisibles, o símbolos que la limpieza cambiaría), no se propone: la persona no aprueba algo distinto.
+  const verboYo = verbo === 'cerrar' ? 'cierro' : 'congelo';
+  if (tieneInvisibles(proceso.nombre)) {
+    return { ok: false, error: `El nombre de ese proceso tiene caracteres invisibles; no lo ${verboYo} desde Kerni` };
+  }
+  if (limpiarNombre(proceso.nombre) !== proceso.nombre) {
+    return { ok: false, error: `El nombre de ese proceso tiene símbolos que no puedo mostrar tal cual; no lo ${verboYo} desde Kerni` };
   }
   // La hora de inicio distingue un proceso de otro que reutilizó el pid. Si la foto no la trae (cliente anterior),
   // se valida solo por pid y nombre, como antes. Si llega una hora distinta a la de la foto, se rechaza.
