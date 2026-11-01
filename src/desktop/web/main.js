@@ -5,7 +5,8 @@ import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
 import { armarReporte, describirNueva, detalleCache, textoLimpiezaCache, detallePapelera,panelActualizaciones, panelArranque, panelConsumoBateria, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
-import { ayudaContada, contarAyuda, estadoDeHoy, nivelDeXp, textoInsignia } from './progreso.js';
+import { ayudaContada, contarAyuda, contarTarjeta, debeOfrecerLeccion, estadoDeHoy, listaVistos, marcarLeccion, marcarOfrecida, nivelDeXp, puedeMostrarConsejo, textoInsignia } from './progreso.js';
+import { proximosConsejos, siguienteConsejo } from './consejos.js';
 import { explicarAccion } from './explicaciones.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
@@ -181,7 +182,24 @@ const deviceId = idDeEstaPc();
 // ---------- Aprendizaje: insignia de nivel y "¿Por qué?" ----------
 // El XP solo llega por aprender (ayuda, consejos, lección); aprobar una acción no suma nada. El backend decide el tope.
 let progreso = { disponible: null, xp: 0, xpHoy: 0, topeDiario: 20, leccionHoy: false };
-const consejosActivos = true;
+let consejosActivos = leerConsejosActivos();
+let consejoDeSesion = false;
+let leccionEnCurso = false;
+
+// La opción "Consejos" vive en localStorage; sin almacenamiento queda activada.
+function leerConsejosActivos() {
+  try { return localStorage.getItem('kerni.consejos') !== '0'; } catch { return true; }
+}
+function pintarMenuConsejos() {
+  $('menu-consejos').textContent = consejosActivos ? 'Consejos: activados' : 'Consejos: desactivados';
+}
+function alternarConsejos() {
+  consejosActivos = !consejosActivos;
+  try { localStorage.setItem('kerni.consejos', consejosActivos ? '1' : '0'); } catch { /* sin almacenamiento: dura lo que la sesión */ }
+  pintarMenuConsejos();
+  pintarProgreso();
+  if (!consejosActivos) $('leccion').hidden = true;
+}
 
 function pintarProgreso() {
   const texto = textoInsignia({ xp: progreso.xp, disponible: progreso.disponible, activos: consejosActivos });
@@ -243,6 +261,83 @@ function estadoHoy() {
 function guardarHoy(estado) {
   try { localStorage.setItem(CLAVE_HOY, JSON.stringify(estado)); } catch { /* idem */ }
 }
+
+// ---------- Consejos y mini-lección: static tips, one per session at most; the lesson is offered once a day ----------
+const CLAVE_VISTOS = 'kerni.consejos.vistos';
+function leerVistos() {
+  try { return listaVistos(JSON.parse(localStorage.getItem(CLAVE_VISTOS))); } catch { return []; }
+}
+/** Marca el consejo como visto en este PC y lo cuenta en el backend (consejo_visto). */
+function marcarVisto(id) {
+  try { localStorage.setItem(CLAVE_VISTOS, JSON.stringify(listaVistos([...leerVistos(), id]))); } catch { /* sin almacenamiento */ }
+  enviarEvento('consejo_visto');
+}
+
+/** Muestra un consejo si ahora se puede. Devuelve true si lo mostró. */
+function mostrarConsejo() {
+  const siguiente = siguienteConsejo(leerVistos());
+  const puede = puedeMostrarConsejo({
+    activos: consejosActivos,
+    disponible: progreso.disponible === true,
+    panico: enPanico,
+    tarjetaAbierta: pendiente !== null,
+    globoVisible: !$('globo').hidden,
+    yaEnSesion: consejoDeSesion,
+    hayConsejo: Boolean(siguiente),
+  });
+  if (!puede) return false;
+  consejoDeSesion = true;
+  decir(`Un consejo: ${siguiente.texto}`, 12000);
+  marcarVisto(siguiente.id);
+  return true;
+}
+/** Lo intenta al arrancar y luego cada 30 s, hasta que sale una vez en la sesión. */
+function intentarConsejo() {
+  if (consejoDeSesion) return;
+  if (!mostrarConsejo()) setTimeout(intentarConsejo, 30000);
+}
+
+/** Una tarjeta aprobada o rechazada cuenta para la lección del día. No suma XP: solo cuenta. */
+function tarjetaResuelta() {
+  guardarHoy(contarTarjeta(estadoHoy()));
+  setTimeout(ofrecerLeccionSiToca, 1500);
+}
+function ofrecerLeccionSiToca() {
+  const hoy = estadoHoy();
+  const puede = debeOfrecerLeccion(hoy, {
+    activos: consejosActivos,
+    disponible: progreso.disponible === true,
+    panico: enPanico,
+    tarjetaAbierta: pendiente !== null,
+    hayConsejos: proximosConsejos(leerVistos(), 1).length > 0,
+  });
+  if (!puede) return;
+  guardarHoy(marcarOfrecida(hoy));
+  $('leccion').hidden = false;
+}
+
+/** Tres consejos seguidos, cada uno con su tiempo para leer; al final, la lección cuenta una vez por día. */
+async function correrLeccion() {
+  if (leccionEnCurso) return;
+  leccionEnCurso = true;
+  try {
+    const tres = proximosConsejos(leerVistos(), 3);
+    if (!tres.length) { decir('Ya viste todos mis consejos. ¡Buen trabajo!', 6000); return; }
+    for (const [i, c] of tres.entries()) {
+      const texto = `Lección ${i + 1} de ${tres.length}: ${c.texto}`;
+      decir(texto, 12000);
+      marcarVisto(c.id);
+      await new Promise((r) => setTimeout(r, duracionGlobo(texto, 12000)));
+    }
+    guardarHoy(marcarLeccion(estadoHoy()));
+    decir('Listo, lección terminada. ¡Buen trabajo!', 6000);
+    await enviarEvento('leccion_completa');
+  } finally {
+    leccionEnCurso = false;
+  }
+}
+$('leccion-si').addEventListener('click', () => { $('leccion').hidden = true; correrLeccion(); });
+$('leccion-no').addEventListener('click', () => { $('leccion').hidden = true; decir('Dale, cuando quieras.', 3000); });
 
 // ---------- Globo de texto ----------
 let timerGlobo;
@@ -468,6 +563,7 @@ function mostrarTarjeta(accion, porKerni) {
   // Cada tarjeta nueva empieza con la explicación cerrada.
   $('confirmar-explicacion').hidden = true;
   $('confirmar-por-que').setAttribute('aria-expanded', 'false');
+  $('leccion').hidden = true;
   $('confirmar').hidden = false;
   tarjetaMostradaEn = performance.now();
 }
@@ -528,6 +624,7 @@ $('aprobar').addEventListener('click', async () => {
   const a = pendiente;
   cerrarTarjeta();
   if (!a) return;
+  tarjetaResuelta();
   try {
     await ejecutar(a);
     reaccionar();
@@ -539,6 +636,7 @@ $('aprobar').addEventListener('click', async () => {
 
 $('rechazar').addEventListener('click', () => {
   cerrarTarjeta();
+  tarjetaResuelta();
   decir('Listo, no toco nada. ¡Tranqui!', 4000);
 });
 
@@ -1094,6 +1192,9 @@ menuContextual.addEventListener('click', async (e) => {
       case 'limpiar':
         if (!pendiente) pedirLimpieza();
         break;
+      case 'consejos':
+        alternarConsejos();
+        break;
       case 'equipo': await verEquipo(); break;
       case 'reporte': await verReporte(); break;
       case 'inicio': await verInicio(); break;
@@ -1142,6 +1243,9 @@ setInterval(refrescarIA, 60000);
 pintarProgreso();
 cargarProgreso();
 setInterval(() => { if (progreso.disponible !== true) cargarProgreso(); }, 60000);
+pintarMenuConsejos();
+// Un consejo a lo sumo por sesión, después del saludo (ver intentarConsejo).
+setTimeout(intentarConsejo, 14000);
 
 // Una lectura a la vez: la siguiente se programa cuando termina la anterior. Con setInterval, si Rust tardaba
 // (una limpieza grande), las lecturas se apilaban y llegaban juntas, todas altas, y podían disparar un pánico falso.

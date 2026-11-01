@@ -65,3 +65,44 @@ test('"¿Por qué?" cuenta una vez por tipo de tarjeta y día, y no depende de l
   // La explicación se muestra en cualquier caso: lo que cambia con la opción es solo el XP.
   assert.doesNotMatch(porQue.split('const hoy')[0], /consejosActivos/);
 });
+
+test('el consejo nunca sale en pánico, con una tarjeta abierta ni con otro globo, y una vez por sesión', () => {
+  const mostrar = bloque('function mostrarConsejo() {', 'function intentarConsejo()');
+  assert.match(mostrar, /panico: enPanico/);
+  assert.match(mostrar, /tarjetaAbierta: pendiente !== null/);
+  assert.match(mostrar, /globoVisible: !\$\('globo'\)\.hidden/);
+  assert.match(mostrar, /yaEnSesion: consejoDeSesion/);
+  assert.match(mostrar, /consejoDeSesion = true;/);
+  // El consejo se pinta con decir(), que usa textContent.
+  assert.match(mostrar, /decir\(`Un consejo: \$\{siguiente\.texto\}`/);
+});
+
+test('aprobar y rechazar cuentan la tarjeta para la lección, sin dar XP', () => {
+  const aprobar = bloque("$('aprobar').addEventListener", "$('rechazar').addEventListener");
+  const rechazar = bloque("$('rechazar').addEventListener", '// "¿Por qué?"');
+  assert.match(aprobar, /tarjetaResuelta\(\);/);
+  assert.match(rechazar, /tarjetaResuelta\(\);/);
+  const cuenta = bloque('function tarjetaResuelta() {', 'function ofrecerLeccionSiToca()');
+  assert.doesNotMatch(cuenta, /enviarEvento/);
+});
+
+test('la lección tiene su tarjeta, sus botones y el evento leccion_completa solo al terminar', () => {
+  for (const id of ['leccion', 'leccion-texto', 'leccion-si', 'leccion-no']) {
+    assert.ok(html.includes(`id="${id}"`), id);
+  }
+  assert.match(html, /<section id="leccion"[^>]*\bhidden\b/);
+  assert.match(html, /¿Querés una lección de 1 minuto\?/);
+  const correr = bloque('async function correrLeccion() {', '$(\'leccion-si\')');
+  assert.match(correr, /enviarEvento\('leccion_completa'\)/);
+  assert.equal([...main.matchAll(/enviarEvento\('leccion_completa'\)/g)].length, 1);
+});
+
+test('la opción "Consejos" está en el menú, se guarda con try/catch y apaga la lección al desactivarse', () => {
+  assert.match(html, /data-menu-accion="consejos"/);
+  assert.match(html, /id="menu-consejos"/);
+  assert.match(main, /case 'consejos':\s*\n\s*alternarConsejos\(\);/);
+  const alternar = bloque('function alternarConsejos() {', '// ---------- Consejos y mini-lección');
+  assert.match(alternar, /localStorage\.setItem\('kerni\.consejos'/);
+  assert.match(alternar, /if \(!consejosActivos\) \$\('leccion'\)\.hidden = true;/);
+  assert.match(main, /let consejosActivos = leerConsejosActivos\(\);/);
+});

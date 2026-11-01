@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NIVELES, nivelDeXp, textoInsignia, contarAyuda, contarTarjeta, diaVacio, estadoDeHoy, ayudaContada } from '../web/progreso.js';
+import { NIVELES, nivelDeXp, textoInsignia, contarAyuda, contarTarjeta, diaVacio, estadoDeHoy, ayudaContada, debeOfrecerLeccion, listaVistos, marcarLeccion, marcarOfrecida, puedeMostrarConsejo, TARJETAS_PARA_LECCION } from '../web/progreso.js';
 
 test('los niveles son los cinco del diseño, con sus umbrales', () => {
   assert.deepEqual(NIVELES.map((n) => [n.desde, n.nombre]), [[0, 'Aprendiz'], [20, 'Vigía'], [60, 'Guardián'], [120, 'Experto'], [200, 'Maestro']]);
@@ -80,4 +80,46 @@ test('contar tarjetas suma una por vez', () => {
   let e = diaVacio('2026-11-01');
   for (let i = 0; i < 3; i++) e = contarTarjeta(e);
   assert.equal(e.tarjetas, 3);
+});
+
+const ABIERTO = { activos: true, disponible: true, panico: false, tarjetaAbierta: false, globoVisible: false, yaEnSesion: false, hayConsejo: true };
+
+test('un consejo aparece solo si está activo, con la función encendida y sin nada en medio', () => {
+  assert.equal(puedeMostrarConsejo(ABIERTO), true);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, activos: false }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, disponible: false }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, disponible: null }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, panico: true }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, tarjetaAbierta: true }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, globoVisible: true }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, yaEnSesion: true }), false);
+  assert.equal(puedeMostrarConsejo({ ...ABIERTO, hayConsejo: false }), false);
+});
+
+test('la lección se ofrece al llegar a 5 tarjetas, una sola vez por día', () => {
+  const opciones = { activos: true, disponible: true, panico: false, tarjetaAbierta: false, hayConsejos: true };
+  let e = diaVacio('2026-11-01');
+  for (let i = 0; i < TARJETAS_PARA_LECCION - 1; i++) e = contarTarjeta(e);
+  assert.equal(debeOfrecerLeccion(e, opciones), false, 'con 4 todavía no');
+  e = contarTarjeta(e);
+  assert.equal(debeOfrecerLeccion(e, opciones), true, 'con 5 sí');
+  e = marcarOfrecida(e);
+  assert.equal(debeOfrecerLeccion(contarTarjeta(e), opciones), false, 'ya se ofreció hoy');
+});
+
+test('la lección no se ofrece con consejos apagados, en pánico, con una tarjeta abierta o si ya se hizo', () => {
+  let e = diaVacio('2026-11-01');
+  for (let i = 0; i < 5; i++) e = contarTarjeta(e);
+  const base = { activos: true, disponible: true, panico: false, tarjetaAbierta: false, hayConsejos: true };
+  assert.equal(debeOfrecerLeccion(e, { ...base, activos: false }), false);
+  assert.equal(debeOfrecerLeccion(e, { ...base, panico: true }), false);
+  assert.equal(debeOfrecerLeccion(e, { ...base, tarjetaAbierta: true }), false);
+  assert.equal(debeOfrecerLeccion(e, { ...base, hayConsejos: false }), false);
+  assert.equal(debeOfrecerLeccion(marcarLeccion(e), base), false);
+});
+
+test('la lista de consejos vistos ignora basura y no repite', () => {
+  assert.deepEqual(listaVistos(['c01', 'c01', 7, null, 'c02']), ['c01', 'c02']);
+  assert.deepEqual(listaVistos('c01'), []);
+  assert.deepEqual(listaVistos(undefined), []);
 });

@@ -77,3 +77,38 @@ export function contarAyuda(estado, accion) {
 export function contarTarjeta(estado) {
   return { ...estado, tarjetas: estado.tarjetas + 1 };
 }
+
+// ---------- Consejos y mini-lección: cuándo aparecen ----------
+
+/** Cuántas tarjetas resueltas en un día hacen que Kerni ofrezca la lección de 1 minuto. */
+export const TARJETAS_PARA_LECCION = 5;
+
+/**
+ * ¿Puede aparecer un consejo ahora? Nunca en pánico, nunca con una tarjeta abierta ni con otro globo, y una sola vez por sesión.
+ * Con los consejos apagados o sin memoria local (la función está apagada), tampoco.
+ */
+export function puedeMostrarConsejo({ activos, disponible, panico, tarjetaAbierta, globoVisible, yaEnSesion, hayConsejo }) {
+  return Boolean(activos && disponible === true && !panico && !tarjetaAbierta && !globoVisible && !yaEnSesion && hayConsejo);
+}
+
+/** ¿Toca ofrecer la lección? Una vez por día, después de la tarjeta número 5, y si no se hizo ya. */
+export function debeOfrecerLeccion(estado, { activos, disponible, panico, tarjetaAbierta, hayConsejos }) {
+  return Boolean(
+    activos && disponible === true && !panico && !tarjetaAbierta && hayConsejos
+    && estado.tarjetas >= TARJETAS_PARA_LECCION && !estado.ofrecida && !estado.leccion,
+  );
+}
+
+export function marcarOfrecida(estado) {
+  return { ...estado, ofrecida: true };
+}
+
+export function marcarLeccion(estado) {
+  return { ...estado, leccion: true };
+}
+
+/** Lista de ids de consejos ya vistos, leída de localStorage: solo cadenas y sin repetir. */
+export function listaVistos(guardado) {
+  if (!Array.isArray(guardado)) return [];
+  return [...new Set(guardado.filter((id) => typeof id === 'string' && id.length <= 20))].slice(0, 200);
+}
