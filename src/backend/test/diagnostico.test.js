@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ACCIONES, ACCIONES_SIN_DATOS, validarPropuesta } from '../src/acciones.js';
 import { detectarAccion } from '../src/intenciones.js';
 
-const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso'];
+const DIAGNOSTICO = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso', 'ver_consumo_bateria'];
 
 describe('diagnóstico: solo lectura, sin datos del modelo', () => {
   it('cada herramienta está en ACCIONES y en ACCIONES_SIN_DATOS, y pasa sin foto del sistema', () => {
@@ -62,5 +62,15 @@ describe('ver_programas_sin_uso: frases', () => {
     }
     expect(detectarAccion('explicame por qué programas sin usar')).toBeNull();
     expect(detectarAccion('tengo archivos sin usar')?.accion).toBe('ver_archivos_pesados');
+  });
+});
+
+describe('ver_consumo_bateria: frases', () => {
+  it('"qué consume la batería" abre la tarjeta; "cuánta batería tengo" sigue siendo un dato; la explicación va al modelo', () => {
+    for (const f of ['qué consume la batería', 'qué programas gastan mucha batería', 'se me acaba la batería rápido', 'me dura poco la batería']) {
+      expect(detectarAccion(f)?.accion, f).toBe('ver_consumo_bateria');
+    }
+    expect(detectarAccion('cuánta batería tengo')).toBeNull();
+    expect(detectarAccion('explicame por qué se gasta la batería')).toBeNull();
   });
 });

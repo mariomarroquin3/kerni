@@ -65,6 +65,118 @@ pub async fn ver_arranque() -> Result<Arranque, String> {
     .map_err(|e| e.to_string())
 }
 
+// ---------- C6: consumo con batería ----------
+
+/// Cuántas muestras de CPU se toman, con una pausa de un segundo entre ellas. Son pocas: el dato es aproximado.
+const MUESTRAS_CONSUMO: u32 = 3;
+const PAUSA_MUESTRA: Duration = Duration::from_secs(1);
+const MAX_PROGRAMAS_CONSUMO: usize = 5;
+const NOTA_APROXIMADA: &str = "Aproximado, según la CPU de cada programa en unas pocas muestras. No mide cuánta energía gasta cada uno.";
+const NOTA_SIN_BATERIA: &str = "Esta PC no tiene batería.";
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgramaConsumo {
+    pub nombre: String,
+    /// Promedio de CPU del programa (todos sus procesos), en porcentaje del equipo completo.
+    pub cpu_promedio: f64,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConsumoBateria {
+    pub hay_bateria: bool,
+    pub porcentaje: Option<u8>,
+    pub cargando: bool,
+    pub enchufada: bool,
+    /// Los programas que más CPU usaron en las muestras.
+    pub programas: Vec<ProgramaConsumo>,
+    pub muestras: u32,
+    pub nota: String,
+}
+
+/// Lo que se responde cuando la PC no tiene batería (escritorio).
+pub fn respuesta_sin_bateria() -> ConsumoBateria {
+    ConsumoBateria {
+        hay_bateria: false,
+        porcentaje: None,
+        cargando: false,
+        enchufada: false,
+        programas: Vec::new(),
+        muestras: 0,
+        nota: NOTA_SIN_BATERIA.to_string(),
+    }
+}
+
+/// Promedio de CPU por nombre de programa a partir de las muestras. La CPU de cada proceso viene por núcleo (puede pasar
+/// de 100): se divide entre los núcleos, igual que las métricas. Función pura.
+pub fn promediar_consumo(muestras: &[Vec<(String, f32)>], nucleos: usize) -> Vec<ProgramaConsumo> {
+    let mut suma: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    for muestra in muestras {
+        for (nombre, cpu) in muestra {
+            *suma.entry(nombre.clone()).or_default() += f64::from(*cpu);
+        }
+    }
+    let veces = muestras.len().max(1) as f64;
+    let nucleos = nucleos.max(1) as f64;
+    let mut lista: Vec<ProgramaConsumo> = suma
+        .into_iter()
+        .map(|(nombre, total)| ProgramaConsumo { nombre, cpu_promedio: (total / veces / nucleos).min(100.0) })
+        .filter(|p| p.cpu_promedio > 0.0)
+        .collect();
+    lista.sort_by(|a, b| {
+        b.cpu_promedio
+            .partial_cmp(&a.cpu_promedio)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.nombre.cmp(&b.nombre))
+    });
+    lista.truncate(MAX_PROGRAMAS_CONSUMO);
+    lista
+}
+
+/// Toma unas muestras de la CPU de cada proceso (la primera lectura sirve de base). Tarda unos segundos.
+fn medir_consumo() -> (Vec<Vec<(String, f32)>>, usize) {
+    use sysinfo::{ProcessesToUpdate, System};
+    let mut sys = System::new_all();
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+    let mut muestras = Vec::new();
+    for _ in 0..MUESTRAS_CONSUMO {
+        std::thread::sleep(PAUSA_MUESTRA);
+        sys.refresh_processes(ProcessesToUpdate::All, true);
+        let muestra: Vec<(String, f32)> = sys
+            .processes()
+            .values()
+            .filter(|p| p.pid().as_u32() != 0)
+            .map(|p| (p.name().to_string_lossy().to_string(), p.cpu_usage()))
+            .collect();
+        muestras.push(muestra);
+    }
+    (muestras, sys.cpus().len())
+}
+
+/// Estado de la batería y los programas que más CPU usan, con una nota de que el dato es aproximado.
+/// En un escritorio responde que no tiene batería, sin medir nada.
+#[tauri::command]
+pub async fn ver_consumo_bateria() -> Result<ConsumoBateria, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let Some(bateria) = sistema::leer_bateria() else {
+            return respuesta_sin_bateria();
+        };
+        let (muestras, nucleos) = medir_consumo();
+        ConsumoBateria {
+            hay_bateria: true,
+            porcentaje: Some(bateria.porcentaje),
+            cargando: bateria.cargando,
+            enchufada: bateria.enchufada,
+            programas: promediar_consumo(&muestras, nucleos),
+            muestras: MUESTRAS_CONSUMO,
+            nota: NOTA_APROXIMADA.to_string(),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 // ---------- C5: programas instalados y cuándo se instalaron ----------
 
 /// Programas de Windows (Uninstall del equipo, del equipo de 32 bits y del usuario). Solo la fecha de instalación:
@@ -787,6 +899,43 @@ mod tests {
     fn sin_salida_no_hay_programas_inventados() {
         assert!(parsear_programas("").is_empty());
         assert!(parsear_programas("[]").is_empty());
+    }
+
+    #[test]
+    fn promedia_la_cpu_entre_muestras_y_entre_nucleos() {
+        let muestras = vec![
+            vec![("chrome.exe".to_string(), 20.0), ("miner.exe".to_string(), 0.0)],
+            vec![("chrome.exe".to_string(), 40.0), ("chrome.exe".to_string(), 10.0)],
+        ];
+        let p = promediar_consumo(&muestras, 2);
+        // chrome: (20 + 40 + 10) / 2 muestras / 2 núcleos = 17.5; miner no gasta nada y no sale
+        assert_eq!(p.len(), 1);
+        assert_eq!(p[0].nombre, "chrome.exe");
+        assert!((p[0].cpu_promedio - 17.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn ordena_del_que_mas_gasta_y_muestra_cinco() {
+        let muestra: Vec<(String, f32)> = (1..=8).map(|i| (format!("app{i}"), i as f32)).collect();
+        let p = promediar_consumo(&[muestra], 1);
+        assert_eq!(p.len(), MAX_PROGRAMAS_CONSUMO);
+        assert_eq!(p[0].nombre, "app8");
+        assert!(p.windows(2).all(|w| w[0].cpu_promedio >= w[1].cpu_promedio));
+    }
+
+    #[test]
+    fn el_escritorio_dice_que_no_tiene_bateria_y_no_mide_nada() {
+        let r = respuesta_sin_bateria();
+        assert!(!r.hay_bateria);
+        assert_eq!(r.porcentaje, None);
+        assert!(r.programas.is_empty());
+        assert_eq!(r.muestras, 0);
+        assert_eq!(r.nota, "Esta PC no tiene batería.");
+    }
+
+    #[test]
+    fn la_nota_de_la_laptop_dice_que_es_aproximado() {
+        assert!(NOTA_APROXIMADA.contains("Aproximado, según la CPU de cada programa"));
     }
 
 }

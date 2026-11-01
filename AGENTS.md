@@ -160,6 +160,7 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 | `ver_puntos_restauracion` | Lista los puntos de restauración que existen (fecha, descripción y motivo). Dice si la protección del sistema parece desactivada o si hace falta administrador. No crea ni borra ninguno | No |
 | `ver_duplicados_posibles` | Agrupa archivos de tus carpetas personales con el mismo nombre y tamaño (de más de 1 MB). Son posibles duplicados: no lee ni compara el contenido y no borra nada | No |
 | `ver_programas_sin_uso` | Lista los programas instalados con su fecha de instalación, del más viejo al más nuevo. El último uso no se puede leer sin administrador: se dice y no se inventa. No desinstala nada | No |
+| `ver_consumo_bateria` | En laptops: estado de la batería y los programas que más CPU usan en unas muestras (aproximado, según la CPU de cada programa). En un escritorio dice que no tiene batería. No cierra nada | No |
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia`) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 

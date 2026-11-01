@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { describirNueva, panelArranque, panelDuplicados, panelProgramasSinUso, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
+import { describirNueva, panelArranque, panelConsumoBateria, panelDuplicados, panelProgramasSinUso, panelPuntos, panelSaludDisco, ACCIONES_PANEL } from '../web/herramientas.js';
 import { accionLocalNueva, responderLocal } from '../web/intenciones.js';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -143,4 +143,30 @@ test('ver_programas_sin_uso: registrado en lib.rs (dos listas) y la interfaz lo 
   assert.equal([...lib.matchAll(/diagnostico::ver_programas_sin_uso,/g)].length, 2);
   assert.ok(main.includes("llamar('ver_programas_sin_uso'"));
   assert.match(main, /ver_programas_sin_uso: verProgramasSinUso/);
+});
+
+test('ver_consumo_bateria: la tarjeta dice que no cierra nada, y las frases de batería abren la tarjeta sin modelo', () => {
+  assert.match(describirNueva({ accion: 'ver_consumo_bateria' }), /no cierro nada/);
+  assert.ok(ACCIONES_PANEL.includes('ver_consumo_bateria'));
+  assert.equal(accionLocalNueva('qué consume la batería')?.proponer.accion, 'ver_consumo_bateria');
+  assert.equal(accionLocalNueva('me dura poco la batería')?.proponer.accion, 'ver_consumo_bateria');
+  const medida = { cpu: 10, ram: { usadaMb: 4000, totalMb: 16000 }, disco: { libreGb: 100, totalGb: 500 }, procesos: [], bateria: { porcentaje: 50, cargando: false, enchufada: false } };
+  assert.equal(responderLocal('cuánta batería tengo', medida)?.proponer, undefined);
+});
+
+test('ver_consumo_bateria: en un escritorio dice que no tiene batería; en una laptop muestra el dato como aproximado', () => {
+  const escritorio = panelConsumoBateria({ hayBateria: false, nota: 'Esta PC no tiene batería.' });
+  assert.equal(escritorio.estado, 'Esta PC no tiene batería.');
+  assert.deepEqual(escritorio.filas, []);
+  const laptop = panelConsumoBateria({ hayBateria: true, porcentaje: 62, cargando: false, enchufada: false, programas: [{ nombre: 'chrome.exe', cpuPromedio: 12.44 }], muestras: 3 });
+  assert.match(laptop.estado, /62 %/);
+  assert.match(laptop.estado, /aproximado, según la CPU de cada programa/);
+  assert.equal(laptop.filas[0].titulo, 'chrome.exe');
+  assert.equal(laptop.filas[0].detalle, '12.4 % de CPU en promedio');
+});
+
+test('ver_consumo_bateria: registrado en lib.rs (dos listas) y la interfaz lo llama', () => {
+  assert.equal([...lib.matchAll(/diagnostico::ver_consumo_bateria,/g)].length, 2);
+  assert.ok(main.includes("llamar('ver_consumo_bateria'"));
+  assert.match(main, /ver_consumo_bateria: verBateria/);
 });

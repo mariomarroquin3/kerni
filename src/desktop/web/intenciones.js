@@ -72,6 +72,7 @@ const REGLAS_NUEVAS = [
   { accion: 'ver_puntos_restauracion', patron: /\b(volver|regresar|retroceder)\s+(atras|para\s+atras)\b|\bpuntos?\s+de\s+restauracion\b|\brestaur\w*\s+(el\s+|mi\s+)?(sistema|windows|pc|compu\w*|computadora)\b/, texto: 'Miro si hay puntos de restauración a los que volver. Solo los listo: no creo ni borro ninguno.', motivo: 'Ver los puntos de restauración que existen.' },
   { accion: 'ver_duplicados_posibles', patron: /\b(archivos?|fotos?|documentos?|videos?|copias?|cosas)\s+(duplicad\w*|repetid\w*)\b|\b(duplicad\w*|repetid\w*)\s+(archivos?|fotos?|documentos?|videos?|copias?)\b|\bbusc\w*\s+(duplicad\w*|repetid\w*)\b/, texto: 'Busco archivos que parecen repetidos. Comparo solo nombre y tamaño; no abro ni borro nada.', motivo: 'Ver posibles archivos repetidos en tus carpetas personales.' },
   { accion: 'ver_programas_sin_uso', patron: /\b(programas?|aplicaciones?|apps?)\s+(que\s+)?(no\s+uso|sin\s+usar|ya\s+no\s+uso|viejos?|que\s+nunca\s+uso)\b|\b(que|cuales)\s+(programas?|aplicaciones?|apps?)\s+((\w+\s+){0,2})?(no\s+uso|sin\s+usar|puedo\s+(borrar|desinstalar|eliminar|quitar)|tengo\s+instalad\w*|hay\s+instalad\w*)\b/, texto: 'Miro qué programas tenés instalados y cuándo se instalaron. Solo listo: no desinstalo nada.', motivo: 'Ver los programas instalados y su fecha de instalación.' },
+  { accion: 'ver_consumo_bateria', patron: /\b(que|cual(es)?|quien(es)?)\s+(\w+\s+){0,2}(consum\w*|gast\w*|come[ns]?)\s+(mucha\s+|la\s+|tanta\s+)?bateria\b|\b(acaba|agota|gasta)\w*\s+(muy\s+|tan\s+|rapido\s+|mucha\s+)?(la\s+)?bateria\b|\bbateria\s+(me\s+)?dura\s+poco\b|\bme\s+dura\s+poco\b/, texto: 'Miro qué programas gastan más CPU, aproximadamente. Solo miro: no cierro nada.', motivo: 'Ver qué programas consumen más batería (aproximado).' },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/, texto: 'Miro qué carpetas ocupan más espacio.', motivo: 'Ver qué carpetas ocupan más espacio.' },
 ];
 
@@ -96,6 +97,8 @@ const EXCEPCIONES = {
   ver_info_equipo: /\bequipo\s+de\b/,
   ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
   ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
+  ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
+  ver_consumo_bateria: /\b(como|por que|explic\w*|que es)\b/,
   ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_duplicados_posibles: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,

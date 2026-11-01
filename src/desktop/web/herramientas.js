@@ -17,7 +17,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso', 'ver_consumo_bateria', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -29,6 +29,7 @@ export function describirNueva(a) {
     case 'ver_puntos_restauracion': return '¿Miro si hay puntos de restauración a los que volver? Solo los listo: no creo ni borro ninguno.';
     case 'ver_duplicados_posibles': return '¿Busco archivos que parecen repetidos en tus carpetas personales? Comparo solo el nombre y el tamaño, sin abrir ni leer los archivos. Solo listo: no borro nada.';
     case 'ver_programas_sin_uso': return '¿Miro qué programas tenés instalados y cuándo se instalaron? Solo listo: no desinstalo nada, y Windows no me dice cuándo usaste cada uno.';
+    case 'ver_consumo_bateria': return '¿Miro qué programas gastan más CPU mientras mido la batería? Tarda unos segundos. Solo miro: no cierro nada.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
     case 'ver_reporte_soporte': return '¿Armo un resumen de tu equipo para soporte técnico? Junta el modelo, la memoria, el disco, lo que se abre al iniciar y la red. Se queda en pantalla: solo se copia si vos tocás el botón.';
@@ -306,5 +307,23 @@ export function panelProgramasSinUso({ programas = [], total = 0, nota = '' }) {
     detalle: [p.instalado ? `instalado el ${p.instalado}` : 'fecha de instalación desconocida', p.editor].filter(Boolean).join(' · '),
   }));
   if (total > programas.length) filas.push({ titulo: `Y ${total - programas.length} más`, detalle: '' });
+  return { estado, filas };
+}
+
+/**
+ * "¿Qué gasta la batería?": los programas que más CPU usaron en unas muestras. Siempre dice que es aproximado.
+ * En un escritorio, la respuesta es que no tiene batería.
+ * @param {{ hayBateria: boolean, porcentaje?: number|null, cargando?: boolean, enchufada?: boolean, programas?: object[], nota?: string }} c
+ */
+export function panelConsumoBateria(c) {
+  if (!c.hayBateria) return { estado: c.nota || 'Esta PC no tiene batería.', filas: [] };
+  const situacion = c.cargando ? 'está cargando' : c.enchufada ? 'está enchufada' : 'se está descargando';
+  const estado = `Tu batería está al ${c.porcentaje} % y ${situacion}. `
+    + 'Estos son los programas que más CPU usaron en las últimas muestras (aproximado, según la CPU de cada programa). '
+    + 'Cerrar uno lo hacés vos desde el Administrador de tareas.';
+  const programas = c.programas ?? [];
+  const filas = programas.length
+    ? programas.map((p) => ({ titulo: p.nombre, detalle: `${p.cpuPromedio.toFixed(1)} % de CPU en promedio` }))
+    : [{ titulo: 'No vi programas con uso de CPU en las muestras', detalle: '' }];
   return { estado, filas };
 }

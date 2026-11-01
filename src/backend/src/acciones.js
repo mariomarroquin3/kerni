@@ -22,6 +22,7 @@ export const ACCIONES = [
   'ver_puntos_restauracion',
   'ver_duplicados_posibles',
   'ver_programas_sin_uso',
+  'ver_consumo_bateria',
   'abrir_ajuste',
   'vaciar_papelera',
 ];

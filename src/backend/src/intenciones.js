@@ -42,6 +42,7 @@ const PROPUESTAS = {
   ver_puntos_restauracion: 'Ver si hay puntos de restauración a los que volver (solo lectura; no crea ni borra ninguno).',
   ver_duplicados_posibles: 'Buscar archivos que parecen repetidos (mismo nombre y tamaño), sin borrar nada.',
   ver_programas_sin_uso: 'Listar los programas instalados y cuándo se instalaron (no desinstala nada).',
+  ver_consumo_bateria: 'Ver qué programas gastan más CPU (aproximado) y cómo está la batería.',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -75,6 +76,7 @@ const REGLAS = [
   { accion: 'ver_puntos_restauracion', patron: /\b(volver|regresar|retroceder)\s+(atras|para\s+atras)\b|\bpuntos?\s+de\s+restauracion\b|\brestaur\w*\s+(el\s+|mi\s+)?(sistema|windows|pc|compu\w*|computadora)\b/ },
   { accion: 'ver_duplicados_posibles', patron: /\b(archivos?|fotos?|documentos?|videos?|copias?|cosas)\s+(duplicad\w*|repetid\w*)\b|\b(duplicad\w*|repetid\w*)\s+(archivos?|fotos?|documentos?|videos?|copias?)\b|\bbusc\w*\s+(duplicad\w*|repetid\w*)\b/ },
   { accion: 'ver_programas_sin_uso', patron: /\b(programas?|aplicaciones?|apps?)\s+(que\s+)?(no\s+uso|sin\s+usar|ya\s+no\s+uso|viejos?|que\s+nunca\s+uso)\b|\b(que|cuales)\s+(programas?|aplicaciones?|apps?)\s+((\w+\s+){0,2})?(no\s+uso|sin\s+usar|puedo\s+(borrar|desinstalar|eliminar|quitar)|tengo\s+instalad\w*|hay\s+instalad\w*)\b/ },
+  { accion: 'ver_consumo_bateria', patron: /\b(que|cual(es)?|quien(es)?)\s+(\w+\s+){0,2}(consum\w*|gast\w*|come[ns]?)\s+(mucha\s+|la\s+|tanta\s+)?bateria\b|\b(acaba|agota|gasta)\w*\s+(muy\s+|tan\s+|rapido\s+|mucha\s+)?(la\s+)?bateria\b|\bbateria\s+(me\s+)?dura\s+poco\b|\bme\s+dura\s+poco\b/ },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },
 ];
 
@@ -85,6 +87,8 @@ const EXCEPCIONES = {
   ver_info_equipo: /\bequipo\s+de\b/,
   ver_reporte_soporte: /\b(como|por que|explic\w*|que contiene|debe llevar)\b/,
   ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
+  ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
+  ver_consumo_bateria: /\b(como|por que|explic\w*|que es)\b/,
   ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_duplicados_posibles: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
