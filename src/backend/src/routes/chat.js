@@ -124,7 +124,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       }
       return { session_id: sessionId, respuesta, acciones, traza };
     } catch (err) {
-      req.log.error({ err: err.message, codigo: err.codigo }, 'falló el turno');
+      req.log.error({ err: err.message, codigo: err.codigo, red: err.red }, 'falló el turno');
       // Sin cupo o con el servicio caído, lo que se pueda sin el modelo se hace igual: las guías y las tarjetas de siempre.
       const motivo = err.codigo === 'sin_cupo' || err.status === 402
         ? 'sin_cupo'

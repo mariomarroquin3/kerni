@@ -20,6 +20,8 @@ export function errorAnthropic(err, { signal } = {}) {
   } else if (/Connection/i.test(nombre)) {
     e = new Error('No pude conectar con Anthropic.');
     e.codigo = 'sin_red';
+    // Causa de red real (ENOTFOUND, ECONNRESET...) solo para el log: nunca se muestra a la persona.
+    e.red = err?.cause?.cause?.code ?? err?.cause?.code ?? err?.cause?.name ?? 'desconocida';
   } else if (status === 401 || status === 403) {
     e = new Error('La llave de Anthropic no es válida. Revisá ANTHROPIC_API_KEY en src/backend/.env.');
     e.codigo = 'llave_invalida';
@@ -37,8 +39,23 @@ export function errorAnthropic(err, { signal } = {}) {
   return e;
 }
 
-// Haiku 5.5 gasta los tokens de salida en razonamiento oculto si se lo dejan: con 600 la respuesta llegaba vacía o cortada.
-// Kerni no necesita razonar en voz baja para charlar y usar herramientas, así que se desactiva y el límite da margen.
+function crear(anthropic, { model, maxTokens, persona, contexto, tools, history, sinTools, signal }) {
+  return anthropic.messages.create({
+    model,
+    max_tokens: maxTokens,
+    // Haiku 5.5 gasta los tokens de salida en razonamiento oculto si se lo dejan: con 600 la respuesta llegaba vacía o cortada.
+    // Kerni no necesita razonar en voz baja para charlar y usar herramientas, así que se desactiva y el límite da margen.
+    thinking: { type: 'disabled' },
+    system: [
+      { type: 'text', text: persona, cache_control: { type: 'ephemeral' } },
+      ...(contexto ? [{ type: 'text', text: contexto }] : []),
+    ],
+    ...(tools.length ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) } : {}),
+    ...(sinTools && tools.length ? { tool_choice: { type: 'none' } } : {}),
+    messages: history,
+  }, signal ? { signal } : undefined);
+}
+
 export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, maxTokens = 1024 }) {
   return {
     name: 'anthropic',
@@ -47,22 +64,20 @@ export function createAnthropicProvider({ anthropic, model = ANTHROPIC_MODEL, ma
     userMessage: (text) => ({ role: 'user', content: text }),
 
     async step({ persona = '', contexto = '', tools = [], history = [], sinTools = false, signal } = {}) {
+      const opciones = { anthropic, model, maxTokens, persona, contexto, tools, history, sinTools, signal };
       let response;
       try {
-        response = await anthropic.messages.create({
-          model,
-          max_tokens: maxTokens,
-          thinking: { type: 'disabled' },
-          system: [
-            { type: 'text', text: persona, cache_control: { type: 'ephemeral' } },
-            ...(contexto ? [{ type: 'text', text: contexto }] : []),
-          ],
-          ...(tools.length ? { tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) } : {}),
-          ...(sinTools && tools.length ? { tool_choice: { type: 'none' } } : {}),
-          messages: history,
-        }, signal ? { signal } : undefined);
+        response = await crear(anthropic, opciones);
       } catch (err) {
-        throw errorAnthropic(err, { signal });
+        const primero = errorAnthropic(err, { signal });
+        // Un corte de red suele ser pasajero: se reintenta una vez, con una pausa, antes de decirle a la persona que no hay conexión.
+        if (primero.codigo !== 'sin_red' || signal?.aborted) throw primero;
+        await new Promise((r) => setTimeout(r, 1500));
+        try {
+          response = await crear(anthropic, opciones);
+        } catch (segundo) {
+          throw errorAnthropic(segundo, { signal });
+        }
       }
 
       if (response.stop_reason === 'refusal') return { kind: 'refusal' };
