@@ -176,3 +176,22 @@ describe('A5: explicar el reporte de soporte no lo arma', () => {
     expect(detectarAccion('haceme un reporte del equipo para soporte')?.accion).toBe('ver_reporte_soporte');
   });
 });
+
+describe('recuperación de Windows (destino recuperacion)', () => {
+  it('es un destino de la lista cerrada y se valida como los demás', () => {
+    expect(DESTINOS_AJUSTE).toContain('recuperacion');
+    const r = validarPropuesta({ accion: 'abrir_ajuste', destino: 'recuperacion', motivo: 'Volver atrás si algo salió mal.' }, null);
+    expect(r.ok).toBe(true);
+    expect(r.accion).toEqual({ tipo: 'proponer_accion', accion: 'abrir_ajuste', destino: 'recuperacion', motivo: 'Volver atrás si algo salió mal.' });
+  });
+
+  it('"abrí la recuperación de Windows" y "abrí restaurar sistema" abren ese destino', () => {
+    expect(destinoDeAjuste('abrí la recuperación de Windows')).toBe('recuperacion');
+    expect(destinoDeAjuste('abrí restaurar sistema')).toBe('recuperacion');
+  });
+
+  it('pedir los puntos de restauración sigue siendo la lectura, no abrir Configuración', () => {
+    expect(destinoDeAjuste('mostrame los puntos de restauración')).toBeNull();
+    expect(detectarAccion('mostrame los puntos de restauración')).not.toMatchObject({ accion: 'abrir_ajuste' });
+  });
+});

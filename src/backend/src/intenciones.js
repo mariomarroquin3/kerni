@@ -113,12 +113,13 @@ const DESTINOS = [
   ['actualizaciones', /\bwindows\s+update\b|\bactualizaciones\b/],
   ['red', /\b(wifi|wi-fi|red|internet)\b/],
   ['energia', /\b(energia|bateria|suspension)\b/],
+  ['recuperacion', /\b(recuperacion|restaurar\s+sistema|restauracion)\b/],
 ];
 const PIDE_ABRIR = /\b(abr\w+|llev\w+|mostr\w+|ir\s+a|and\w+\s+a)\b.{0,30}\b(configuracion|ajustes?|settings)\b/;
 
 // Como en la app: "abre el almacenamiento" sin decir "configuración". Red y wifi quedan fuera a propósito.
-const PIDE_ABRIR_CORTO = /^(?:abr\w+|llev\w+|mostr\w+)\s+(?:me\s+|te\s+)?(?:a\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(almacenamiento|actualizaciones|windows update|aplicaciones instaladas|energia|bateria)\b/;
-const DESTINO_CORTO = { almacenamiento: 'almacenamiento', actualizaciones: 'actualizaciones', 'windows update': 'actualizaciones', 'aplicaciones instaladas': 'aplicaciones', energia: 'energia', bateria: 'energia' };
+const PIDE_ABRIR_CORTO = /^(?:abr\w+|llev\w+|mostr\w+)\s+(?:me\s+|te\s+)?(?:a\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(almacenamiento|actualizaciones|windows update|aplicaciones instaladas|energia|bateria|recuperacion|restaurar sistema)\b/;
+const DESTINO_CORTO = { almacenamiento: 'almacenamiento', actualizaciones: 'actualizaciones', 'windows update': 'actualizaciones', 'aplicaciones instaladas': 'aplicaciones', energia: 'energia', bateria: 'energia', recuperacion: 'recuperacion', 'restaurar sistema': 'recuperacion' };
 
 export function destinoDeAjuste(texto) {
   const t = norm(texto);

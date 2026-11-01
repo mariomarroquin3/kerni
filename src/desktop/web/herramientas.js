@@ -11,6 +11,7 @@ export const AJUSTES = {
   actualizaciones: 'Windows Update',
   red: 'Red e internet',
   energia: 'Energía y batería',
+  recuperacion: 'Recuperación de Windows',
 };
 
 /** Acciones que solo muestran información: se ejecutan con la función de main.js que lleva su nombre. */
@@ -282,8 +283,15 @@ export function panelSaludDisco({ discos = [], nota = '' }) {
  * @param {{ puntos?: object[], nota?: string }} r
  */
 export function panelPuntos({ puntos = [], nota = '' }) {
-  if (!puntos.length) return { estado: nota || 'No encontré puntos de restauración.', filas: [] };
   const fechaDe = (p) => (p.fecha ? p.fecha.replace('T', ' ') : 'Fecha desconocida');
+  if (!puntos.length) {
+    // Sin puntos (o con la restauración desactivada) la salida es Recuperación de Windows: se ofrece el botón.
+    return {
+      estado: `${nota || 'No encontré puntos de restauración.'} Si quieres volver atrás, abrí Recuperación.`,
+      filas: [],
+      boton: { texto: 'Abrir Recuperación', tipo: 'ajuste', dato: 'recuperacion' },
+    };
+  }
   return {
     estado: `Hay ${puntos.length} ${puntos.length === 1 ? 'punto de restauración' : 'puntos de restauración'}. El más nuevo es del ${fechaDe(puntos[0])}. `
       + `Volver a uno lo decidís vos desde Windows; yo no lo hago. ${nota}`.trim(),

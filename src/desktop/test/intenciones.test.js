@@ -192,3 +192,11 @@ test('diagnóstico: "tarda en prender" es arranque, no lentitud de ahora, y sin 
   assert.equal(responderLocal('mi compu tarda mucho en prender', foto({ cpu: 99 })), null);
   assert.equal(responderLocal('mi compu va lenta', null), null);
 });
+
+test('recuperación de Windows: "abrí la recuperación de Windows" y "abrí restaurar sistema" proponen el ajuste con tarjeta', () => {
+  for (const frase of ['abrí la recuperación de Windows', 'abrí restaurar sistema']) {
+    const r = accionLocalNueva(frase);
+    assert.equal(r.proponer.accion, 'abrir_ajuste', frase);
+    assert.equal(r.proponer.destino, 'recuperacion', frase);
+  }
+});

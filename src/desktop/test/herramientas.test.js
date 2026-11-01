@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AJUSTES, describirNueva, detalleCache, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelRed, textoLimpiezaCache } from '../web/herramientas.js';
+import { AJUSTES, describirNueva, detalleCache, detallePapelera, panelActualizaciones, panelDispositivosRed, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelRed, textoLimpiezaCache } from '../web/herramientas.js';
 import { accionLocalNueva, responderLocal } from '../web/intenciones.js';
 
 const SIN_DIMINUTIVOS = /\b[a-záéíóúñ]{3,}(it|cit)[oa]s?\b/i;
@@ -299,4 +299,11 @@ test('A3: vacié / limpié / borré el reciclaje propone vaciar la papelera', ()
   }
   assert.equal(accionLocalNueva('no vacíes el reciclaje'), null);
   assert.equal(accionLocalNueva('la papelera de la cocina está llena'), null);
+});
+
+test('puntos de restauración vacíos: el panel dice cómo volver atrás y ofrece abrir Recuperación', () => {
+  const vacio = panelPuntos({ puntos: [], nota: 'No pude leer los puntos de restauración.' });
+  assert.match(vacio.estado, /Si quieres volver atrás, abrí Recuperación\./);
+  assert.deepEqual(vacio.boton, { texto: 'Abrir Recuperación', tipo: 'ajuste', dato: 'recuperacion' });
+  assert.equal(panelPuntos({ puntos: [{ descripcion: 'x', fecha: '2026-10-28T18:01:00', tipo: 'y' }] }).boton, undefined);
 });

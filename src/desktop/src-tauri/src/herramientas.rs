@@ -637,6 +637,7 @@ pub fn direccion_de_ajuste(destino: &str) -> Option<&'static str> {
         "actualizaciones" => Some("ms-settings:windowsupdate"),
         "red" => Some("ms-settings:network"),
         "energia" => Some("ms-settings:powersleep"),
+        "recuperacion" => Some("ms-settings:recovery"),
         _ => None,
     }
 }
@@ -866,6 +867,7 @@ fe80::1 dev eth0 lladdr 00:11:22:33:44:55 REACHABLE";
     #[test]
     fn solo_abre_ajustes_de_la_lista() {
         assert_eq!(direccion_de_ajuste("almacenamiento"), Some("ms-settings:storagesense"));
+        assert_eq!(direccion_de_ajuste("recuperacion"), Some("ms-settings:recovery"));
         assert_eq!(direccion_de_ajuste("actualizaciones"), Some("ms-settings:windowsupdate"));
         for malo in ["", "cmd.exe", "ms-settings:privacy", "http://malo.com", "almacenamiento && calc", "../x"] {
             assert_eq!(direccion_de_ajuste(malo), None, "{malo}");

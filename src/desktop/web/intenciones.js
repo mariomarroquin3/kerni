@@ -44,7 +44,7 @@ const palabras = (t) => t.trim().split(/\s+/).filter(Boolean).length;
 // Es la misma idea que `src/backend/src/intenciones.js` (que cubre las frases largas de la conversación), pero acá solo
 // mensajes cortos, para que funcionen al instante y sin llave. Se prueban sobre texto sin tildes ni mayúsculas.
 const norm = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-const AJUSTES_NOMBRE = { almacenamiento: 'Almacenamiento', aplicaciones: 'Aplicaciones instaladas', inicio: 'Aplicaciones de inicio', actualizaciones: 'Windows Update', red: 'Red e internet', energia: 'Energía y batería' };
+const AJUSTES_NOMBRE = { almacenamiento: 'Almacenamiento', aplicaciones: 'Aplicaciones instaladas', inicio: 'Aplicaciones de inicio', actualizaciones: 'Windows Update', red: 'Red e internet', energia: 'Energía y batería', recuperacion: 'Recuperación de Windows' };
 const DESTINOS = [
   ['almacenamiento', /\b(almacenamiento|storage|espacio\s+en\s+disco)\b/],
   ['aplicaciones', /\b(aplicaciones|programas)\s+instalad\w+|\bdesinstalar\b/],
@@ -52,12 +52,13 @@ const DESTINOS = [
   ['actualizaciones', /\bwindows\s+update\b|\bactualizaciones\b/],
   ['red', /\b(wifi|wi-fi|red|internet)\b/],
   ['energia', /\b(energia|bateria|suspension)\b/],
+  ['recuperacion', /\b(recuperacion|restaurar\s+sistema|restauracion)\b/],
 ];
 const PIDE_ABRIR = /\b(abr\w+|llev\w+|mostr\w+|ir\s+a|and\w+\s+a)\b.{0,30}\b(configuracion|ajustes?|settings)\b/;
 // "abre el almacenamiento", "abrime actualizaciones": verbo de abrir + destino concreto, sin decir "configuración".
 // Va antes que el disco (TEMA_DISCO también atrapa "almacenamiento"). Red y wifi quedan fuera: "red social" es otra cosa.
-const PIDE_ABRIR_CORTO = /^(?:abr\w+|llev\w+|mostr\w+)\s+(?:me\s+|te\s+)?(?:a\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(almacenamiento|actualizaciones|windows update|aplicaciones instaladas|energia|bateria)\b/;
-const DESTINO_CORTO = { almacenamiento: 'almacenamiento', actualizaciones: 'actualizaciones', 'windows update': 'actualizaciones', 'aplicaciones instaladas': 'aplicaciones', energia: 'energia', bateria: 'energia' };
+const PIDE_ABRIR_CORTO = /^(?:abr\w+|llev\w+|mostr\w+)\s+(?:me\s+|te\s+)?(?:a\s+)?(?:el\s+|la\s+|los\s+|las\s+)?(almacenamiento|actualizaciones|windows update|aplicaciones instaladas|energia|bateria|recuperacion|restaurar sistema)\b/;
+const DESTINO_CORTO = { almacenamiento: 'almacenamiento', actualizaciones: 'actualizaciones', 'windows update': 'actualizaciones', 'aplicaciones instaladas': 'aplicaciones', energia: 'energia', bateria: 'energia', recuperacion: 'recuperacion', 'restaurar sistema': 'recuperacion' };
 const REGLAS_NUEVAS = [
   { accion: 'vaciar_papelera', patron: /\b(vaci\w+|limpi\w+|borr\w+|elimin\w+)\s+((el|la|mi|los|las)\s+)?(papelera|reciclaje)\b/, texto: 'Puedo vaciar la papelera, pero no se puede deshacer. Mirá la tarjeta y decidí vos.', motivo: 'Liberar el espacio que ocupa la papelera.' },
   { accion: 'ver_programas_inicio', patron: /\b(programas?|apps?|aplicaciones?)\s+de\s+(inicio|arranque)\b|\b(abre\w*|inicia\w*|arranca\w*|carga\w*)\s+(solos?\s+)?(al|cuando|con)\s+(inicia\w*|prende\w*|encender\w*|arranca\w*|windows)|\b(compu\w*|pc)\s+(tarda|demora)\s+(en\s+)?(prender|arrancar|iniciar|encender)/, texto: 'Dale, miro qué programas se abren solos al prender la compu.', motivo: 'Ver qué programas se abren solos al iniciar.' },

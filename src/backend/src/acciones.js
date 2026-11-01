@@ -32,7 +32,7 @@ export const ACCIONES = [
 const CON_PROCESO = ['terminar_proceso', 'congelar_proceso'];
 export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => !CON_PROCESO.includes(a) && a !== 'abrir_ajuste');
 /** Lista cerrada (la misma que `direccion_de_ajuste` en Rust): el modelo nunca manda una dirección. */
-export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia'];
+export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia', 'recuperacion'];
 
 export const ProponerAccionSchema = z.object({
   accion: z.enum(ACCIONES).describe('Qué se propone hacer.'),
