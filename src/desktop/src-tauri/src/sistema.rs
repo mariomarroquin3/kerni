@@ -201,11 +201,49 @@ fn es_invisible(c: char) -> bool {
     matches!(c as u32, 0x200B..=0x200F | 0x2028..=0x202E | 0x2060..=0x206F | 0xFEFF)
 }
 
+/// Maps a few common Cyrillic and Greek lookalikes to their ASCII letter (already lowercase).
+///
+/// This is a deliberately NARROW list (Cyrillic а е о р с у х і ј and Greek ο ν ρ, upper and lower case):
+/// it only makes sure that a protected name spelled with lookalikes, such as "svсhost.exe" with a Cyrillic
+/// "с", is still treated as protected. It is not a full Unicode confusables table. The main guard is
+/// `nombre_es_ascii`: destructive actions refuse any non-ASCII live name, whatever letters it uses.
+fn ascii_parecido(c: char) -> char {
+    match c {
+        'а' | 'А' => 'a',
+        'е' | 'Е' => 'e',
+        'о' | 'О' | 'ο' | 'Ο' => 'o',
+        'р' | 'Р' | 'ρ' | 'Ρ' => 'p',
+        'с' | 'С' => 'c',
+        'у' | 'У' => 'y',
+        'х' | 'Х' => 'x',
+        'і' | 'І' => 'i',
+        'ј' | 'Ј' => 'j',
+        'ν' => 'v',
+        'Ν' => 'n',
+        otro => otro,
+    }
+}
+
 /// Compara sin invisibles: un nombre con ancho cero es el mismo proceso. Backend y Rust quitan exactamente lo mismo.
+/// Además, las letras parecidas de `ascii_parecido` cuentan como su letra ASCII (ver el comentario de esa función).
 pub fn es_protegido(nombre: &str) -> bool {
-    let sin_invisibles: String = nombre.chars().filter(|c| !es_invisible(*c)).collect();
+    let sin_invisibles: String = nombre.chars().filter(|c| !es_invisible(*c)).map(ascii_parecido).collect();
     let n = sin_invisibles.trim().to_lowercase();
     PROTEGIDOS.contains(&n.as_str())
+}
+
+/// Homoglyph guard for destructive process actions (close, freeze, resume): after stripping the same
+/// invisible characters as `es_protegido`, the name must be printable ASCII only (0x20..=0x7E).
+/// Real Windows process names are ASCII in practice, so this refuses a rare legitimate name with an
+/// accented letter (for example "café.exe"): a deliberate trade-off, the person can still close it from
+/// the Task Manager. Applied to the LIVE name read from the system, not only to the name the front sends.
+pub fn nombre_es_ascii(nombre: &str) -> bool {
+    nombre.chars().filter(|c| !es_invisible(*c)).all(|c| (' '..='~').contains(&c))
+}
+
+/// Mensaje cuando el nombre real del proceso no es ASCII. `verbo` es "cierro" o "congelo".
+pub(crate) fn error_no_ascii(verbo: &str) -> String {
+    format!("El nombre de ese proceso usa letras de otro alfabeto; no lo {verbo} desde Kerni.")
 }
 
 const MB: f64 = 1024.0 * 1024.0;
@@ -320,6 +358,9 @@ pub fn cerrar_proceso(sys: &mut System, pid: u32, nombre: &str, inicio: Option<u
     }
     if es_protegido(&real) {
         return Err(format!("{real} es un proceso protegido y no se puede cerrar"));
+    }
+    if !nombre_es_ascii(&real) {
+        return Err(error_no_ascii("cierro"));
     }
     if proceso.kill() {
         Ok(format!("Cerré {real}"))
@@ -756,6 +797,42 @@ mod tests {
         assert!(es_protegido(&format!("{bidi}svchost.exe")));
         assert!(es_protegido(&format!("lsa{bom}ss.exe{lri}")));
         assert!(!es_protegido(&format!("chro{zwsp}me.exe")));
+    }
+
+    #[test]
+    fn el_guardia_ascii_deja_pasar_nombres_normales() {
+        assert!(nombre_es_ascii("chrome.exe"));
+        assert!(nombre_es_ascii("System Idle Process"));
+        assert!(nombre_es_ascii("Code - Insiders.exe"));
+        // Invisible characters are stripped first, like in es_protegido.
+        let zwsp = char::from_u32(0x200B).unwrap();
+        assert!(nombre_es_ascii(&format!("chro{zwsp}me.exe")));
+    }
+
+    #[test]
+    fn homoglifo_cirilico_rechazado_y_protegido() {
+        let cirilica = "sv\u{0441}host.exe"; // Cyrillic "с"
+        assert!(!nombre_es_ascii(cirilica));
+        assert!(es_protegido(cirilica));
+        assert!(es_protegido("LS\u{0410}SS.EXE")); // Cyrillic uppercase "А"
+        assert!(es_protegido("\u{0435}xpl\u{03BF}r\u{0435}r.\u{0435}x\u{0435}")); // Cyrillic е, Greek ο
+        assert!(!es_protegido("chr\u{043E}me.exe"));
+    }
+
+    #[test]
+    fn ancho_cero_mas_cirilico() {
+        let n = "sv\u{200B}\u{0441}host.exe";
+        assert!(!nombre_es_ascii(n));
+        assert!(es_protegido(n));
+    }
+
+    #[test]
+    fn letra_latina_con_tilde_tambien_se_rechaza() {
+        // Real Windows process names are ASCII in practice; an accented Latin name is refused on purpose.
+        assert!(!nombre_es_ascii("café.exe"));
+        assert!(!nombre_es_ascii("año.exe"));
+        assert!(!es_protegido("café.exe"));
+        assert_eq!(error_no_ascii("cierro"), "El nombre de ese proceso usa letras de otro alfabeto; no lo cierro desde Kerni.");
     }
 
     #[test]

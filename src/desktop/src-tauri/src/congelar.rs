@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use sysinfo::{ProcessesToUpdate, System};
 
-use crate::sistema::{bloquear, es_protegido, Monitor};
+use crate::sistema::{bloquear, error_no_ascii, es_protegido, nombre_es_ascii, Monitor};
 
 /// Un proceso que Kerni dejó congelado. La hora de inicio distingue el proceso de otro que reutilice el pid.
 #[derive(Clone, Debug, PartialEq)]
@@ -46,6 +46,11 @@ pub fn revisar_objetivo(real: Option<(&str, u64)>, pid: u32, nombre: &str, inici
     }
     if es_protegido(real_nombre) {
         return Err(format!("{real_nombre} es un proceso protegido y no se puede congelar"));
+    }
+    // Homoglyph guard on the LIVE name (used by both freeze and resume). A non-ASCII name can never be
+    // frozen, so resume never meets one in practice; the check stays for defense in depth.
+    if !nombre_es_ascii(real_nombre) {
+        return Err(error_no_ascii("congelo ni lo reanudo"));
     }
     Ok(real_nombre.to_string())
 }
@@ -231,6 +236,17 @@ mod tests {
     fn acepta_y_devuelve_el_nombre_real() {
         let r = revisar_objetivo(Some(("MiApp.exe", 5)), 10, " miapp.exe ", Some(5), 99);
         assert_eq!(r.unwrap(), "MiApp.exe");
+    }
+
+    #[test]
+    fn no_congela_un_nombre_real_que_no_es_ascii() {
+        // Cyrillic "с" (U+0441) in an otherwise ordinary name that is not on the protected list.
+        let nombre = "miс.exe";
+        let r = revisar_objetivo(Some((nombre, 5)), 10, nombre, Some(5), 99);
+        assert!(r.unwrap_err().contains("otro alfabeto; no lo congelo"));
+        // A protected name with lookalikes is refused as protected first.
+        let r = revisar_objetivo(Some(("svсhost.exe", 5)), 10, "svсhost.exe", Some(5), 99);
+        assert!(r.unwrap_err().contains("protegido"));
     }
 
     #[test]
