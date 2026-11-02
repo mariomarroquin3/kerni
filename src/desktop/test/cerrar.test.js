@@ -63,3 +63,15 @@ test('el menú integrado tiene las herramientas nuevas y cada opción tiene su a
   assert.match(main, /case 'papelera':\s+if \(!pendiente\) proponer\(\{ accion: 'vaciar_papelera'/);
   assert.doesNotMatch(main, /llamar\('vaciar_papelera'\)\s*;?\s*\n\s*break/);
 });
+
+test('la salida forzada se arma ANTES de reanudar lo congelado: si reanudar se cuelga, "Cerrar Kerni" igual cierra', () => {
+  const cuerpo = lib.slice(lib.indexOf('fn salir(app: &AppHandle)'));
+  const fin = cuerpo.indexOf('\n}\n');
+  const salir = cuerpo.slice(0, fin);
+  const forzada = salir.indexOf('std::thread::spawn');
+  const reanudar = salir.indexOf('congelar::reanudar_todos()');
+  const cierre = salir.indexOf('app.exit(0)');
+  assert.ok(forzada >= 0 && reanudar >= 0 && cierre >= 0, 'salir debe armar la salida forzada, reanudar y cerrar');
+  assert.ok(forzada < reanudar, 'la salida forzada debe armarse antes de reanudar los procesos congelados');
+  assert.ok(reanudar < cierre, 'lo congelado se reanuda antes del cierre normal');
+});
