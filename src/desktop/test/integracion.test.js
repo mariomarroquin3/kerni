@@ -192,6 +192,7 @@ test('el chat anuncia espera y respuesta sin añadir elementos visibles al layou
   assert.match(main, /setAttribute\('aria-busy', 'false'\)/);
   assert.match(main, /Kerni está pensando…/);
   assert.match(main, /La respuesta tardó demasiado\./);
+  assert.match(main, /Si su consola muestra POST \/chat con 200, cerrá Kerni por completo/);
 });
 
 test('el globo de texto dura lo que tarda leerse, no se cierra con el puntero encima y un clic lo cierra', () => {

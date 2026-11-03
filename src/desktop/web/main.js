@@ -11,6 +11,7 @@ import { explicarAccion } from './explicaciones.js';
 import { crearVigilanteEnlaces, debeLeerPortapapeles } from './vigilancia.js';
 import { debeMostrarResumen, diaSV, textoResumenDiario } from './resumen.js';
 import { BOTONES_GUIA, etiquetaGuia, guiaVisible, pideGuia } from './guias.js';
+import { leerRespuestaSse } from './chat-stream.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -1209,6 +1210,7 @@ $('chat').addEventListener('submit', async (e) => {
   $('chat-estado').textContent = 'Kerni está pensando…';
   actualizarModo();
   decir('Mmm, dejame pensar…', 30000);
+  let respuestaRecibida = false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
@@ -1224,50 +1226,35 @@ $('chat').addEventListener('submit', async (e) => {
       }),
       signal: controller.signal,
     });
+    respuestaRecibida = true;
     // El plazo cubre también la lectura del cuerpo (JSON o stream): se limpia recién al terminar de leer.
     let data;
     try {
     if (res.headers.get('content-type')?.includes('text/event-stream') && res.body) {
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
       let acumulado = '';
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const bloques = buffer.split('\n\n');
-        buffer = bloques.pop() ?? '';
-        for (const bloque of bloques) {
-          let evento = 'message';
-          let datos = '';
-          for (const linea of bloque.split('\n')) {
-            if (linea.startsWith('event:')) evento = linea.slice(6).trim();
-            else if (linea.startsWith('data:')) datos = linea.slice(5).trim();
-          }
-          if (!datos) continue;
-          try {
-            const parsed = JSON.parse(datos);
-            if (evento === 'delta') {
-              acumulado += parsed.text;
-              const globo = $('globo');
-              globo.textContent = acumulado;
-              globo.hidden = false;
-            } else if (evento === 'status' && parsed.herramienta === 'buscar_conocimiento') {
-              $('chat-estado').textContent = 'Kerni está consultando sus guías…';
-            } else if (evento === 'done') {
-              data = parsed;
-            } else if (evento === 'error') {
-              data = { error: parsed.error, codigo: parsed.codigo, fallbackLocal: parsed.fallbackLocal };
-            }
-          } catch {}
-        }
-      }
+      data = await leerRespuestaSse(res.body, {
+        alDelta: (texto) => {
+          acumulado += texto;
+          const globo = $('globo');
+          globo.textContent = acumulado;
+          globo.hidden = false;
+        },
+        alEstado: (estado) => {
+          if (estado.herramienta === 'buscar_conocimiento') $('chat-estado').textContent = 'Kerni está consultando sus guías…';
+        },
+      });
     } else {
       data = await res.json();
     }
     } finally {
       clearTimeout(timeout);
+    }
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('El backend respondió, pero no recibí una respuesta de chat válida.');
+    }
+    if (!data.error && (typeof data.respuesta !== 'string' || typeof data.session_id !== 'string' || !Array.isArray(data.acciones))) {
+      throw new Error('El backend respondió, pero la respuesta del chat llegó incompleta. Revisá la consola del backend.');
     }
 
     // Con streaming, un error llega como evento dentro de una respuesta 200: cuenta como fallo igual.
@@ -1318,7 +1305,11 @@ $('chat').addEventListener('submit', async (e) => {
       decir(MENSAJE_TARDO);
       $('chat-estado').textContent = 'La respuesta tardó demasiado.';
     } else {
-      decir(err instanceof TypeError ? 'Ay, no logro hablar con mi cerebro. ¿Está encendido el backend?' : String(err.message ?? err));
+      console.error('[chat] No se pudo procesar la respuesta:', err);
+      const mensajeError = err instanceof TypeError && !respuestaRecibida
+        ? 'No pude recibir la respuesta del backend. Si su consola muestra POST /chat con 200, cerrá Kerni por completo y abrilo de nuevo con la interfaz actualizada.'
+        : String(err.message ?? err);
+      decir(mensajeError);
       $('chat-estado').textContent = 'Kerni no pudo completar la respuesta.';
     }
   } finally {
