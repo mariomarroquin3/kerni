@@ -100,14 +100,33 @@ describe('POST /chat', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/chat',
-      headers: { accept: 'text/event-stream' },
+      headers: { accept: 'text/event-stream', origin: 'tauri://localhost' },
       payload: { mensaje: 'hola' },
     });
     expect(res.statusCode).toBe(200);
+    expect(res.headers['access-control-allow-origin']).toBe('tauri://localhost');
     expect(res.headers['content-type']).toMatch(/text\/event-stream/);
     expect(res.payload).toContain('event: delta');
     expect(res.payload).toContain('event: done');
     expect(res.payload).toContain('Hola amigo de Kerni');
+  });
+
+  it('no intenta enviar dos veces una respuesta SSE', async () => {
+    const logs = [];
+    const { app } = createTestApp({
+      respuestas: [texto('Hola amigo de Kerni')],
+      logger: { level: 'warn', stream: { write: (line) => logs.push(line) } },
+    });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/chat',
+      headers: { accept: 'text/event-stream' },
+      payload: { mensaje: 'hola' },
+    });
+    await app.close();
+
+    expect(res.statusCode).toBe(200);
+    expect(logs.join('')).not.toContain('FST_ERR_REP_ALREADY_SENT');
   });
 
   it('emite evento done en SSE en respuestas de respaldo sin proveedor', async () => {

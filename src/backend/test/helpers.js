@@ -33,10 +33,10 @@ export function fakeAnthropic(respuestas) {
   return { messages: { create } };
 }
 
-export function createTestApp({ respuestas = [], now, provider: proveedor, sinProveedor = false } = {}) {
+export function createTestApp({ respuestas = [], now, provider: proveedor, sinProveedor = false, logger = false } = {}) {
   const anthropic = fakeAnthropic(respuestas);
   const provider = sinProveedor ? null : proveedor ?? createAnthropicProvider({ anthropic });
   const agent = createAgent({ provider, logger: { error() {} } });
-  const app = buildApp({ config: {}, agent, provider, now });
+  const app = buildApp({ config: {}, agent, provider, now, logger });
   return { app, agent, anthropic };
 }

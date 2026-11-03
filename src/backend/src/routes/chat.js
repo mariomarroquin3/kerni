@@ -29,12 +29,18 @@ export const SESION_INACTIVA_MS = 2 * 60 * 60 * 1000;
 export const PLAZO_TURNO_MS = 50_000;
 
 /** Respuesta completa (sin deltas) para un cliente que pidió streaming: un único evento "done" y se cierra. */
-function enviarSoloDone(reply, cuerpo) {
+function iniciarSse(reply) {
+  reply.hijack();
   reply.raw.writeHead(200, {
+    ...reply.getHeaders(),
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
   });
+}
+
+function enviarSoloDone(reply, cuerpo) {
+  iniciarSse(reply);
   reply.raw.write(`event: done\ndata: ${JSON.stringify(cuerpo)}\n\n`);
   return reply.raw.end();
 }
@@ -150,11 +156,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_cupo' });
       if (respaldo) {
         if (quiereStream) {
-          reply.raw.writeHead(200, {
-            'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-cache, no-transform',
-            Connection: 'keep-alive',
-          });
+          iniciarSse(reply);
           reply.raw.write(`event: done\ndata: ${JSON.stringify({ session_id: randomUUID(), ...respaldo })}\n\n`);
           return reply.raw.end();
         }
@@ -201,11 +203,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       const guia = deviceId ? await seguro('leer la guía', () => motorGuias.activa(deviceId), null) : null;
 
       if (quiereStream) {
-        reply.raw.writeHead(200, {
-          'Content-Type': 'text/event-stream; charset=utf-8',
-          'Cache-Control': 'no-cache, no-transform',
-          Connection: 'keep-alive',
-        });
+        iniciarSse(reply);
         sseIniciado = true;
       }
 

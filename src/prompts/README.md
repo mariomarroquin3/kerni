@@ -4,6 +4,7 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 
 | Fecha | Tema | Archivo |
 |---|---|---|
+| 2026-11-03 | Fix Fastify handling of SSE replies | [2026-11-03-fix-fastify-sse-reply.md](2026-11-03-fix-fastify-sse-reply.md) |
 | 2026-11-01 | Guided mode: four fixed step guides with saved progress and chat/panel integration | [2026-11-01-modo-guia.md](2026-11-01-modo-guia.md) |
 | 2026-11-01 | Hardening Kerni against prompt injection (sanitizer, names, motives, reflections, tests) | [2026-11-01-endurecimiento-inyeccion.md](2026-11-01-endurecimiento-inyeccion.md) |
 | 2026-11-01 | Teaching tips, level badge and "¿Por qué?" on cards (local only) | [2026-11-01-ensenanza-gamificacion.md](2026-11-01-ensenanza-gamificacion.md) |
