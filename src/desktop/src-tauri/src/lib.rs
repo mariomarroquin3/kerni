@@ -70,8 +70,9 @@ fn crear_menu<R: Runtime, M: Manager<R>>(app: &M, texto_alternar: &str, texto_me
     let red_local = MenuItem::with_id(app, "red_local", "Dispositivos en la red", true, None::<&str>)?;
     let reporte = MenuItem::with_id(app, "reporte", "Resumen para soporte técnico", true, None::<&str>)?;
     let papelera = MenuItem::with_id(app, "papelera", "Vaciar la papelera…", true, None::<&str>)?;
+    let ia = MenuItem::with_id(app, "ia", "Cambiar IA o llave…", true, None::<&str>)?;
     let herramientas = Submenu::with_items(app, "Más herramientas", true, &[&equipo, &reporte, &inicio, &espacio, &red, &actualizaciones, &red_local, &papelera])?;
-    Menu::with_items(app, &[&alternar, &metricas, &pesados, &limpiar, &herramientas, &salir])
+    Menu::with_items(app, &[&alternar, &metricas, &pesados, &limpiar, &herramientas, &ia, &salir])
 }
 
 /// Avisa a la interfaz de una opción del menú. Las métricas están ocultas por defecto y se ven desde aquí;
@@ -104,6 +105,7 @@ fn al_elegir(app: &AppHandle, id: &str) {
         "red_local" => avisar_a_kerni(app, "pedir-red-local"),
         "reporte" => avisar_a_kerni(app, "pedir-reporte"),
         "papelera" => avisar_a_kerni(app, "pedir-papelera"),
+        "ia" => avisar_a_kerni(app, "pedir-ia"),
         "salir" => salir(app),
         _ => {}
     }

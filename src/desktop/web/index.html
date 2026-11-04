@@ -52,6 +52,29 @@
               <button id="panel-cerrar" type="button" class="secundario">Cerrar</button>
             </div>
           </section>
+          <section id="bienvenida" class="tarjeta zona glass" aria-labelledby="bienvenida-titulo" hidden>
+            <h2 id="bienvenida-titulo">¡Hola, soy Kerni!</h2>
+            <p id="bienvenida-intro" class="motivo">Para conversar conmigo necesito una IA. Elegí cuál querés usar, o seguí sin IA.</p>
+            <fieldset id="bienvenida-servicios" class="bienvenida-servicios">
+              <legend class="solo-lectores">Servicio de IA</legend>
+              <label><input type="radio" name="bienvenida-servicio" value="gemini" /> <span>Google Gemini</span></label>
+              <label><input type="radio" name="bienvenida-servicio" value="openrouter" /> <span>OpenRouter</span></label>
+              <label><input type="radio" name="bienvenida-servicio" value="anthropic" /> <span>Anthropic (Claude)</span></label>
+            </fieldset>
+            <p id="bienvenida-nota" class="motivo"></p>
+            <label for="bienvenida-llave" class="motivo">Tu llave de API</label>
+            <input id="bienvenida-llave" type="password" autocomplete="off" spellcheck="false" maxlength="400" placeholder="Pegala acá" />
+            <p id="bienvenida-estado" class="motivo" role="status" aria-live="polite"></p>
+            <div class="botones bienvenida-botones">
+              <button id="bienvenida-guardar" type="button">Probar y guardar</button>
+              <button id="bienvenida-sin-ia" type="button" class="secundario">Seguir sin IA</button>
+            </div>
+            <div class="botones bienvenida-botones">
+              <button id="bienvenida-olvidar" type="button" class="secundario" hidden>Quitar mis llaves</button>
+              <button id="bienvenida-cerrar" type="button" class="secundario">Ahora no</button>
+            </div>
+            <p id="bienvenida-privacidad" class="motivo"></p>
+          </section>
           <section id="memoria-panel" class="tarjeta zona glass" aria-labelledby="memoria-titulo" hidden>
             <header class="memoria-cabecera">
               <h2 id="memoria-titulo">Lo que Kerni recuerda</h2>
@@ -151,6 +174,7 @@
         <button type="button" role="menuitem" data-menu-accion="actualizaciones">Actualizaciones de Windows</button>
         <button type="button" role="menuitem" data-menu-accion="papelera">Vaciar la papelera…</button>
         <button type="button" role="menuitem" data-menu-accion="memoria">Memoria y aprendizaje…</button>
+        <button type="button" role="menuitem" data-menu-accion="cambiar_ia">Cambiar IA o llave…</button>
       </div>
     </div>
     <script type="module" src="./main.js"></script>

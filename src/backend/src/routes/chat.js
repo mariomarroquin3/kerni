@@ -85,6 +85,9 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     return null;
   }
 
+  /** Con un proveedor cambiable (pantalla de bienvenida), "sin IA" es activo === false. */
+  const hayModelo = () => Boolean(provider) && provider.activo !== false;
+
   // Historial por sesión en memoria del proceso; las inactivas se descartan.
   const sesiones = new Map();
 
@@ -152,7 +155,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       return porGuia.body;
     }
 
-    if (!provider) {
+    if (!hayModelo()) {
       const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_llave' });
       if (respaldo) {
         if (quiereStream) {
@@ -171,7 +174,9 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
 
     limpiarInactivas();
     let sessionId = req.body?.session_id;
-    if (!sessionId || !sesiones.has(sessionId)) {
+    // Otra IA = otro formato de historial: una sesión de la IA anterior no se reutiliza.
+    const version = provider.version ?? 0;
+    if (!sessionId || !sesiones.has(sessionId) || sesiones.get(sessionId).version !== version) {
       sessionId = randomUUID();
       const history = [];
       // Sesión nueva (la app se reinició o el backend se reinició): retoma los últimos turnos como texto plano,
@@ -182,7 +187,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
           history.push(m.rol === 'user' ? userMessage(m.contenido) : { role: 'assistant', content: m.contenido });
         }
       }
-      sesiones.set(sessionId, { history, ocupada: false, ultimoUso: now() });
+      sesiones.set(sessionId, { history, ocupada: false, ultimoUso: now(), version });
     }
     const sesion = sesiones.get(sessionId);
     if (sesion.ocupada) return reply.code(409).send({ error: 'Kerni todavía está respondiendo el mensaje anterior' });

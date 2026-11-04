@@ -43,6 +43,14 @@ describe('cliente de Chat Completions', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4); // 1 intento + 3 reintentos
   });
 
+  it('Gemini responde 400 con una llave inexistente: se trata como llave inválida y no se reintenta', async () => {
+    const fetchImpl = vi.fn(async () => respuesta(400, { error: { message: 'API key not valid. Please pass a valid API key.' } }));
+    const err = await cliente(fetchImpl)({}).catch((e) => e);
+    expect(err.codigo).toBe('llave_invalida');
+    expect(err.message).toMatch(/no es válida/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('un 401 no se reintenta y el mensaje apunta a la variable, sin filtrar la llave', async () => {
     const fetchImpl = vi.fn(async () => respuesta(401, { error: { message: 'API key not valid' } }));
     const err = await cliente(fetchImpl)({}).catch((e) => e);
