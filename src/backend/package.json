@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node -e \"require('fs').appendFileSync('.env','')\"",
     "dev": "node --watch --env-file-if-exists=.env src/server.js",
     "start": "node --env-file-if-exists=.env src/server.js",
     "test": "vitest run",

@@ -8,10 +8,12 @@ const MAX_CARACTERES = 450;
 
 const ENCABEZADOS = {
   sin_cupo: 'Mi cerebro en la nube llegó a su límite de hoy, pero en mis guías encontré esto que puede ayudarte:',
+  sin_llave: 'No tengo un modelo configurado, pero en mis guías encontré esto que puede ayudarte:',
   fallo: 'Mi cerebro no está respondiendo ahora, pero en mis guías encontré esto que puede ayudarte:',
 };
 const SOLO_TARJETA = {
   sin_cupo: 'Mi cerebro en la nube llegó a su límite de hoy, pero esto lo puedo hacer sin él. Mirá la tarjeta.',
+  sin_llave: 'No tengo un modelo configurado, pero esto lo puedo hacer sin él. Mirá la tarjeta.',
   fallo: 'Mi cerebro no está respondiendo ahora, pero esto lo puedo hacer sin él. Mirá la tarjeta.',
 };
 const PIE = 'Es texto de mis guías, copiado tal cual. Cuando mi cerebro vuelva, te lo explico con más calma.';
@@ -31,7 +33,7 @@ function recortar(texto, max) {
 
 /**
  * @param {{ fuente: string, titulo?: string, contenido: string }[]} fragmentos los más parecidos, de mejor a peor
- * @param {'sin_cupo'|'fallo'} motivo
+ * @param {'sin_cupo'|'sin_llave'|'fallo'} motivo
  * @param {boolean} hayTarjeta si además se propone una acción sin modelo
  * @returns {string|null} el texto, o null si no hay nada que mostrar
  */

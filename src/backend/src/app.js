@@ -33,7 +33,7 @@ export function hostPermitido(host, puerto) {
  * Construye la app con dependencias inyectadas, para poder probarla
  * con un proveedor de LLM falso.
  */
-export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), motorGuias = crearMotorGuias({ memoria }), limitadorGuias, now, logger = false, plazoTurnoMs }) {
+export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), motorGuias = crearMotorGuias({ memoria }), limitadorGuias, now, logger = false, plazoTurnoMs, reflexion }) {
   const app = Fastify({ logger });
 
   // Host: el servidor solo escucha en loopback. Rechazar cualquier otro Host evita
@@ -69,7 +69,7 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
     conocimiento: conocimiento.habilitado,
     ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
   }));
-  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, motorGuias, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}) });
+  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, motorGuias, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}), ...(reflexion !== undefined ? { reflexion } : {}) });
   app.register(memoriaRoutes, { memoria, limitador });
   app.register(enlacesRoutes, { revisorEnlaces });
   app.register(progresoRoutes, { memoria });

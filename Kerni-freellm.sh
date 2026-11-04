@@ -43,6 +43,7 @@ export OPENROUTER_BASE_URL="$FREELLM_ROOT/chat/completions"   # Kerni espera la 
 export OPENROUTER_API_KEY="$FREELLM_KEY"
 export OPENROUTER_MODEL="$FREELLM_MODEL"
 export ANTHROPIC_API_KEY="" GEMINI_API_KEY="" GOOGLE_API_KEY=""
+export KERNI_REFLEXION="${KERNI_REFLEXION:-0}"   # sin la llamada extra por mensaje; KERNI_REFLEXION=1 la reactiva
 
 cd "$KERNI/src/backend"
 [ -d node_modules ] || npm ci

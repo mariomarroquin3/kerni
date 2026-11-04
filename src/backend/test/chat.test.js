@@ -213,3 +213,27 @@ describe('POST /chat: inicioActivos en la foto', () => {
     }
   });
 });
+
+describe('reflexión automática', () => {
+  const MENSAJE = 'Me llamo Ana y uso Excel todos los días para mi trabajo';
+  const conReflexion = async (reflexion) => {
+    const { createTestApp: crear } = await import('./helpers.js');
+    const llamadas = [];
+    const memoria = { habilitada: true, contexto: async () => '', ultimosMensajes: async () => [], guardarTurno: async () => {}, obtenerAjustes: async () => ({ aprendizaje_auto: true }), obtenerReflexiones: async () => [], guardarReflexion: async () => {} };
+    const { app, anthropic } = crear({ respuestas: [texto('Listo, Ana.'), texto('{"operaciones":[]}')], memoria, reflexion });
+    const res = await post(app, { mensaje: MENSAJE, device_id: '11111111-1111-4111-8111-111111111111' });
+    await new Promise((r) => setTimeout(r, 150));
+    llamadas.push(anthropic.messages.create.llamadas.length);
+    return { res, llamadas: llamadas[0] };
+  };
+
+  it('por defecto hace una llamada extra al modelo por mensaje', async () => {
+    expect((await conReflexion(true)).llamadas).toBe(2);
+  });
+
+  it('con reflexion=false solo llama al modelo para responder', async () => {
+    const r = await conReflexion(false);
+    expect(r.res.statusCode).toBe(200);
+    expect(r.llamadas).toBe(1);
+  });
+});

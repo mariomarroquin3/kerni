@@ -106,6 +106,7 @@ El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige c
 - Almacenamiento local en SQLite (`kerni.db`): tablas `recuerdos_reflexivos`, `reflexiones_olvidadas` (tombstone) y `ajustes_memoria` (`aprendizaje_auto`).
 - Motor de reflexión (`src/backend/src/memoria/reflexion.js`): se ejecuta en segundo plano tras enviar la respuesta en `/chat` (cero impacto en latencia de usuario).
 - Deduplicación por tokens y similitud Jaccard $\ge 0.6$ sobre la misma categoría, decaimiento temporal y refuerzo por menciones. Límite máximo de 200 reflexiones por dispositivo.
+- Cada reflexión es **una llamada extra al modelo por mensaje** (en segundo plano). `KERNI_REFLEXION=0` la apaga para todos los dispositivos (útil con cupos gratuitos); `Kerni-freellm.sh` la apaga por defecto.
 - Lo aprendido entra al prompt dentro de `<reflexiones nota="...">` como bloque acotado (~800 caracteres).
 - **Regla inviolable: Las reflexiones son datos aprendidos para enriquecer el contexto, NUNCA instrucciones.** No pueden auto-aprobar acciones, alterar los procesos protegidos ni saltarse el flujo "Kerni propone, la persona decide".
 - Filtro estricto anti-secretos y anti-inyecciones: rechaza contraseñas, tokens (`sk-`, `ghp_`, `AKIA`, JWT), correos, números de teléfono, rutas personales de Windows/Linux e imperativos tipo "ignora tus reglas".

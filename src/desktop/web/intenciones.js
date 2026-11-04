@@ -100,7 +100,6 @@ const EXCEPCIONES = {
   ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
   ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_consumo_bateria: /\b(como|por que|explic\w*|que es)\b/,
-  ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_duplicados_posibles: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,
   ver_dispositivos_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,

@@ -7,13 +7,13 @@ import { textoEquipo } from '../agent/agent.js';
 import { textoDeRespaldo } from '../rag/respaldo.js';
 import { crearMotorGuias, comandoDeGuia, lineaDePaso } from '../guias/motor.js';
 
-/** Sin memoria no hay dónde guardar el paso: la guía se rechaza con un mensaje claro (decisión en AGENTS.md). */
 /** La respuesta del modelo termina con el paso actual de la guía, diga lo que diga el modelo. */
 export function cerrarConPaso(respuesta, guia) {
   const linea = lineaDePaso(guia);
   return respuesta.endsWith(linea) ? respuesta : `${respuesta}\n\n${linea}`;
 }
 
+/** Sin memoria no hay dónde guardar el paso: la guía se rechaza con un mensaje claro (decisión en AGENTS.md). */
 export const MENSAJE_SIN_MEMORIA_GUIA ='Las guías guardan dónde vas en la memoria local, y ahora no está disponible. Podemos ir por partes en la conversación: decime qué necesitás.';
 
 /**
@@ -45,7 +45,7 @@ function enviarSoloDone(reply, cuerpo) {
   return reply.raw.end();
 }
 
-export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, motorGuias = crearMotorGuias({ memoria }), now = () => Date.now(), plazoTurnoMs = PLAZO_TURNO_MS }) {
+export async function chatRoutes(app, { agent, limitador, memoria, provider, conocimiento, motorGuias = crearMotorGuias({ memoria }), now = () => Date.now(), plazoTurnoMs = PLAZO_TURNO_MS, reflexion = process.env.KERNI_REFLEXION !== '0' }) {
   /** La memoria es un extra: si falla (disco, base bloqueada), el chat sigue sin ella. */
   const seguro = async (etiqueta, fn, vacio) => {
     try { return await fn(); } catch (err) { app.log.error({ err: err.message }, `memoria: falló ${etiqueta}`); return vacio; }
@@ -153,7 +153,7 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
     }
 
     if (!provider) {
-      const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_cupo' });
+      const respaldo = await responderSinModelo({ mensaje, equipo, motivo: 'sin_llave' });
       if (respaldo) {
         if (quiereStream) {
           iniciarSse(reply);
@@ -228,7 +228,8 @@ export async function chatRoutes(app, { agent, limitador, memoria, provider, con
       // Sin esperar: guardar el turno y encolar reflexión en segundo plano no demoran la respuesta.
       if (deviceId) {
         seguro('guardar el turno', () => memoria.guardarTurno(deviceId, sessionId, mensaje, respuesta), undefined);
-        seguro('encolar la reflexión', () => motorReflexion.encolarReflexion({ deviceId, mensaje }), undefined);
+        // KERNI_REFLEXION=0 la apaga: cada reflexión es una llamada extra al modelo por mensaje (cuenta contra el cupo).
+        if (reflexion) seguro('encolar la reflexión', () => motorReflexion.encolarReflexion({ deviceId, mensaje }), undefined);
       }
       const cuerpo = { session_id: sessionId, respuesta, acciones, traza, ...(guia ? { guia: { id: guia.id, titulo: guia.titulo, paso: guia.paso, total: guia.total } } : {}) };
 
