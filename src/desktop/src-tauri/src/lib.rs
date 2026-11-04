@@ -9,6 +9,7 @@
 //! - Ícono en la bandeja y menú con clic derecho para ocultar o cerrar.
 //! - Los comandos que tocan el sistema viven en `sistema.rs`.
 
+mod backend;
 mod congelar;
 mod diagnostico;
 mod herramientas;
@@ -115,12 +116,15 @@ fn al_elegir(app: &AppHandle, id: &str) {
 /// tareas, así que no hay otra forma de cerrarla), a los 3 segundos se sale a la fuerza: "Cerrar Kerni" siempre tiene que cerrar.
 fn salir(app: &AppHandle) {
     // Primero la salida forzada: si reanudar un proceso que no responde se cuelga, "Cerrar Kerni" igual tiene que cerrar.
-    std::thread::spawn(|| {
+    let para_forzar = app.clone();
+    std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(3));
+        backend::detener(&para_forzar);
         std::process::exit(0);
     });
     // Lo que Kerni congeló vuelve a correr antes de irse: nada se queda suspendido sin la app.
     congelar::reanudar_todos();
+    backend::detener(app);
     app.exit(0);
 }
 
@@ -239,6 +243,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(CursorInteractivo::default())
         .manage(sistema::Monitor::default())
+        .manage(backend::Backend::default())
         .invoke_handler(crear_handler())
         .on_menu_event(|app, evento| al_elegir(app, evento.id().as_ref()))
         .setup(|app| {
@@ -250,6 +255,9 @@ pub fn run() {
                 bandeja = bandeja.icon(icono.clone());
             }
             bandeja.build(app)?;
+
+            // El backend viaja dentro del instalador: se enciende solo (en desarrollo no existe y no hace nada).
+            backend::arrancar(app.handle());
 
             let ventana = app.get_webview_window("kerni").expect("falta la ventana kerni");
             a_la_esquina(&ventana)?;
@@ -292,6 +300,12 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error al iniciar Kerni");
+        .build(tauri::generate_context!())
+        .expect("error al iniciar Kerni")
+        .run(|app, evento| {
+            // Salga como salga la app, el backend que encendió no se queda huérfano.
+            if let tauri::RunEvent::Exit = evento {
+                backend::detener(app);
+            }
+        });
 }

@@ -62,3 +62,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-01 | MCP client and read-only Microsoft Learn search (opt-in, off by default) | [2026-11-01-mcp-microsoft-learn.md](2026-11-01-mcp-microsoft-learn.md) |
 | 2026-11-01 | Audit after the team changes, and the exit order fix | [2026-11-01-audit-and-exit-order.md](2026-11-01-audit-and-exit-order.md) |
 | 2026-11-04 | Audit of model calls: optional reflection switch, fallback reason, dev script, freellm launcher | [2026-11-04-model-calls-audit.md](2026-11-04-model-calls-audit.md) |
+| 2026-11-04 | Installer with the backend bundled (Node + code) and a welcome screen to choose the AI and key | [2026-11-04-installer-and-welcome-screen.md](2026-11-04-installer-and-welcome-screen.md) |

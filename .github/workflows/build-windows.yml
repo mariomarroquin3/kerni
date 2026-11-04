@@ -36,6 +36,10 @@ jobs:
         working-directory: src/desktop/src-tauri
         run: cargo test
 
+      - name: Bundle the backend and Node.js (so the installer works without Node installed)
+        working-directory: src/desktop
+        run: npm run backend:preparar
+
       - name: Build the app
         working-directory: src/desktop
         run: npx tauri build

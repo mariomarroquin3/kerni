@@ -16,3 +16,9 @@ __pycache__/
 conocimiento/privado/
 supabase/local/.env
 supabase/local/generado/
+
+# Backend y Node que viajan dentro del instalador (los genera scripts/preparar-backend.mjs)
+src/desktop/src-tauri/resources/backend/*
+src/desktop/src-tauri/resources/node/*
+!src/desktop/src-tauri/resources/backend/.gitkeep
+!src/desktop/src-tauri/resources/node/.gitkeep

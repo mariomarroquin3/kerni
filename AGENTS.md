@@ -32,6 +32,9 @@ Kerni es una mascota de escritorio (Tauri) que cuida la salud de la PC con Windo
 | `src/backend/src/enlaces.js` | Revisión de enlaces (`revisar_enlace` y `POST /enlaces/revisar`): señales de la dirección y, con llave, la lista de Google Safe Browsing. Nunca abre el sitio |
 | `src/backend/src/acciones.js` | Esquema de `proponer_accion` y su validación contra la foto |
 | `src/desktop/` | App Tauri v2; front en `web/` (HTML/CSS/JS con Vite) |
+| `src/desktop/src-tauri/src/backend.rs` | Enciende y vigila el backend empaquetado (Node + código en `resources/`) |
+| `src/desktop/web/bienvenida.js`, `bienvenida-ui.js` | Pantalla de bienvenida: elegir la IA y la llave (lógica pura y DOM) |
+| `src/backend/src/ajustes.js`, `routes/ajustes.js`, `llm/dinamico.js` | Guardar la elección y cambiar de IA en caliente |
 | `src/desktop/src-tauri/src/sistema.rs` | Código que toca el sistema: métricas, cerrar proceso, limpiar temporales, listar archivos pesados sin uso y espacio por carpeta (solo lectura) |
 | `src/desktop/src-tauri/src/congelar.rs` | Congelar y reanudar procesos (`NtSuspendProcess` de ntdll, sin dependencias nuevas). Mismas revisiones que `terminar_proceso`; reanuda todo al salir |
 | `src/desktop/src-tauri/src/navegadores.rs` | Caché de Chrome y Edge (`Cache` y `Code Cache` de cada perfil). Nunca cookies, historial ni contraseñas |
@@ -69,6 +72,7 @@ Kerni-nube.bat                              # igual, pero con la base de conocim
 cd src/backend && npm run pdf-a-md -- ruta   # convierte PDFs con texto a .md (un titulo "Pagina N" por pagina); indexar usa el .md y salta el .pdf de al lado
 Kerni.bat dev                               # modo desarrollo (tauri dev, recarga al editar)
 Kerni.bat build                             # fuerza recompilar la app final
+cd src/desktop && npm run backend:preparar -- --node-local   # prepara el backend empaquetado con tu Node (probar fuera de Windows)
 Kerni.bat check                             # solo revisar, no abre ni compila nada
 node src/desktop/scripts/probar-tauri.mjs   # prueba la app REAL desde dentro (ver abajo)
 ```
@@ -198,6 +202,16 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 - **Actions still need a card.** A step of type `accion` only returns a proposal in the same shape `validarPropuesta` expects (`acciones.js`). The card and the click are the same as always; the guide never runs anything (rule 1). Each proposal name must be in `ACCIONES` (a test checks this).
 - **Memory.** Guides save progress in SQLite, so without memory they are refused with a clear message instead of working for the session only. "Olvidar todo" clears the guide too.
 - **Front.** The line "Guía: <título> (paso N de M)" with Listo / No pude / Salir sits above the chat (`web/guias.js`, pure logic). Text is set with `textContent`.
+
+## Instalador (.exe) y pantalla de bienvenida
+
+- **El backend viaja dentro del instalador.** `src/desktop/scripts/preparar-backend.mjs` (`npm run backend:preparar`) deja en `src-tauri/resources/` el código del backend con sus dependencias de producción y un `node.exe` propio (Node 22, descargado de nodejs.org y **verificado con su SHA-256**). `tauri.conf.json` los incluye como recursos y `src-tauri/src/backend.rs` los enciende al abrir la app: sin ventana de consola, con su salida en `backend.log` (carpeta de datos de Kerni), reiniciándolo si se cae (hasta 5 veces) y apagándolo al cerrar. Si el puerto 8788 ya responde (`Kerni.bat`, `npm run dev`), no arranca otro; en desarrollo los recursos no existen y no hace nada. Elegimos Node + código y no un ejecutable único porque `node:sqlite` es experimental y es más robusto con el Node completo.
+- **Compilar el .exe:** workflow `build-windows` (a mano desde GitHub Actions): pruebas, `backend:preparar`, `tauri build`; el instalador NSIS/MSI baja como artefacto `kerni-windows`. No se puede compilar desde Linux. Falta probar a mano el instalador en una PC sin Node.
+- **Elegir la IA desde la app.** La primera vez sale la bienvenida (`web/bienvenida.js` lógica pura, `web/bienvenida-ui.js` DOM): la persona elige Gemini, OpenRouter o Anthropic, pega su llave y Kerni **la prueba con un pedido corto de verdad** antes de guardarla; o elige *Seguir sin IA*. Se vuelve a abrir desde *Cambiar IA o llave…* (menú del clic con dos dedos y bandeja).
+- **Dónde vive la llave: `ajustes.json` en la carpeta de datos de Kerni** (`%APPDATA%/Kerni`, `~/.local/share/Kerni` en Linux; permisos solo del usuario), no en el Administrador de credenciales de Windows, para que funcione igual en todos los sistemas. **No está cifrada**: protege que solo la lee tu usuario. Nunca va al repo, a `localStorage`, a los registros ni a una respuesta HTTP (`GET /ajustes` solo dice qué servicios tienen llave). El campo se vacía apenas se usa.
+- **Rutas** (`routes/ajustes.js`): `GET /ajustes`, `POST /ajustes/probar`, `PUT /ajustes` (`{proveedor, apiKey?, modelo?}` o `{sinIA:true}`), `DELETE /ajustes`. El cambio es inmediato, sin reiniciar: `llm/dinamico.js` envuelve al proveedor y sube una `version`; `/chat` no reutiliza una sesión de la IA anterior (otro formato de historial).
+- **Quién manda:** si el `.env` fija `LLM_PROVIDER` (desarrollo, `Kerni-freellm.sh`), manda el `.env` y la bienvenida no sale. Si no, manda lo elegido en la app; y sin eso, la primera llave del `.env`.
+- **Sin Supabase en el .exe v1:** la base de conocimiento (RAG) y la copia de la salud necesitan Supabase o Docker y quedan fuera del instalador; Kerni usa memoria SQLite local, guías y reglas locales.
 
 ## Probar la app real de Tauri
 

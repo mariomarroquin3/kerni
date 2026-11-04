@@ -66,3 +66,30 @@ test('el cableado de la bienvenida: ids, menú, bandeja y la llave nunca va a lo
   assert.match(lib, /"ia" => avisar_a_kerni\(app, "pedir-ia"\)/);
   assert.match(html, /id="bienvenida"[^>]*class="[^"]*\bzona\b/, 'si no es zona, la ventana deja pasar los clics');
 });
+
+test('el instalador lleva el backend y Node, el script que los prepara existe y el CI lo corre antes de compilar', () => {
+  const conf = JSON.parse(leer('src-tauri', 'tauri.conf.json'));
+  assert.deepEqual(conf.bundle.resources, { 'resources/backend': 'backend', 'resources/node': 'node' });
+  const rs = leer('src-tauri', 'src', 'backend.rs');
+  assert.match(rs, /join\("node"\)\.join\(nombre\)/);
+  assert.match(rs, /join\("src"\)\.join\("server\.js"\)/);
+  const preparar = leer('scripts', 'preparar-backend.mjs');
+  assert.match(preparar, /'resources'/);
+  assert.match(preparar, /win-x64\/node\.exe/, 'el Node de Windows se descarga y se verifica con su SHA-256');
+  assert.match(preparar, /SHA-256|sha256/);
+  const ci = readFileSync(join(AQUI, '..', '..', '..', '.github', 'workflows', 'build-windows.yml'), 'utf8');
+  assert.ok(ci.indexOf('backend:preparar') > 0 && ci.indexOf('backend:preparar') < ci.indexOf('tauri build'));
+  const lib = leer('src-tauri', 'src', 'lib.rs');
+  assert.match(lib, /backend::arrancar/);
+  assert.match(lib, /backend::detener/);
+  // El puerto de Rust y el de la app son el mismo.
+  assert.match(rs, /PUERTO: u16 = 8788/);
+});
+
+test('hashDeSumas lee el hash oficial de node.exe y no acepta líneas raras', async () => {
+  const { hashDeSumas } = await import('../scripts/preparar-backend.mjs');
+  const h = 'a'.repeat(64);
+  assert.equal(hashDeSumas(`${h}  win-x64/node.exe\n${'b'.repeat(64)}  win-x64/node.lib`, 'win-x64/node.exe'), h);
+  assert.equal(hashDeSumas('zzz  win-x64/node.exe', 'win-x64/node.exe'), null);
+  assert.equal(hashDeSumas(`${h}  otro.exe`, 'win-x64/node.exe'), null);
+});

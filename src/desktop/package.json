@@ -8,6 +8,7 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "web:dev": "vite",
+    "backend:preparar": "node scripts/preparar-backend.mjs",
     "web:build": "vite build",
     "test": "node --test test/*.test.js",
     "tauri": "tauri"
