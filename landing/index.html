@@ -46,7 +46,7 @@
             </a>
             <a class="boton boton--secundario" href="#instalar">Cómo instalarlo</a>
           </div>
-          <p class="nota">Windows 10 u 11 · La app no cuesta · El chat usa tu propia llave de Anthropic</p>
+          <p class="nota">Windows 10 u 11 · La app no cuesta · El chat usa tu propia llave (Gemini, OpenRouter o Anthropic)</p>
         </div>
         <figure class="heroe__figura">
           <div class="pantallita">
@@ -60,7 +60,7 @@
     <section class="seccion" id="que-hace" aria-labelledby="t-que-hace">
       <div class="contenedor">
         <h2 id="t-que-hace">Qué hace</h2>
-        <p class="intro">Todo lo de esta lista ya está hecho. Lo marcado como <span class="sello sello--chat">Con el chat</span> necesita una llave de Anthropic y, por ahora, la instalación de desarrollo (ver <a href="#llave">Tu llave de Anthropic</a>).</p>
+        <p class="intro">Todo lo de esta lista ya está hecho. Lo marcado como <span class="sello sello--chat">Con el chat</span> necesita una llave de un servicio de IA (ver <a href="#llave">Tu llave</a>).</p>
         <ul class="tarjetas">
           <li class="tarjeta">
             <svg class="tarjeta__icono" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -115,7 +115,7 @@
           </article>
           <article class="promesa-item">
             <h3>Lo que recuerda se queda en tu compu</h3>
-            <p>Su memoria se guarda en tu equipo. Cuando usás el chat, tu mensaje y un resumen del estado de la compu (uso de memoria, disco y nombres de programas) viajan al servicio de Anthropic para que pueda responderte. Nada más sale sin que lo pidás.</p>
+            <p>Su memoria se guarda en tu equipo. Cuando usás el chat, tu mensaje y un resumen del estado de la compu (uso de memoria, disco y nombres de programas) viajan al servicio de IA que elegiste (Gemini, OpenRouter o Anthropic) para que pueda responderte. Nada más sale sin que lo pidás.</p>
           </article>
         </div>
         <p class="aclaracion">Ningún programa es perfecto. Kerni te ayuda a entender tu compu, pero no reemplaza a tu antivirus ni al técnico de tu institución.</p>
@@ -149,29 +149,30 @@
 
     <section class="seccion seccion--suave" id="llave" aria-labelledby="t-llave">
       <div class="contenedor">
-        <h2 id="t-llave">Tu llave de Anthropic</h2>
-        <p class="intro">El chat de Kerni usa Claude, un modelo de inteligencia artificial de la empresa Anthropic. Para hablar con él, cada persona usa su propia llave (una clave secreta). Sin llave, Kerni igual mide tu compu y te avisa; solo no conversa.</p>
+        <h2 id="t-llave">Tu llave de IA</h2>
+        <p class="intro">El chat de Kerni usa un modelo de inteligencia artificial de un servicio que elegís: Google Gemini, OpenRouter o Anthropic (Claude). Para hablar con él, cada persona usa su propia llave (una clave secreta). Sin llave, Kerni igual mide tu compu y te avisa; solo no conversa.</p>
 
         <div class="columnas">
           <div class="bloque">
             <h3>Cómo conseguirla</h3>
             <ol class="lista-numerada">
-              <li>Entrá a <a href="https://console.anthropic.com/">console.anthropic.com</a> y creá una cuenta.</li>
-              <li>Abrí la sección <strong>API Keys</strong>.</li>
-              <li>Tocá <strong>Create Key</strong>, ponele un nombre como “Kerni” y copiala. Solo se muestra una vez.</li>
+              <li><strong>Google Gemini:</strong> entrá a <a href="https://aistudio.google.com/apikey">aistudio.google.com/apikey</a> y creá una llave. Tiene plan gratuito, con pocos pedidos por día.</li>
+              <li><strong>OpenRouter:</strong> entrá a <a href="https://openrouter.ai/keys">openrouter.ai/keys</a>. Algunos modelos son gratuitos.</li>
+              <li><strong>Anthropic (Claude):</strong> entrá a <a href="https://console.anthropic.com/settings/keys">console.anthropic.com</a>, abrí <strong>API Keys</strong> y tocá <strong>Create Key</strong>. Es de pago.</li>
             </ol>
+            <p>Copiá la llave completa apenas se muestre: en la mayoría de los servicios solo se ve una vez.</p>
             <h3>Lo que cuesta</h3>
-            <p>Anthropic cobra por uso: cada mensaje gasta un poquito de saldo. Antes de empezar, poné un <strong>límite de gasto</strong> en la consola (sección de límites) para no llevarte sorpresas.</p>
+            <p>Gemini y OpenRouter tienen planes gratuitos con límites de uso diarios. Anthropic cobra por uso: cada mensaje gasta un poco de saldo, así que poné un <strong>límite de gasto</strong> en su consola para no llevarte sorpresas.</p>
             <p class="alerta">Tu llave es como una contraseña. No la compartás, no la pegués en páginas web ni se la mandés a nadie. Esta página nunca te la va a pedir.</p>
           </div>
 
           <div class="bloque">
-            <h3>Dónde pegarla en Kerni <span class="sello sello--pronto">Próximamente</span></h3>
-            <p>En una próxima versión vas a pegarla desde la app: <strong>Kerni &gt; menú &gt; Configurar llave</strong>. Esa pantalla todavía no existe.</p>
-            <h3>Cómo se va a guardar <span class="sello sello--pronto">Próximamente</span></h3>
-            <p>El plan es guardarla en el Administrador de credenciales de Windows, en tu compu, y enviarla solo a Anthropic. Esto también está en camino.</p>
-            <h3>Mientras tanto</h3>
-            <p>La versión de prueba que se descarga aquí no incluye todavía la parte que conecta el chat, así que en una instalación descargada el chat no funciona aún. Para usarlo hoy hace falta la instalación de desarrollo: bajar el código del proyecto y escribir la llave en el archivo de configuración, como explica la <a href="https://github.com/mariomarroquin3/kerni#readme">guía del proyecto en GitHub</a>. Si no te sentís cómodo con eso, esperá la próxima versión.</p>
+            <h3>Dónde pegarla en Kerni</h3>
+            <p>La primera vez que abrís Kerni aparece una pantalla de bienvenida: elegís el servicio, pegás tu llave y Kerni la prueba antes de guardarla. Más adelante la podés cambiar desde el ícono de Kerni junto al reloj de Windows: <strong>Cambiar IA o llave…</strong></p>
+            <h3>Cómo se guarda</h3>
+            <p>La llave se guarda solo en tu compu, en la carpeta de datos de Kerni dentro de tu usuario de Windows, y solo se envía al servicio que elegiste. Todavía no se guarda en el Administrador de credenciales de Windows <span class="sello sello--pronto">Próximamente</span></p>
+            <h3>Si no tenés llave</h3>
+            <p>En la bienvenida podés elegir <strong>seguir sin IA</strong>: Kerni responde con sus reglas y sus guías, y todas las herramientas funcionan igual.</p>
           </div>
         </div>
       </div>
@@ -183,7 +184,7 @@
         <div class="preguntas">
           <details>
             <summary>¿Necesito internet?</summary>
-            <p>Para medir tu compu, el modo pánico, limpiar temporales y buscar archivos pesados, no. El chat, la revisión de enlaces y las guías sí lo necesitan, porque hablan con el servicio de Anthropic.</p>
+            <p>Para medir tu compu, el modo pánico, limpiar temporales y buscar archivos pesados, no. El chat, la revisión de enlaces y las guías sí lo necesitan, porque hablan con el servicio de IA que elegiste.</p>
           </details>
           <details>
             <summary>¿Qué pasa si no tengo llave?</summary>
@@ -203,7 +204,7 @@
           </details>
           <details>
             <summary>¿Cuánto cuesta?</summary>
-            <p>La app no cuesta. El chat sí gasta saldo de tu cuenta de Anthropic, según cuánto lo usés. Poné un límite de gasto en su consola y listo.</p>
+            <p>La app no cuesta. El chat usa tu propia llave: Gemini y OpenRouter tienen planes gratuitos con pocos pedidos por día, y Anthropic cobra por uso. Si elegís uno de pago, poné un límite de gasto en su consola y listo.</p>
           </details>
           <details>
             <summary>¿Puede cerrar un programa sin avisarme?</summary>

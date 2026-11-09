@@ -66,3 +66,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-09 | Repo review, branch rename and the AI provider fallback | [2026-11-09-review-and-ai-fallback.md](2026-11-09-review-and-ai-fallback.md) |
 | 2026-11-09 | Battery health and security status (read-only) | [2026-11-09-battery-health-and-security-status.md](2026-11-09-battery-health-and-security-status.md) |
 | 2026-11-09 | PR #21: bring main into the welcome screen and installer branch | [2026-11-09-pr21-merge-main.md](2026-11-09-pr21-merge-main.md) |
+| 2026-11-09 | Installer release: bundle the backend, fix the notes and the landing | [2026-11-09-installer-release-fix.md](2026-11-09-installer-release-fix.md) |

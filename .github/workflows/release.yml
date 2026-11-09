@@ -1,9 +1,9 @@
 # Builds the Windows installers and publishes them to GitHub Releases.
 #
-# NOTE: the current installer does not include the backend (src/backend) yet,
-# so the chat will not work from a downloaded install until the backend is
-# bundled with the app (planned). Local features (metrics, panic mode, temp
-# cleanup, heavy files) work without it.
+# The installer includes the backend: `npm run backend:preparar` copies src/backend
+# (production dependencies only) and a verified node.exe into src-tauri/resources,
+# and the app starts the backend by itself. On first run the app asks which AI
+# service to use and for the person's own API key (or to go on without AI).
 #
 # The installers are not code-signed yet, so Windows SmartScreen may warn.
 # Only first-party actions are used; the release is created with the GitHub
@@ -76,6 +76,10 @@ jobs:
         working-directory: src/desktop/src-tauri
         run: cargo test
 
+      - name: Bundle the backend and Node.js (so the installer works without Node installed)
+        working-directory: src/desktop
+        run: npm run backend:preparar
+
       - name: Build the app
         working-directory: src/desktop
         run: npx tauri build
@@ -102,7 +106,9 @@ jobs:
             ""
             "- Instalador recomendado: el archivo que termina en _x64-setup.exe. También hay un .msi."
             "- El instalador todavía no tiene firma digital, por eso Windows SmartScreen puede avisar. Si lo bajaste desde esta página, tocá 'Más información' y luego 'Ejecutar de todas formas'."
-            "- Esta versión todavía no incluye el backend: el chat no funciona en una instalación descargada. Las métricas, el modo pánico, limpiar temporales y los archivos pesados sí funcionan."
+            "- El instalador ya trae el backend y Node.js: no hace falta instalar nada más."
+            "- La primera vez que abrís Kerni te pide elegir el servicio de IA (Gemini, OpenRouter o Anthropic) y pegar tu propia llave. También podés seguir sin IA: Kerni responde con sus reglas y sus guías, y las métricas, el modo pánico y las herramientas funcionan igual."
+            "- Tu llave se guarda solo en tu compu, en la carpeta de datos de Kerni, y solo se envía al servicio que elegiste."
           )
           Set-Content -Path release-notes.md -Value $notes -Encoding utf8
 

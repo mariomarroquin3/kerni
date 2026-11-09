@@ -36,4 +36,4 @@ All paths in the page are relative, so it works from a project subpath.
 
 ## Keeping it honest
 
-The page only describes features that exist in the app. Two things are marked **Próximamente** because they are not built yet: the "Configurar llave" screen in Kerni and storing the key in the Windows Credential Manager. The page also says that the downloadable installer does not include the backend yet, so chat does not work from a downloaded install. Update those notes when that changes. The page must never ask for the API key or show a form for it.
+The page only describes features that exist in the app. One thing is still marked **Próximamente** because it is not built yet: storing the key in the Windows Credential Manager (today it is a file in the Kerni data folder). The installer now includes the backend, and the first run shows a welcome screen to choose the AI service and paste the key; the page describes that. Update the page if either changes. The page must never ask for the API key or show a form for it.
