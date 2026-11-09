@@ -25,6 +25,8 @@ export const ACCIONES = [
   'ver_duplicados_posibles',
   'ver_programas_sin_uso',
   'ver_consumo_bateria',
+  'ver_salud_bateria',
+  'ver_estado_seguridad',
   'abrir_ajuste',
   'vaciar_papelera',
   'limpiar_cache_navegador',

@@ -15,6 +15,8 @@ export function crearProveedorDinamico(inicial = null, nombreInicial = '') {
     get name() { return actual ? nombre : 'ninguno'; },
     get model() { return actual?.model ?? ''; },
     get version() { return version; },
+    /** Por qué se usa otra IA que la pedida (lo pone `crearProveedor` cuando LLM_PROVIDER no tiene llave). */
+    get aviso() { return actual?.aviso ?? ''; },
     userMessage: (texto) => requiere().userMessage(texto),
     toolResultMessages: (r) => requiere().toolResultMessages(r),
     step: async (args) => requiere().step(args),

@@ -18,7 +18,7 @@ export const AJUSTES = {
 /** Días sin reiniciar a partir de los cuales Kerni avisa. */
 export const DIAS_SIN_REINICIAR = 7;
 
-export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso', 'ver_consumo_bateria', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
+export const ACCIONES_PANEL = ['ver_arranque', 'ver_salud_disco', 'ver_puntos_restauracion', 'ver_duplicados_posibles', 'ver_programas_sin_uso', 'ver_consumo_bateria', 'ver_salud_bateria', 'ver_estado_seguridad', 'ver_info_equipo', 'ver_programas_inicio', 'ver_espacio_carpetas', 'ver_estado_red', 'ver_actualizaciones', 'ver_dispositivos_red'];
 
 /** El texto de la tarjeta de confirmación para las acciones nuevas, o null si no es una de ellas. */
 export function describirNueva(a) {
@@ -33,6 +33,8 @@ export function describirNueva(a) {
     case 'ver_puntos_restauracion': return '¿Miro si hay puntos de restauración a los que volver? Solo los listo: no creo ni borro ninguno.';
     case 'ver_duplicados_posibles': return '¿Busco archivos que parecen repetidos en tus carpetas personales? Comparo solo el nombre y el tamaño, sin abrir ni leer los archivos. Solo listo: no borro nada.';
     case 'ver_programas_sin_uso': return '¿Miro qué programas tenés instalados y cuándo se instalaron? Solo listo: no desinstalo nada, y Windows no me dice cuándo usaste cada uno.';
+    case 'ver_salud_bateria': return '¿Miro cuánto se gastó tu batería? Comparo lo que carga hoy con lo que cargaba nueva. Solo leo: no cambio ninguna configuración.';
+    case 'ver_estado_seguridad': return '¿Reviso el antivirus, el cortafuegos y el control de cuentas de Windows? Solo leo lo que Windows dice: no activo ni desactivo nada.';
     case 'ver_consumo_bateria': return '¿Miro qué programas gastan más CPU mientras mido la batería? Tarda unos segundos. Solo miro: no cierro nada.';
     case 'ver_espacio_carpetas': return '¿Miro qué carpetas ocupan más espacio? Solo las listo; no borro ni muevo nada.';
     case 'ver_estado_red': return '¿Reviso si tenés internet y cómo está la conexión? Hago una prueba corta y no mando tus datos a ningún lado.';
@@ -276,6 +278,40 @@ export function panelSaludDisco({ discos = [], nota = '' }) {
     return fila;
   });
   return { estado, filas };
+}
+
+const MWH_A_WH = (mwh) => Math.round(mwh / 100) / 10;
+
+/**
+ * "¿Cuánto se gastó mi batería?": capacidad actual frente a la original. Nunca dice "sana": solo cuánto conserva.
+ * @param {{ tiene?: boolean, nombre?: string, disenoMwh?: number, cargaMwh?: number, ciclos?: number, saludPct?: number|null, nivel?: string, nota?: string }} r
+ */
+export function panelSaludBateria(r = {}) {
+  if (!r.tiene) return { estado: r.nota || 'Esta PC no tiene batería.', filas: [] };
+  const estado = r.nota || 'Windows no me dio datos de la batería.';
+  const filas = [];
+  if (r.saludPct != null) filas.push({ titulo: `Conserva el ${r.saludPct} % de su capacidad original`, detalle: r.nivel === 'buena' ? 'Desgaste normal' : r.nivel === 'desgaste' ? 'Ya dura menos que nueva' : 'Dura mucho menos que nueva' });
+  if (r.disenoMwh && r.cargaMwh) filas.push({ titulo: `Carga hoy ${MWH_A_WH(r.cargaMwh)} Wh de ${MWH_A_WH(r.disenoMwh)} Wh`, detalle: 'Capacidad actual frente a la original' });
+  if (r.ciclos) filas.push({ titulo: `${r.ciclos} ciclos de carga`, detalle: r.nombre || '' });
+  if (r.nivel === 'muy_gastada') filas[0] = { ...filas[0], pista: { nivel: 'respaldar', texto: 'Conviene cambiarla pronto. Mientras tanto, usá la compu enchufada.' } };
+  else if (r.nivel === 'desgaste') filas[0] = { ...filas[0], pista: { nivel: 'revisar', texto: 'Si te falta autonomía, pensá en cambiarla.' } };
+  return { estado, filas };
+}
+
+/**
+ * "¿Cómo está la seguridad de mi PC?": lo que Windows dice de su antivirus, cortafuegos y control de cuentas.
+ * Nunca dice "estás protegido": sin alertas no es garantía de nada.
+ * @param {{ revisiones?: { nombre: string, estado: string, detalle: string }[], alertas?: number, nota?: string }} r
+ */
+export function panelSeguridad({ revisiones = [], alertas = 0, nota = '' } = {}) {
+  if (!revisiones.length) return { estado: nota || 'No pude leer el estado de seguridad de esta PC.', filas: [] };
+  const filas = revisiones.map((x) => {
+    const fila = { titulo: x.nombre, detalle: x.detalle };
+    if (x.estado === 'alerta') fila.pista = { nivel: 'respaldar', texto: 'Para revisar' };
+    else if (x.estado === 'sin_dato') fila.pista = { nivel: 'info', texto: 'No pude comprobarlo' };
+    return fila;
+  });
+  return { estado: nota || (alertas ? 'Hay cosas para revisar.' : 'No veo alertas en lo que puedo mirar.'), filas };
 }
 
 /**

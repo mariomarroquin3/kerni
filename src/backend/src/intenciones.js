@@ -43,6 +43,8 @@ const PROPUESTAS = {
   ver_duplicados_posibles: 'Buscar archivos que parecen repetidos (mismo nombre y tamaño), sin borrar nada.',
   ver_programas_sin_uso: 'Listar los programas instalados y cuándo se instalaron (no desinstala nada).',
   ver_consumo_bateria: 'Ver qué programas gastan más CPU (aproximado) y cómo está la batería.',
+  ver_salud_bateria: 'Ver cuánto se gastó la batería (capacidad actual frente a la original).',
+  ver_estado_seguridad: 'Revisar el antivirus, el cortafuegos y el control de cuentas de Windows (solo lectura).',
   vaciar_papelera: 'Vaciar la papelera de reciclaje (no se puede deshacer).',
 };
 
@@ -76,6 +78,8 @@ const REGLAS = [
   { accion: 'ver_puntos_restauracion', patron: /\b(volver|regresar|retroceder)\s+(atras|para\s+atras)\b|\bpuntos?\s+de\s+restauracion\b|\brestaur\w*\s+(el\s+|mi\s+)?(sistema|windows|pc|compu\w*|computadora)\b/ },
   { accion: 'ver_duplicados_posibles', patron: /\b(archivos?|fotos?|documentos?|videos?|copias?|cosas)\s+(duplicad\w*|repetid\w*)\b|\b(duplicad\w*|repetid\w*)\s+(archivos?|fotos?|documentos?|videos?|copias?)\b|\bbusc\w*\s+(duplicad\w*|repetid\w*)\b/ },
   { accion: 'ver_programas_sin_uso', patron: /\b(programas?|aplicaciones?|apps?)\s+(que\s+)?(no\s+uso|sin\s+usar|ya\s+no\s+uso|viejos?|que\s+nunca\s+uso)\b|\b(que|cuales)\s+(programas?|aplicaciones?|apps?)\s+((\w+\s+){0,2})?(no\s+uso|sin\s+usar|puedo\s+(borrar|desinstalar|eliminar|quitar)|tengo\s+instalad\w*|hay\s+instalad\w*)\b/ },
+  { accion: 'ver_salud_bateria', patron: /\b(salud|estado|desgaste|capacidad)\s+(de\s+)?(la\s+|mi\s+|tu\s+)?bateria\b|\bbateria\s+(esta\s+)?(gastada|vieja|mala|danada|hinchada)\b|\b(deberia|tengo que|conviene)\s+cambiar\s+(la\s+|mi\s+)?bateria\b/ },
+  { accion: 'ver_estado_seguridad', patron: /\b(estado|revis\w+|chequ\w+)\s+(de\s+)?(la\s+|mi\s+)?seguridad\b|\bestoy\s+protegid\w*\b|\b(mi\s+)?(pc|compu\w*)\s+(esta\s+)?protegid\w*\b|\b(antivirus|defender|firewall|cortafuegos)\b.{0,25}\b(activ\w+|funcion\w+|prendid\w+|encendid\w+|actualizad\w+)\b|\b(activ\w+|funcion\w+)\s+(el\s+)?(antivirus|defender|firewall|cortafuegos)\b|\btengo\s+(un\s+)?(antivirus|firewall|cortafuegos)\b/ },
   { accion: 'ver_consumo_bateria', patron: /\b(que|cual(es)?|quien(es)?)\s+(\w+\s+){0,2}(consum\w*|gast\w*|come[ns]?)\s+(mucha\s+|la\s+|tanta\s+)?bateria\b|\b(acaba|agota|gasta)\w*\s+(muy\s+|tan\s+|rapido\s+|mucha\s+)?(la\s+)?bateria\b|\bbateria\s+(me\s+)?dura\s+poco\b|\bme\s+dura\s+poco\b/ },
   { accion: 'ver_espacio_carpetas', patron: /\b(que|cual(es)?)\s+carpetas?\s+(ocupa\w*|pesa\w*)\b|\bespacio\s+(por|de\s+cada)\s+carpeta/ },
 ];
@@ -89,6 +93,8 @@ const EXCEPCIONES = {
   ver_puntos_restauracion: /\b(como|por que|explic\w*|que es)\b/,
   ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_consumo_bateria: /\b(como|por que|explic\w*|que es)\b/,
+  ver_salud_bateria: /\b(por que|explic\w*|que es|como funciona|como se)\b/,
+  ver_estado_seguridad: /\b(como (instalo|activo|desactivo|apago|quito|configuro)|por que|explic\w*|que es|mejor|recomiend\w*|descarg\w+|gratis)\b/,
   ver_programas_sin_uso: /\b(como|por que|explic\w*|que es)\b/,
   ver_duplicados_posibles: /\b(como|por que|explic\w*|que es)\b/,
   ver_estado_red: /\bred\s+(del|de\s+la|de\s+los|de\s+las|social|sociales|neuronal|electrica)\b/,

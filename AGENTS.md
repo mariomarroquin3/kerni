@@ -81,7 +81,7 @@ Para ver solo la interfaz en el navegador: `npm run web:dev` en `src/desktop` y 
 
 ## Cerebro: Anthropic, Gemini u OpenRouter
 
-El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige con `LLM_PROVIDER` o, si está vacío, el primero que tenga llave (anthropic, gemini, openrouter). `/health` dice cuál quedó activo.
+El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige con `LLM_PROVIDER` o, si está vacío, el primero que tenga llave (anthropic, gemini, openrouter). `/health` dice cuál quedó activo. Si `LLM_PROVIDER` pide un proveedor **sin llave** y otro sí la tiene, el backend usa ese, lo avisa en la consola (`AVISO: …`) y `/health` trae `aviso`; el chip *Con IA* de la app lo muestra en su detalle. Sin ninguna llave, o con un nombre inexistente, sigue fallando con el mensaje claro (antes arrancaba sin modelo en silencio).
 
 | Proveedor | Llave | Modelo por defecto | Variable de modelo |
 |---|---|---|---|
@@ -180,6 +180,8 @@ Ocho acciones más de `proponer_accion`. Todas pasan por tarjeta de confirmació
 | `ver_duplicados_posibles` | Agrupa archivos de tus carpetas personales con el mismo nombre y tamaño (de más de 1 MB). Son posibles duplicados: no lee ni compara el contenido y no borra nada | No |
 | `ver_programas_sin_uso` | Lista los programas instalados con su fecha de instalación, del más viejo al más nuevo. El último uso no se puede leer sin administrador: se dice y no se inventa. No desinstala nada | No |
 | `ver_consumo_bateria` | En laptops: estado de la batería y los programas que más CPU usan en unas muestras (aproximado, según la CPU de cada programa). En un escritorio dice que no tiene batería. No cierra nada | No |
+| `ver_salud_bateria` | Cuánto se gastó la batería: capacidad actual frente a la original (`powercfg /batteryreport /xml` sin administrador, en un archivo temporal que se borra) y ciclos de carga. Aconseja según el desgaste (buena desde 80 %, desgaste de 60 a 79, muy gastada por debajo). En un escritorio dice que no hay batería; si Windows no da la capacidad original, no inventa un porcentaje. "¿Cómo está la batería?" sigue siendo el nivel de carga y lo contesta la interfaz con el dato medido | No |
+| `ver_estado_seguridad` | Antivirus (Defender o el que registre el Centro de seguridad), definiciones, protección contra manipulación, cortafuegos por perfil y control de cuentas (UAC), según Windows. **Nunca dice "estás protegido"**: solo "no veo alertas en lo que puedo mirar, no es una garantía". Si hay otro antivirus, lo nombra y dice que no puede ver su estado. No activa ni desactiva nada | No |
 | `abrir_ajuste` | Abre una pantalla de Configuración. El destino es de una **lista cerrada** (`almacenamiento, aplicaciones, inicio, actualizaciones, red, energia, recuperacion`; `recuperacion` es Recuperación de Windows, para volver atrás con un punto de restauración) que coincide en backend, Rust y front: nunca una dirección | No |
 | `vaciar_papelera` | Vacía la papelera. La tarjeta dice cuántos elementos y MB tiene y que **no se puede deshacer** | **Sí, irreversible** |
 | `congelar_proceso` (y `reanudar_proceso`, solo desde la interfaz) | Pausa un proceso sin cerrarlo: suspende sus hilos con `NtSuspendProcess` (ntdll). Mismas revisiones que `terminar_proceso` (protegidos, pid propio, pid reutilizado). Kerni recuerda lo que congeló y lo reanuda al salir. La tarjeta avisa que puede quedarse sin responder | **Sí, reversible** (pausa, no cierra) |

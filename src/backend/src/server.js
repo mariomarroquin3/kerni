@@ -75,6 +75,7 @@ const docsMicrosoft = crearDocsMicrosoft({ activo: config.microsoftLearn.activo 
 const agent = createAgent({ provider: proveedor, memoriaActiva: memoria.habilitada, conocimiento, revisorEnlaces, docsMicrosoft });
 const app = buildApp({ config, agent, provider: proveedor, ajustes, origenEntorno: entornoManda, memoria, conocimiento, revisorEnlaces, logger: true });
 console.log(elegido ? `Cerebro: ${elegido.provider.name} (${elegido.provider.model})` : 'Cerebro: sin llave; respuestas automáticas locales');
+if (elegido?.aviso) console.warn(`AVISO: ${elegido.aviso}`);
 console.log(`Memoria: SQLite local (${dataDir})${supabaseDb ? ' + salud en Supabase' : ''}`);
 console.log(revisorEnlaces.listasDisponibles ? 'Enlaces: dirección + lista de Google' : 'Enlaces: solo la dirección (sin SAFE_BROWSING_API_KEY)');
 console.log(conocimiento.habilitado ? 'Conocimiento (RAG): activo' : 'Conocimiento (RAG): apagado (falta Supabase o una llave de embeddings)');
