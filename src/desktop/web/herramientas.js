@@ -12,6 +12,29 @@ export const AJUSTES = {
   red: 'Red e internet',
   energia: 'Energía y batería',
   recuperacion: 'Recuperación de Windows',
+  pantalla: 'Pantalla',
+  sonido: 'Sonido',
+  notificaciones: 'Notificaciones y acciones',
+  bateria: 'Uso de la batería',
+  acerca: 'Acerca de tu equipo',
+  wifi: 'Wi-Fi',
+  bluetooth: 'Bluetooth y dispositivos',
+  impresoras: 'Impresoras y escáneres',
+  apps_predeterminadas: 'Aplicaciones predeterminadas',
+  fecha_hora: 'Fecha y hora',
+  seguridad_windows: 'Seguridad de Windows',
+  solucionador: 'Solucionador de problemas',
+  barra_tareas: 'Barra de tareas',
+  discos: 'Discos y volúmenes',
+  historial_actualizaciones: 'Historial de actualizaciones',
+  mouse: 'Mouse y panel táctil',
+};
+
+/** Herramientas de Windows que Kerni puede abrir (la misma lista cerrada que en el backend y en Rust). Solo abre la ventana. */
+export const HERRAMIENTAS_WINDOWS = {
+  administrador_tareas: 'Administrador de tareas',
+  administrador_dispositivos: 'Administrador de dispositivos',
+  liberador_espacio: 'Liberador de espacio en disco',
 };
 
 /** Acciones que solo muestran información: se ejecutan con la función de main.js que lleva su nombre. */
@@ -42,6 +65,7 @@ export function describirNueva(a) {
     case 'ver_actualizaciones': return '¿Busco si Windows tiene actualizaciones pendientes? Solo miro; no descargo ni instalo nada. Puede tardar un rato.';
     case 'ver_dispositivos_red': return '¿Reviso qué dispositivos hay conectados a tu red local? Solo los listo: no entro ni hago nada en ellos.';
     case 'abrir_ajuste': return `¿Abro "${AJUSTES[a.destino] ?? 'Configuración'}" en los ajustes de Windows?`;
+    case 'abrir_herramienta': return `¿Abro el "${HERRAMIENTAS_WINDOWS[a.herramienta] ?? 'programa de Windows'}"? Solo abro la ventana: lo que hagas ahí lo decidís vos.`;
     case 'vaciar_papelera': return a.detalle
       ? `¿Vaciar la papelera? Tiene ${a.detalle}. Se borra para siempre y no se puede deshacer.`
       : '¿Vaciar la papelera? Lo que tiene se borra para siempre y no se puede deshacer.';

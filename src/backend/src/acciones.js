@@ -28,12 +28,13 @@ export const ACCIONES = [
   'ver_salud_bateria',
   'ver_estado_seguridad',
   'abrir_ajuste',
+  'abrir_herramienta',
   'vaciar_papelera',
   'limpiar_cache_navegador',
 ];
 /** Acciones que no llevan datos del sistema: la app decide qué y cuánto mirar. */
 const CON_PROCESO = ['terminar_proceso', 'congelar_proceso'];
-export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => !CON_PROCESO.includes(a) && a !== 'abrir_ajuste');
+export const ACCIONES_SIN_DATOS = ACCIONES.filter((a) => !CON_PROCESO.includes(a) && a !== 'abrir_ajuste' && a !== 'abrir_herramienta');
 /**
  * Motivos fijos de las acciones que borran, cierran o pausan. Los escribe el código, no el modelo: así una propuesta
  * destructiva nunca lleva un enlace ni un "ignora la confirmación" hasta la tarjeta.
@@ -58,11 +59,15 @@ export function motivoSeguro(accion, motivo) {
 }
 
 /** Lista cerrada (la misma que `direccion_de_ajuste` en Rust): el modelo nunca manda una dirección. */
-export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia', 'recuperacion'];
+// Las pantallas salen de la lista oficial "ms-settings: URI scheme reference" de Microsoft Learn. Cuentas y privacidad quedan fuera a propósito.
+export const DESTINOS_AJUSTE = ['almacenamiento', 'aplicaciones', 'inicio', 'actualizaciones', 'red', 'energia', 'recuperacion', 'pantalla', 'sonido', 'notificaciones', 'bateria', 'acerca', 'wifi', 'bluetooth', 'impresoras', 'apps_predeterminadas', 'fecha_hora', 'seguridad_windows', 'solucionador', 'barra_tareas', 'discos', 'historial_actualizaciones', 'mouse'];
+/** Herramientas de Windows que se pueden abrir (la misma lista cerrada que `herramienta_de_windows` en Rust). Solo se abre la ventana. */
+export const HERRAMIENTAS_WINDOWS = ['administrador_tareas', 'administrador_dispositivos', 'liberador_espacio'];
 
 export const ProponerAccionSchema = z.object({
   accion: z.enum(ACCIONES).describe('Qué se propone hacer.'),
   destino: z.enum(DESTINOS_AJUSTE).optional().describe('Solo para abrir_ajuste: qué pantalla de Configuración de Windows abrir.'),
+  herramienta: z.enum(HERRAMIENTAS_WINDOWS).optional().describe('Solo para abrir_herramienta: qué herramienta de Windows abrir.'),
   pid: z.number().int().positive().optional().describe('Solo para terminar_proceso y congelar_proceso: el pid exacto del bloque <sistema>.'),
   nombre: z.string().optional().describe('Solo para terminar_proceso y congelar_proceso: el nombre exacto del proceso, como aparece en <sistema>.'),
   motivo: z.string().min(3).max(300).describe('Una frase simple para la persona: por qué conviene.'),
@@ -77,7 +82,7 @@ export const ProponerAccionSchema = z.object({
 export function validarPropuesta(input, snapshot) {
   const parsed = ProponerAccionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues.map((i) => i.message).join('; ') };
-  const { accion, pid, nombre, motivo, destino } = parsed.data;
+  const { accion, pid, nombre, motivo, destino, herramienta } = parsed.data;
 
   // Estas no llevan datos del sistema: la app decide qué y cuánto mirar. Casi todas son de solo lectura; limpiar_temporales
   // y vaciar_papelera borran, y por eso la persona siempre ve una tarjeta antes.
@@ -85,6 +90,11 @@ export function validarPropuesta(input, snapshot) {
   if (accion === 'abrir_ajuste') {
     if (!destino) return { ok: false, error: `abrir_ajuste necesita un destino: ${DESTINOS_AJUSTE.join(', ')}` };
     return { ok: true, accion: { tipo: 'proponer_accion', accion, destino, motivo: motivoSeguro(accion, motivo) } };
+  }
+
+  if (accion === 'abrir_herramienta') {
+    if (!herramienta) return { ok: false, error: `abrir_herramienta necesita una herramienta: ${HERRAMIENTAS_WINDOWS.join(', ')}` };
+    return { ok: true, accion: { tipo: 'proponer_accion', accion, herramienta, motivo: motivoSeguro(accion, motivo) } };
   }
 
   if (!pid || !nombre) return { ok: false, error: `${accion} necesita pid y nombre` };

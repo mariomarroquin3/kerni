@@ -23,6 +23,7 @@ export const EXPLICACIONES = {
   ver_programas_sin_uso: 'Lista los programas instalados con su fecha de instalación. Windows no dice cuándo usaste cada uno, así que la fecha no prueba que no se usen; no desinstala nada.',
   ver_consumo_bateria: 'Mide unos segundos qué programas usan más CPU, para ver qué gasta la batería. Es aproximado y no cierra ningún programa.',
   abrir_ajuste: 'Abre una pantalla de Configuración de Windows de una lista cerrada. No cambia ningún ajuste: eso lo hacés vos en la pantalla que se abre.',
+  abrir_herramienta: 'Abre el Administrador de tareas, el Administrador de dispositivos o el Liberador de espacio de Windows, de una lista cerrada. Solo abre la ventana: no cambia nada por sí sola.',
   vaciar_papelera: 'Borra para siempre lo que hay en la papelera de reciclaje. No se puede deshacer y no borra nada fuera de la papelera.',
   limpiar_cache_navegador: 'Borra la caché de Chrome y Edge: archivos guardados para abrir páginas más rápido. No borra cookies, contraseñas, historial, marcadores, sesiones ni extensiones; los navegadores abiertos se saltan.',
   cambiar_inicio: 'Activa o desactiva que un programa se abra solo al prender Windows. No lo desinstala y lo podés volver a activar cuando quieras.',

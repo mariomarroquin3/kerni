@@ -69,3 +69,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-09 | Installer release: bundle the backend, fix the notes and the landing | [2026-11-09-installer-release-fix.md](2026-11-09-installer-release-fix.md) |
 | 2026-11-09 | Fix: the AI status chip retries /health while the backend starts | [2026-11-09-health-chip-retry.md](2026-11-09-health-chip-retry.md) |
 | 2026-11-09 | Landing update after the v0.1.0 release | [2026-11-09-landing-v0-1-0.md](2026-11-09-landing-v0-1-0.md) |
+| 2026-11-09 | More screens and tools Kerni can open (23 settings pages, abrir_herramienta) | [2026-11-09-open-settings-and-tools.md](2026-11-09-open-settings-and-tools.md) |
