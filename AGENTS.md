@@ -77,7 +77,7 @@ Para ver solo la interfaz en el navegador: `npm run web:dev` en `src/desktop` y 
 
 ## Cerebro: Anthropic, Gemini u OpenRouter
 
-El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige con `LLM_PROVIDER` o, si está vacío, el primero que tenga llave (anthropic, gemini, openrouter). `/health` dice cuál quedó activo.
+El agente no sabe con quién habla: cada proveedor implementa `step`. Se elige con `LLM_PROVIDER` o, si está vacío, el primero que tenga llave (anthropic, gemini, openrouter). `/health` dice cuál quedó activo. Si `LLM_PROVIDER` pide un proveedor **sin llave** y otro sí la tiene, el backend usa ese, lo avisa en la consola (`AVISO: …`) y `/health` trae `aviso`; el chip *Con IA* de la app lo muestra en su detalle. Sin ninguna llave, o con un nombre inexistente, sigue fallando con el mensaje claro (antes arrancaba sin modelo en silencio).
 
 | Proveedor | Llave | Modelo por defecto | Variable de modelo |
 |---|---|---|---|

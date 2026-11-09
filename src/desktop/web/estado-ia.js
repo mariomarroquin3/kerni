@@ -18,10 +18,12 @@ export const TEXTO_IA = {
 export function estadoIA(health, ultima = null) {
   if (health === undefined) return { clave: 'comprobando', texto: TEXTO_IA.comprobando, detalle: '' };
   if (health === null) return { clave: 'sin_conexion', texto: TEXTO_IA.sin_conexion, detalle: 'No pude hablar con Kerni en este momento.' };
-  if (!health.proveedor) return { clave: 'sin', texto: TEXTO_IA.sin, detalle: 'No hay llave de IA configurada; Kerni responde con sus reglas y sus guías.' };
+  if (!health.proveedor) return { clave: 'sin', texto: TEXTO_IA.sin, detalle: health.aviso || 'No hay llave de IA configurada; Kerni responde con sus reglas y sus guías.' };
   if (ultima === 'llave_invalida') return { clave: 'llave_invalida', texto: TEXTO_IA.llave_invalida, detalle: `La llave de ${health.modelo ?? health.proveedor} no es válida. Revisá la llave en la configuración de Kerni.` };
   if (ultima === 'sin_cupo') return { clave: 'cupo', texto: TEXTO_IA.cupo, detalle: `Se agotó el cupo de ${health.modelo ?? health.proveedor} por hoy.` };
-  return { clave: 'con', texto: TEXTO_IA.con, detalle: `Modelo: ${health.modelo ?? health.proveedor}` };
+  // Si la IA que se usa no es la pedida (LLM_PROVIDER sin llave), se dice: antes quedaba todo en silencio.
+  const detalle = `Modelo: ${health.modelo ?? health.proveedor}${health.aviso ? `. Aviso: ${health.aviso}` : ''}`;
+  return { clave: 'con', texto: TEXTO_IA.con, detalle };
 }
 
 /**

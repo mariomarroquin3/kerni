@@ -61,3 +61,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-01 | Follow-ups: chat error code, startup count, clipboard link monitor, daily summary | [2026-11-01-seguimientos-resumen-portapapeles.md](2026-11-01-seguimientos-resumen-portapapeles.md) |
 | 2026-11-01 | MCP client and read-only Microsoft Learn search (opt-in, off by default) | [2026-11-01-mcp-microsoft-learn.md](2026-11-01-mcp-microsoft-learn.md) |
 | 2026-11-01 | Audit after the team changes, and the exit order fix | [2026-11-01-audit-and-exit-order.md](2026-11-01-audit-and-exit-order.md) |
+| 2026-11-09 | Repo review, branch rename and the AI provider fallback | [2026-11-09-review-and-ai-fallback.md](2026-11-09-review-and-ai-fallback.md) |

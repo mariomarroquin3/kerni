@@ -68,6 +68,8 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
     memoria: memoria.habilitada,
     conocimiento: conocimiento.habilitado,
     ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
+    // Por qué se usa otra IA que la pedida (por ejemplo, LLM_PROVIDER sin su llave): la app lo muestra junto al chat.
+    ...(provider?.aviso ? { aviso: provider.aviso } : {}),
   }));
   app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, motorGuias, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}) });
   app.register(memoriaRoutes, { memoria, limitador });

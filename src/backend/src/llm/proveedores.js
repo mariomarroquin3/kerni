@@ -28,14 +28,38 @@ export function elegirProveedor(config) {
 }
 
 /**
+ * Como `elegirProveedor`, pero si LLM_PROVIDER pide un proveedor SIN llave y otro sí la tiene, usa ese y avisa. Antes el backend
+ * arrancaba sin modelo y respondía solo con reglas locales, sin que la persona supiera por qué (LLM_PROVIDER=anthropic con la
+ * llave vacía y la de Gemini puesta). Sin ninguna llave, o con un nombre que no existe, sigue fallando con el mensaje claro.
+ * @returns {{ nombre: string|null, aviso: string }}
+ */
+export function elegirConAviso(config) {
+  const pedido = (config.llmProvider ?? '').trim().toLowerCase();
+  if (pedido && PROVEEDORES.includes(pedido) && !llaveDe(config, pedido)) {
+    const otro = PROVEEDORES.find((p) => llaveDe(config, p));
+    if (otro) {
+      return {
+        nombre: otro,
+        aviso: `LLM_PROVIDER=${pedido} no tiene llave (${CLAVE_ENV[pedido]} está vacía): uso ${otro}, que sí tiene. Corregí LLM_PROVIDER en .env o poné la llave.`,
+      };
+    }
+  }
+  return { nombre: elegirProveedor(config), aviso: '' };
+}
+
+/**
  * Arma el proveedor del agente. Las dependencias de red se inyectan para poder probarlo
  * sin llamar a nadie.
- * @returns {{ provider: object, nombre: string } | null}
+ * @returns {{ provider: object, nombre: string, aviso: string } | null} `aviso` dice por qué se usó otro proveedor que el pedido ('' si no hubo nada raro)
  */
 export function crearProveedor(config, { anthropicFactory = (apiKey) => new Anthropic({ apiKey, timeout: 40_000, maxRetries: 1 }), fetchImpl = fetch } = {}) {
-  const nombre = elegirProveedor(config);
+  const { nombre, aviso } = elegirConAviso(config);
   if (!nombre) return null;
   const maxTokens = config.maxTokensRespuesta;
+  const conAviso = (provider) => {
+    if (aviso) provider.aviso = aviso;
+    return { provider, nombre, aviso };
+  };
 
   if (nombre === 'anthropic') {
     const provider = createAnthropicProvider({
@@ -43,7 +67,7 @@ export function crearProveedor(config, { anthropicFactory = (apiKey) => new Anth
       model: config.agentModel || ANTHROPIC_MODEL,
       maxTokens,
     });
-    return { provider, nombre };
+    return conAviso(provider);
   }
 
   if (nombre === 'gemini') {
@@ -61,7 +85,7 @@ export function crearProveedor(config, { anthropicFactory = (apiKey) => new Anth
       maxTokens: config.gemini.maxTokens || Math.max(maxTokens * 3, 2048),
       extraBody: config.gemini.reasoningEffort ? { reasoning_effort: config.gemini.reasoningEffort } : {},
     });
-    return { provider, nombre };
+    return conAviso(provider);
   }
 
   const complete = createChatCompletionsClient({
@@ -71,5 +95,5 @@ export function crearProveedor(config, { anthropicFactory = (apiKey) => new Anth
   const provider = createChatCompletionsProvider({
     complete, name: 'openrouter', model: config.openrouter.model || OPENROUTER_MODEL, maxTokens,
   });
-  return { provider, nombre };
+  return conAviso(provider);
 }
