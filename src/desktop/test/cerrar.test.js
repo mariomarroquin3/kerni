@@ -38,7 +38,7 @@ test('"Cerrar Kerni" siempre cierra: si el cierre normal se cuelga, a los 3 segu
   assert.match(lib, /"salir" => salir\(app\)/); // la bandeja
   assert.match(lib, /fn salir_de_kerni\(app: AppHandle\) \{\n    salir\(&app\);/); // el menú integrado
   assert.match(lib, /fn salir\(app: &AppHandle\)/);
-  assert.match(lib, /Duration::from_secs\(3\)\);\n\s+std::process::exit\(0\);/);
+  assert.match(lib, /Duration::from_secs\(3\)\);\n(\s+backend::detener\(&para_forzar\);\n)?\s+std::process::exit\(0\);/); // la salida forzada también apaga el backend
   assert.match(lib, /app\.exit\(0\);\n\}/);
 });
 

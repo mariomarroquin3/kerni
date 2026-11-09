@@ -345,3 +345,10 @@ body[data-animo='panico'] #kerni .antena-bola { fill: var(--peligro); animation:
 .ia-chip[data-estado="con"] { color: #86efac; }
 .ia-chip[data-estado="sin"], .ia-chip[data-estado="sin_conexion"] { color: #fcd34d; }
 .ia-chip[data-estado="cupo"] { color: #fca5a5; }
+
+/* ---- Bienvenida: elegir la IA y pegar la llave ---- */
+.bienvenida-servicios { border: 0; margin: 4px 0 6px; padding: 0; display: grid; gap: 4px; }
+.bienvenida-servicios label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+#bienvenida-llave { width: 100%; box-sizing: border-box; margin: 2px 0 6px; font: inherit; font-size: 13px; color: var(--texto); background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 6px 8px; }
+.bienvenida-botones { flex-wrap: wrap; margin-bottom: 6px; }
+#bienvenida-estado[data-error] { color: #ff9b9b; }

@@ -228,3 +228,13 @@ describe('respuesta vacía después de una herramienta', () => {
     expect(llamadas).toBe(1);
   });
 });
+
+describe('motivo sin_llave', () => {
+  it('no dice que se agotó el cupo cuando falta el modelo', () => {
+    const frag = [{ fuente: 'windows/pc-lenta.md', titulo: 'PC lenta', contenido: 'Reiniciá y revisá los programas de inicio.' }];
+    const t = textoDeRespaldo(frag, 'sin_llave');
+    expect(t).toMatch(/No tengo un modelo configurado/);
+    expect(t).not.toMatch(/límite de hoy/);
+    expect(textoDeRespaldo([], 'sin_llave', true)).toMatch(/modelo configurado/);
+  });
+});

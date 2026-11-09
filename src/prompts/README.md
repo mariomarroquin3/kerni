@@ -61,5 +61,8 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-01 | Follow-ups: chat error code, startup count, clipboard link monitor, daily summary | [2026-11-01-seguimientos-resumen-portapapeles.md](2026-11-01-seguimientos-resumen-portapapeles.md) |
 | 2026-11-01 | MCP client and read-only Microsoft Learn search (opt-in, off by default) | [2026-11-01-mcp-microsoft-learn.md](2026-11-01-mcp-microsoft-learn.md) |
 | 2026-11-01 | Audit after the team changes, and the exit order fix | [2026-11-01-audit-and-exit-order.md](2026-11-01-audit-and-exit-order.md) |
+| 2026-11-04 | Audit of model calls: optional reflection switch, fallback reason, dev script, freellm launcher | [2026-11-04-model-calls-audit.md](2026-11-04-model-calls-audit.md) |
+| 2026-11-04 | Installer with the backend bundled (Node + code) and a welcome screen to choose the AI and key | [2026-11-04-installer-and-welcome-screen.md](2026-11-04-installer-and-welcome-screen.md) |
 | 2026-11-09 | Repo review, branch rename and the AI provider fallback | [2026-11-09-review-and-ai-fallback.md](2026-11-09-review-and-ai-fallback.md) |
 | 2026-11-09 | Battery health and security status (read-only) | [2026-11-09-battery-health-and-security-status.md](2026-11-09-battery-health-and-security-status.md) |
+| 2026-11-09 | PR #21: bring main into the welcome screen and installer branch | [2026-11-09-pr21-merge-main.md](2026-11-09-pr21-merge-main.md) |

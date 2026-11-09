@@ -95,7 +95,7 @@ Reglas:
  * Extrae aprendizajes a partir del mensaje del usuario y de las reflexiones existentes.
  */
 export async function extraerAprendizajes(provider, { mensaje, existentes = [], timeoutMs = TIMEOUT_EXTRACCION_MS } = {}) {
-  if (!provider || typeof provider.step !== 'function') return [];
+  if (!provider || provider.activo === false || typeof provider.step !== 'function') return [];
   if (!pasaFiltroPrevio(mensaje)) return [];
 
   const formatoExistentes = existentes.length

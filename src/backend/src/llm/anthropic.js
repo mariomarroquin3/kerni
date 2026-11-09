@@ -23,7 +23,7 @@ export function errorAnthropic(err, { signal } = {}) {
     // Causa de red real (ENOTFOUND, ECONNRESET...) solo para el log: nunca se muestra a la persona.
     e.red = err?.cause?.cause?.code ?? err?.cause?.code ?? err?.cause?.name ?? 'desconocida';
   } else if (status === 401 || status === 403) {
-    e = new Error('La llave de Anthropic no es válida. Revisá ANTHROPIC_API_KEY en src/backend/.env.');
+    e = new Error('La llave de Anthropic no es válida. Cambiala desde el menú de Kerni (Cambiar IA…) o revisá ANTHROPIC_API_KEY en src/backend/.env.');
     e.codigo = 'llave_invalida';
   } else if (status === 429) {
     e = new Error('Anthropic agotó el cupo de esta llave por ahora. Probá más tarde.');

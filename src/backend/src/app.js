@@ -9,6 +9,7 @@ import { guiasRoutes } from './routes/guias.js';
 import { crearMotorGuias } from './guias/motor.js';
 import { createRevisorEnlaces } from './enlaces.js';
 import { createLimitador, combinarLimitadores } from './guardrails/limitador.js';
+import { ajustesRoutes } from './routes/ajustes.js';
 
 export const DEFAULT_ORIGINS = [
   'tauri://localhost',
@@ -33,7 +34,7 @@ export function hostPermitido(host, puerto) {
  * Construye la app con dependencias inyectadas, para poder probarla
  * con un proveedor de LLM falso.
  */
-export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), motorGuias = crearMotorGuias({ memoria }), limitadorGuias, now, logger = false, plazoTurnoMs }) {
+export function buildApp({ config, agent, provider, memoria = createMemoriaNula(), conocimiento = createConocimientoNulo(), revisorEnlaces = createRevisorEnlaces(), motorGuias = crearMotorGuias({ memoria }), limitadorGuias, now, logger = false, plazoTurnoMs, reflexion, ajustes, origenEntorno = false, fabricaProveedor }) {
   const app = Fastify({ logger });
 
   // Host: el servidor solo escucha en loopback. Rechazar cualquier otro Host evita
@@ -67,11 +68,14 @@ export function buildApp({ config, agent, provider, memoria = createMemoriaNula(
     ok: true,
     memoria: memoria.habilitada,
     conocimiento: conocimiento.habilitado,
-    ...(provider ? { proveedor: provider.name, modelo: provider.model } : {}),
+    ...(provider && provider.activo !== false ? { proveedor: provider.name, modelo: provider.model } : {}),
     // Por qué se usa otra IA que la pedida (por ejemplo, LLM_PROVIDER sin su llave): la app lo muestra junto al chat.
     ...(provider?.aviso ? { aviso: provider.aviso } : {}),
   }));
-  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, motorGuias, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}) });
+  app.register(chatRoutes, { agent, limitador, memoria, provider, conocimiento, motorGuias, ...(now ? { now } : {}), ...(plazoTurnoMs ? { plazoTurnoMs } : {}), ...(reflexion !== undefined ? { reflexion } : {}) });
+  if (ajustes && typeof provider?.cambiar === 'function') {
+    app.register(ajustesRoutes, { ajustes, config, proveedor: provider, limitador: createLimitador({ max: 12 }), origenEntorno, fabrica: fabricaProveedor });
+  }
   app.register(memoriaRoutes, { memoria, limitador });
   app.register(enlacesRoutes, { revisorEnlaces });
   app.register(progresoRoutes, { memoria });

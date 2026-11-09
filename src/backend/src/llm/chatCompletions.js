@@ -20,13 +20,15 @@ const REINTENTABLES = new Set([429, 500, 502, 503, 504]);
 
 /** Error con un mensaje que se le puede mostrar a la persona (sin datos internos ni la llave). */
 function errorApi(nombre, claveEnv, status, detalle) {
+  const llave400 = status === 400 && /api[ _-]?key/i.test(String(detalle));
   const base = {
-    401: `La llave de ${nombre} no es válida. Revisá ${claveEnv} en src/backend/.env.`,
-    403: `${nombre} no dejó usar esta llave (403). Revisá ${claveEnv} y sus permisos.`,
+    401: `La llave de ${nombre} no es válida. Cambiala desde el menú de Kerni (Cambiar IA…) o revisá ${claveEnv} en src/backend/.env.`,
+    403: `${nombre} no dejó usar esta llave (403). Revisá la llave (menú de Kerni → Cambiar IA…, o ${claveEnv}) y sus permisos.`,
     402: `${nombre} dice que no hay créditos en la cuenta.`,
-  }[status] ?? `${nombre} respondió ${status}: ${detalle}`;
+  }[llave400 ? 401 : status] ?? `${nombre} respondió ${status}: ${detalle}`;
   const err = new Error(base);
-  if (status === 401 || status === 403) err.codigo = 'llave_invalida';
+  // Gemini responde 400 (no 401) cuando la llave no existe: "API key not valid. Please pass a valid API key".
+  if (status === 401 || status === 403 || llave400) err.codigo = 'llave_invalida';
   err.status = status;
   return err;
 }

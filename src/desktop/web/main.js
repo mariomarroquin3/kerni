@@ -12,6 +12,7 @@ import { crearVigilanteEnlaces, debeLeerPortapapeles } from './vigilancia.js';
 import { debeMostrarResumen, diaSV, textoResumenDiario } from './resumen.js';
 import { BOTONES_GUIA, etiquetaGuia, guiaVisible, pideGuia } from './guias.js';
 import { leerRespuestaSse } from './chat-stream.js';
+import { crearBienvenida } from './bienvenida-ui.js';
 
 const BACKEND = 'http://127.0.0.1:8788';
 /** Ninguna llamada al backend (memoria, enlaces, salud) espera más de esto: un backend colgado no deja la app esperando. */
@@ -1358,6 +1359,7 @@ if (enTauri) {
     await listen('pedir-red-local', verDispositivosRed);
     await listen('pedir-actualizaciones', verActualizaciones);
     await listen('pedir-reporte', verReporte);
+    await listen('pedir-ia', () => bienvenida.abrir());
     await listen('pedir-papelera', () => proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false));
     await listen('cursor-movio', ({ payload }) => {
       const dpr = window.devicePixelRatio || 1;
@@ -1464,6 +1466,7 @@ menuContextual.addEventListener('click', async (e) => {
         if (!pendiente) proponer({ accion: 'vaciar_papelera', motivo: 'Libera el espacio que ocupa la papelera.' }, false);
         break;
       case 'memoria': await verMemoria(); break;
+      case 'cambiar_ia': await bienvenida.abrir(); break;
       // Cerrar y ocultar los hace Rust: la interfaz no tiene permiso para manejar la ventana.
       case 'ocultar': await llamar('ocultar_kerni'); break;
       case 'cerrar': await llamar('salir_de_kerni'); break;
@@ -1495,6 +1498,10 @@ async function refrescarIA() {
 }
 refrescarIA();
 setInterval(refrescarIA, 60000);
+
+// Primer arranque: la persona elige qué IA usar (o ninguna). También se abre desde el menú ("Cambiar IA o llave…").
+const bienvenida = crearBienvenida({ backend: BACKEND, plazoMs: PLAZO_BACKEND_MS, alCambiar: refrescarIA, decir });
+bienvenida.iniciar({ forzar: new URLSearchParams(location.search).has('bienvenida') });
 
 // Progreso: se lee al arrancar y, si el backend no respondió, se vuelve a intentar cada minuto.
 pintarProgreso();
