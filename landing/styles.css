@@ -328,6 +328,16 @@ h1 {
   box-shadow: var(--sombra);
 }
 
+.globo__ejemplo {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
 /* Sections */
 .seccion {
   padding-block: clamp(3rem, 7vw, 5rem);
@@ -575,8 +585,8 @@ details p {
     grid-template-columns: 1fr;
   }
 
+  /* En el móvil el texto y el botón van primero: la descarga tiene que verse sin hacer scroll. */
   .heroe__figura {
-    order: -1;
     width: min(100%, 15rem);
   }
 

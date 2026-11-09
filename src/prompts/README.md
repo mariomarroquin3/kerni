@@ -68,3 +68,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-09 | PR #21: bring main into the welcome screen and installer branch | [2026-11-09-pr21-merge-main.md](2026-11-09-pr21-merge-main.md) |
 | 2026-11-09 | Installer release: bundle the backend, fix the notes and the landing | [2026-11-09-installer-release-fix.md](2026-11-09-installer-release-fix.md) |
 | 2026-11-09 | Fix: the AI status chip retries /health while the backend starts | [2026-11-09-health-chip-retry.md](2026-11-09-health-chip-retry.md) |
+| 2026-11-09 | Landing update after the v0.1.0 release | [2026-11-09-landing-v0-1-0.md](2026-11-09-landing-v0-1-0.md) |
