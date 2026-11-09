@@ -81,6 +81,8 @@ const DEFINICIONES = [
       + 'ver_duplicados_posibles (posibles archivos repetidos: mismo nombre y tamaño; no borra nada), '
       + 'ver_programas_sin_uso (programas instalados y cuándo se instalaron; el último uso no se puede leer), '
       + 'ver_consumo_bateria (en laptops: qué programas gastan más CPU y estado de la batería; aproximado), '
+      + 'ver_salud_bateria (cuánto se gastó la batería: capacidad actual frente a la original; en un escritorio dice que no hay batería), '
+      + 'ver_estado_seguridad (antivirus, definiciones, cortafuegos y control de cuentas según Windows; nunca decir que la PC está protegida, solo que no hay alertas en lo que se puede mirar), '
       + 'ver_reporte_soporte (resumen del equipo para mandárselo al técnico), '
       + 'ver_dispositivos_red (lista dispositivos en la red local: IPs y MACs de la tabla ARP + tu IP local real). '
       + 'Usa ver_dispositivos_red cuando la persona pregunte "cuál es mi ip", "mi ip", "qué dispositivos hay en la red", "quién está conectado", "escanea la red". '

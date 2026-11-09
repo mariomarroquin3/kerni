@@ -15,6 +15,8 @@ export const EXPLICACIONES = {
   ver_reporte_soporte: 'Arma un resumen de texto con el equipo, la memoria, el disco, los programas de inicio y la red, sin rutas ni tu nombre de usuario. Solo se copia si tocás el botón; nunca se envía solo.',
   ver_dispositivos_red: 'Lista los dispositivos de tu red local que tu PC vio hace poco, usando la caché ARP. No escanea la red ni entra a ninguno de ellos.',
   ver_arranque: 'Mira cuánto tardó tu último arranque y cuántos programas se abren al iniciar. Solo lee datos de Windows y no cambia el inicio.',
+  ver_salud_bateria: 'Compara cuánto carga hoy tu batería con cuánto cargaba nueva, según el informe de batería de Windows. Solo lee: no cambia ninguna configuración ni calibra nada.',
+  ver_estado_seguridad: 'Lee lo que Windows dice de su antivirus, su cortafuegos y el control de cuentas. No activa ni desactiva nada, y que no haya alertas no garantiza que la PC esté libre de problemas.',
   ver_salud_disco: 'Le pide a Windows la salud que reporta cada disco. No prueba, no repara y no borra nada; una lectura sin alertas tampoco garantiza que el disco esté bien.',
   ver_puntos_restauracion: 'Lista los puntos de restauración que existen, para saber si hay a dónde volver. No crea ni borra ninguno.',
   ver_duplicados_posibles: 'Busca archivos con el mismo nombre y tamaño en tus carpetas personales. Son solo posibles copias: no abre los archivos y no borra ninguno.',

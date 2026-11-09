@@ -62,3 +62,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-01 | MCP client and read-only Microsoft Learn search (opt-in, off by default) | [2026-11-01-mcp-microsoft-learn.md](2026-11-01-mcp-microsoft-learn.md) |
 | 2026-11-01 | Audit after the team changes, and the exit order fix | [2026-11-01-audit-and-exit-order.md](2026-11-01-audit-and-exit-order.md) |
 | 2026-11-09 | Repo review, branch rename and the AI provider fallback | [2026-11-09-review-and-ai-fallback.md](2026-11-09-review-and-ai-fallback.md) |
+| 2026-11-09 | Battery health and security status (read-only) | [2026-11-09-battery-health-and-security-status.md](2026-11-09-battery-health-and-security-status.md) |

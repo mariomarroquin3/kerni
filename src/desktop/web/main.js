@@ -4,7 +4,7 @@ import { estadoIA, motivoDeRespuesta } from './estado-ia.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
-import { armarReporte, describirNueva, detalleCache, textoLimpiezaCache, detallePapelera,panelActualizaciones, panelArranque, panelConsumoBateria, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludDisco } from './herramientas.js';
+import { armarReporte, describirNueva, detalleCache, textoLimpiezaCache, detallePapelera,panelActualizaciones, panelArranque, panelConsumoBateria, panelDispositivosRed, panelDuplicados, panelEquipo, panelEspacio, panelInicio, panelPuntos, panelProgramasSinUso, panelRed, panelReporte, panelSaludBateria, panelSaludDisco, panelSeguridad } from './herramientas.js';
 import { ayudaContada, contarAyuda, contarTarjeta, debeOfrecerLeccion, estadoDeHoy, listaVistos, marcarLeccion, marcarOfrecida, nivelDeXp, puedeMostrarConsejo, textoInsignia } from './progreso.js';
 import { proximosConsejos, siguienteConsejo } from './consejos.js';
 import { explicarAccion } from './explicaciones.js';
@@ -57,6 +57,8 @@ function demo(comando, args) {
   if (comando === 'ver_puntos_restauracion') return { puntos: [{ numero: 5, descripcion: 'Instalación de Office', fecha: '2026-10-28 18:01:00', tipo: 'instalación de un programa' }], nota: 'Solo los listo: Kerni no crea ni borra puntos de restauración.' };
   if (comando === 'ver_duplicados_posibles') return { grupos: [{ nombre: 'foto.jpg', tamanoMb: 2.1, cantidad: 2, totalMb: 4.2, copias: [{ ruta: 'C:/Users/demo/Downloads/foto.jpg', carpeta: '~/Downloads' }, { ruta: 'C:/Users/demo/Pictures/foto.jpg', carpeta: '~/Pictures' }] }], completa: true, nota: 'Mismo nombre y mismo tamaño no siempre es el mismo archivo: revisá antes de borrar.' };
   if (comando === 'ver_programas_sin_uso') return { programas: [{ nombre: 'Git', version: '2.4', editor: 'Git', instalado: '2022-03-01' }], total: 1, usoDisponible: false, nota: 'Windows no me dice cuándo usaste cada programa sin permisos de administrador, así que solo muestro cuándo se instaló.' };
+  if (comando === 'ver_salud_bateria') return { tiene: true, nombre: 'DELL XPHX837', disenoMwh: 54000, cargaMwh: 36390, ciclos: 456, saludPct: 67, nivel: 'desgaste', nota: 'Conserva el 67 % de su capacidad original: ya dura bastante menos que cuando era nueva. Es esperable con el uso; si te falta autonomía, conviene pensar en cambiarla.' };
+  if (comando === 'ver_estado_seguridad') return { revisiones: [{ nombre: 'Antivirus', estado: 'ok', detalle: 'Windows Defender está activo con protección en tiempo real.' }, { nombre: 'Definiciones del antivirus', estado: 'ok', detalle: 'Están al día (0 días).' }, { nombre: 'Cortafuegos', estado: 'alerta', detalle: 'El cortafuegos de Windows está apagado en: redes públicas.' }, { nombre: 'Control de cuentas (UAC)', estado: 'ok', detalle: 'Está activado: los cambios importantes te piden permiso.' }], alertas: 1, nota: 'Hay 1 cosa para revisar. Kerni solo mira: no cambia ninguna configuración.' };
   if (comando === 'ver_consumo_bateria') return { hayBateria: true, porcentaje: 62, cargando: false, enchufada: false, programas: [{ nombre: 'chrome.exe', cpuPromedio: 12.4 }], muestras: 3, nota: 'Aproximado, según la CPU de cada programa en unas pocas muestras. No mide cuánta energía gasta cada uno.' };
   if (comando === 'ver_arranque') return { duracionS: 48.2, fecha: '2026-10-31 08:02:11', programasActivos: 7, programasTotal: 12, nota: 'Lo tomé del último registro de arranque de Windows.' };
   if (comando === 'programas_inicio') {
@@ -965,6 +967,8 @@ const verSaludDisco = () => conPanel('Salud de tus discos', 'Mirando la salud de
 const verPuntos = () => conPanel('Puntos de restauración', 'Mirando los puntos de restauración…', () => llamar('ver_puntos_restauracion'), panelPuntos);
 const verDuplicados = () => conPanel('Archivos repetidos', 'Buscando archivos con el mismo nombre y tamaño… puede tardar unos segundos.', () => llamar('ver_duplicados_posibles'), panelDuplicados);
 const verProgramasSinUso = () => conPanel('Programas instalados', 'Leyendo la lista de programas…', () => llamar('ver_programas_sin_uso'), panelProgramasSinUso);
+const verSaludBateria = () => conPanel('Salud de la batería', 'Mirando cuánto se gastó tu batería… unos segundos.', () => llamar('ver_salud_bateria'), panelSaludBateria);
+const verSeguridad = () => conPanel('Seguridad de Windows', 'Revisando el antivirus y el cortafuegos…', () => llamar('ver_estado_seguridad'), panelSeguridad);
 const verBateria = () => conPanel('Consumo con batería', 'Midiendo qué programas gastan más CPU… unos segundos.', () => llamar('ver_consumo_bateria'), panelConsumoBateria);
 const verArranque = () => conPanel('Por qué tarda en prender', 'Mirando tu último arranque…', () => llamar('ver_arranque'), panelArranque);
 /** Junta lo que ya sabe la app (equipo, memoria, disco, inicio y red). Lo que no se pueda leer simplemente no aparece. */
@@ -988,6 +992,8 @@ const VISTAS = {
   ver_duplicados_posibles: verDuplicados,
   ver_programas_sin_uso: verProgramasSinUso,
   ver_consumo_bateria: verBateria,
+  ver_salud_bateria: verSaludBateria,
+  ver_estado_seguridad: verSeguridad,
 };
 $('panel-cerrar').addEventListener('click', () => { $('panel').hidden = true; });
 
