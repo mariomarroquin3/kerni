@@ -1,6 +1,21 @@
 // Estado de la IA que se muestra junto al chat. Lógica pura (sin DOM, testable).
 // Fuentes: /health (¿hay un proveedor de IA configurado?) y la última respuesta de /chat (¿se agotó el cupo?).
 
+export const REFRESCO_NORMAL_MS = 60_000;
+export const REFRESCO_RAPIDO_MS = 3_000;
+/** Con el instalador, el backend se enciende unos segundos DESPUÉS de la ventana: se reintenta rápido durante ~1 minuto. */
+export const REINTENTOS_RAPIDOS = 20;
+
+/**
+ * Cuánto esperar hasta volver a preguntar `/health`. Sin respuesta (el backend todavía arranca) se reintenta cada pocos segundos;
+ * con respuesta, o pasado ese minuto, una vez por minuto. Antes la etiqueta decía "Sin conexión con Kerni" hasta un minuto entero.
+ * @param {object|null|undefined} health lo último que se leyó (`null` = no hubo respuesta)
+ * @param {number} intentosFallidos cuántas veces seguidas no hubo respuesta
+ */
+export function proximoRefresco(health, intentosFallidos = 0) {
+  return health === null && intentosFallidos < REINTENTOS_RAPIDOS ? REFRESCO_RAPIDO_MS : REFRESCO_NORMAL_MS;
+}
+
 export const TEXTO_IA = {
   comprobando: 'IA: comprobando…',
   sin_conexion: 'Sin conexión con Kerni',

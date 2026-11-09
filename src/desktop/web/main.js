@@ -1,6 +1,6 @@
 import { calcularAnimo, conInicioActivos, crearDetectorPanico, crearNivelCarga, duracionGlobo, modoKerni, MODOS_REPOSO, snapshotParaBackend, sospechosos } from './estado.js';
 import { createCharacter } from './character.js';
-import { estadoIA, motivoDeRespuesta } from './estado-ia.js';
+import { estadoIA, motivoDeRespuesta, proximoRefresco } from './estado-ia.js';
 import { avisoReinicio, crearVigilanteRam } from './reglas.js';
 import { enlaceParaRevisar, esTiempoAgotado, MENSAJE_TARDO, resumenEnlace, responderLocal, textoDeError } from './intenciones.js';
 import { NIVELES, pistaDeArchivo, resumenArchivos, tamanoLegible } from './archivos.js';
@@ -1487,17 +1487,21 @@ function pintarIA() {
   chip.dataset.estado = e.clave;
   chip.title = e.detalle;
 }
+let intentosIA = 0; // veces seguidas sin respuesta de /health
+let timerIA = null;
 async function refrescarIA() {
+  clearTimeout(timerIA); // también la llama la bienvenida al cambiar de IA: que no queden dos relojes
   try {
     const res = await fetch(`${BACKEND}/health`, { signal: AbortSignal.timeout(PLAZO_BACKEND_MS) });
     saludIA = res.ok ? await res.json() : null;
   } catch {
     saludIA = null;
   }
+  intentosIA = saludIA === null ? intentosIA + 1 : 0;
   pintarIA();
+  timerIA = setTimeout(refrescarIA, proximoRefresco(saludIA, intentosIA));
 }
 refrescarIA();
-setInterval(refrescarIA, 60000);
 
 // Primer arranque: la persona elige qué IA usar (o ninguna). También se abre desde el menú ("Cambiar IA o llave…").
 const bienvenida = crearBienvenida({ backend: BACKEND, plazoMs: PLAZO_BACKEND_MS, alCambiar: refrescarIA, decir });
