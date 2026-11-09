@@ -14,6 +14,7 @@
     "test": "vitest run",
     "probar-llm": "node --env-file-if-exists=.env scripts/probar-llm.js",
     "indexar": "node --env-file-if-exists=.env scripts/indexar.js",
+    "evaluar-rag": "node --env-file-if-exists=.env scripts/evaluar-rag.js",
     "probar-memoria": "node --env-file-if-exists=.env scripts/probar-memoria.js",
     "probar-supabase": "node --env-file-if-exists=.env scripts/probar-supabase.js",
     "manuales": "node scripts/descargar-manuales.js",
