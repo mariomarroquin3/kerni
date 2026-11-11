@@ -72,3 +72,4 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-09 | More screens and tools Kerni can open (23 settings pages, abrir_herramienta) | [2026-11-09-open-settings-and-tools.md](2026-11-09-open-settings-and-tools.md) |
 | 2026-11-09 | Questions guide: what to ask Kerni, expected answers and the tests behind each | [2026-11-09-questions-guide.md](2026-11-09-questions-guide.md) |
 | 2026-11-09 | Measure the knowledge search (evaluar-rag) and add Wi-Fi, Bluetooth, sound and display guides | [2026-11-09-rag-evaluation-and-guides.md](2026-11-09-rag-evaluation-and-guides.md) |
+| 2026-11-10 | Transparent app icon (no background) | [2026-11-10-transparent-app-icon.md](2026-11-10-transparent-app-icon.md) |
