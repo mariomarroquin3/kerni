@@ -7,6 +7,16 @@
   <meta name="description" content="Kerni es una mascota de escritorio para Windows que revisa cómo está tu compu, te explica lo que pasa y te pide permiso antes de cambiar algo.">
   <meta name="color-scheme" content="light dark">
   <meta name="referrer" content="no-referrer">
+  <link rel="canonical" href="https://mariomarroquin3.github.io/kerni/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_SV">
+  <meta property="og:site_name" content="Kerni">
+  <meta property="og:title" content="Kerni: la mascota que cuida tu compu">
+  <meta property="og:description" content="Revisa cómo está tu compu con Windows, te explica lo que pasa y te pide permiso antes de cambiar algo.">
+  <meta property="og:url" content="https://mariomarroquin3.github.io/kerni/">
+  <meta property="og:image" content="https://mariomarroquin3.github.io/kerni/assets/kerni.png">
+  <meta property="og:image:alt" content="Kerni, un robot pequeño de cuerpo blanco y gorra azul, con cara de pantalla.">
+  <meta name="twitter:card" content="summary">
   <link rel="icon" type="image/png" href="assets/kerni.png">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -22,7 +32,7 @@
       <nav aria-label="Secciones">
         <ul class="menu">
           <li><a href="#que-hace">Qué hace</a></li>
-          <li><a href="#proteccion">Cómo te protege</a></li>
+          <li><a href="#proteccion">Protección</a></li>
           <li><a href="#instalar">Instalar</a></li>
           <li><a href="#llave">Tu llave</a></li>
           <li><a href="#preguntas">Preguntas</a></li>
@@ -35,24 +45,27 @@
     <section class="heroe" id="inicio" aria-labelledby="titulo">
       <div class="contenedor heroe__fila">
         <div class="heroe__texto">
-          <p class="etiqueta">Versión de prueba 0.1</p>
+          <p class="etiqueta">Primera versión · 0.1.0</p>
           <h1 id="titulo">Kerni</h1>
           <p class="promesa">Una mascota que cuida tu compu y te pide permiso antes de tocar algo.</p>
           <p class="bajada">Vive en una esquina de tu pantalla, revisa la memoria, el disco y la batería, y te explica en palabras sencillas qué está pasando. Si algo se puede mejorar, te lo propone; vos decidís.</p>
           <div class="acciones">
-            <a class="boton boton--principal" href="https://github.com/mariomarroquin3/kerni/releases/latest">
+            <a class="boton boton--principal" href="https://github.com/mariomarroquin3/kerni/releases/download/v0.1.0/Kerni_0.1.0_x64-setup.exe">
               <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Descargar para Windows
             </a>
             <a class="boton boton--secundario" href="#instalar">Cómo instalarlo</a>
           </div>
-          <p class="nota">Windows 10 u 11 · La app no cuesta · El chat usa tu propia llave (Gemini, OpenRouter o Anthropic)</p>
+          <p class="nota">Versión 0.1.0 · 28 MB · Windows 10 u 11 · La app no cuesta · El chat usa tu propia llave (Gemini, OpenRouter o Anthropic). <a href="https://github.com/mariomarroquin3/kerni/releases">Otras versiones</a></p>
         </div>
         <figure class="heroe__figura">
           <div class="pantallita">
             <img src="assets/kerni.png" alt="Kerni, un robot pequeño de cuerpo blanco y gorra azul, con cara de pantalla y ojos celestes, sonriendo." width="480" height="480">
           </div>
-          <figcaption class="globo">“Tu disco está al 86 %. ¿Querés que te muestre los archivos grandes que no usás?”</figcaption>
+          <figcaption class="globo">
+            <span class="globo__ejemplo">Ejemplo de lo que dice Kerni</span>
+            “Tu disco está al 86 %. ¿Querés que te muestre los archivos grandes que no usás?”
+          </figcaption>
         </figure>
       </div>
     </section>
@@ -128,7 +141,7 @@
         <ol class="pasos">
           <li>
             <h3>Descargá el instalador</h3>
-            <p>Tocá <a href="https://github.com/mariomarroquin3/kerni/releases/latest">Descargar para Windows</a>. Se abre la página de la última versión en GitHub; bajá el archivo que termina en <code>_x64-setup.exe</code>.</p>
+            <p>Tocá <a href="https://github.com/mariomarroquin3/kerni/releases/download/v0.1.0/Kerni_0.1.0_x64-setup.exe">Descargar para Windows</a>. El archivo se llama <code>Kerni_0.1.0_x64-setup.exe</code> y pesa unos 28 MB. Si preferís el instalador <code>.msi</code>, lo encontrás en la <a href="https://github.com/mariomarroquin3/kerni/releases/latest">página de la última versión</a>.</p>
           </li>
           <li>
             <h3>Abrilo</h3>

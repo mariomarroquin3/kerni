@@ -87,7 +87,9 @@ const DEFINICIONES = [
       + 'ver_dispositivos_red (lista dispositivos en la red local: IPs y MACs de la tabla ARP + tu IP local real). '
       + 'Usa ver_dispositivos_red cuando la persona pregunte "cuál es mi ip", "mi ip", "qué dispositivos hay en la red", "quién está conectado", "escanea la red". '
       + 'Usa ver_estado_red cuando pregunte "tengo internet", "qué tan rápido es mi internet", "mi wifi está lento", "problemas de conexión". '
-      + 'abrir_ajuste abre una pantalla de Configuración de Windows (pasá destino: almacenamiento, aplicaciones, inicio, actualizaciones, red, energia o recuperacion). '
+      + 'abrir_ajuste abre una pantalla de Configuración de Windows (pasá destino, solo uno de: almacenamiento, aplicaciones, inicio, actualizaciones, red, energia, recuperacion, pantalla, sonido, notificaciones, bateria, acerca, wifi, bluetooth, impresoras, apps_predeterminadas, fecha_hora, seguridad_windows, solucionador, barra_tareas, discos, historial_actualizaciones, mouse). '
+      + 'abrir_herramienta abre el Administrador de tareas, el Administrador de dispositivos o el Liberador de espacio (pasá herramienta: administrador_tareas, administrador_dispositivos o liberador_espacio). '
+      + 'Solo ofrecé abrir lo que está en esas listas; si piden otra cosa, explicá el camino a mano y no digas que la abrís. '
       + 'vaciar_papelera borra para siempre lo que hay en la papelera.',
     parameters: toInputSchema(ProponerAccionSchema),
   },

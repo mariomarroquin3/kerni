@@ -8,7 +8,7 @@ Static download page for Kerni (Spanish, for El Salvador). Plain HTML and CSS: n
 | `styles.css` | Colors as CSS custom properties on `:root`, with a dark-mode override (`prefers-color-scheme: dark`) |
 | `assets/kerni.png` | Kerni in idle mode, 480 x 480 (resized from `src/desktop/personaje/kerni-rive/fuente/build/modo_idle.png`) |
 
-The download button points to `https://github.com/mariomarroquin3/kerni/releases/latest`, so it keeps working whatever the installer file is called. Releases are created by `.github/workflows/release.yml` when a `v*.*.*` tag is pushed.
+The download button and step 1 point straight to the installer of one release (`.../releases/download/v0.1.0/Kerni_0.1.0_x64-setup.exe`), so the visitor gets the file without an extra GitHub page. **On every new release, update that version in `index.html`** (hero button, the note under it, the hero label and step 1); the "Otras versiones" and ".msi" links keep pointing to the releases page. The page also has Open Graph tags (link preview) with absolute URLs under `https://mariomarroquin3.github.io/kerni/`. Releases are created by `.github/workflows/release.yml` when a `v*.*.*` tag is pushed.
 
 ## Preview locally
 

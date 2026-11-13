@@ -638,6 +638,22 @@ pub fn direccion_de_ajuste(destino: &str) -> Option<&'static str> {
         "red" => Some("ms-settings:network"),
         "energia" => Some("ms-settings:powersleep"),
         "recuperacion" => Some("ms-settings:recovery"),
+        "pantalla" => Some("ms-settings:display"),
+        "sonido" => Some("ms-settings:sound"),
+        "notificaciones" => Some("ms-settings:notifications"),
+        "bateria" => Some("ms-settings:batterysaver-usagedetails"),
+        "acerca" => Some("ms-settings:about"),
+        "wifi" => Some("ms-settings:network-wifi"),
+        "bluetooth" => Some("ms-settings:bluetooth"),
+        "impresoras" => Some("ms-settings:printers"),
+        "apps_predeterminadas" => Some("ms-settings:defaultapps"),
+        "fecha_hora" => Some("ms-settings:dateandtime"),
+        "seguridad_windows" => Some("ms-settings:windowsdefender"),
+        "solucionador" => Some("ms-settings:troubleshoot"),
+        "barra_tareas" => Some("ms-settings:taskbar"),
+        "discos" => Some("ms-settings:disksandvolumes"),
+        "historial_actualizaciones" => Some("ms-settings:windowsupdate-history"),
+        "mouse" => Some("ms-settings:mousetouchpad"),
         _ => None,
     }
 }
@@ -646,6 +662,35 @@ pub fn direccion_de_ajuste(destino: &str) -> Option<&'static str> {
 pub fn abrir_ajuste(destino: String) -> Result<(), String> {
     let direccion = direccion_de_ajuste(destino.trim()).ok_or_else(|| "Ese ajuste no está en mi lista".to_string())?;
     abrir_direccion(direccion)
+}
+
+/// Herramientas de Windows que se pueden abrir: lista cerrada. Devuelve el programa (siempre de System32) y sus argumentos fijos;
+/// la interfaz y el backend mandan un nombre, nunca una ruta ni argumentos.
+pub fn herramienta_de_windows(nombre: &str) -> Option<(&'static str, &'static [&'static str])> {
+    match nombre {
+        "administrador_tareas" => Some(("taskmgr.exe", &[])),
+        "administrador_dispositivos" => Some(("mmc.exe", &["devmgmt.msc"])),
+        "liberador_espacio" => Some(("cleanmgr.exe", &[])),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+pub fn abrir_herramienta(herramienta: String) -> Result<(), String> {
+    let (programa, argumentos) = herramienta_de_windows(herramienta.trim()).ok_or_else(|| "Esa herramienta no está en mi lista".to_string())?;
+    abrir_programa_de_windows(programa, argumentos)
+}
+
+#[cfg(windows)]
+fn abrir_programa_de_windows(programa: &str, argumentos: &[&str]) -> Result<(), String> {
+    let raiz = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let ruta = std::path::Path::new(&raiz).join("System32").join(programa);
+    Command::new(ruta).args(argumentos).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+fn abrir_programa_de_windows(_programa: &str, _argumentos: &[&str]) -> Result<(), String> {
+    Err(SOLO_WINDOWS.to_string())
 }
 
 #[cfg(windows)]
@@ -661,6 +706,17 @@ fn abrir_direccion(_direccion: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn solo_abre_las_herramientas_de_la_lista_cerrada() {
+        assert_eq!(herramienta_de_windows("administrador_tareas"), Some(("taskmgr.exe", &[][..])));
+        assert_eq!(herramienta_de_windows("administrador_dispositivos"), Some(("mmc.exe", &["devmgmt.msc"][..])));
+        assert_eq!(herramienta_de_windows("liberador_espacio"), Some(("cleanmgr.exe", &[][..])));
+        for malo in ["", "cmd.exe", "powershell", "regedit", "taskmgr.exe", "C:\\Windows\\System32\\cmd.exe", "administrador_tareas && calc", "../x"] {
+            assert!(herramienta_de_windows(malo).is_none(), "{malo}");
+        }
+        assert!(abrir_herramienta("regedit".to_string()).is_err());
+    }
 
     #[test]
     fn limpia_texto_del_sistema() {
@@ -869,7 +925,12 @@ fe80::1 dev eth0 lladdr 00:11:22:33:44:55 REACHABLE";
         assert_eq!(direccion_de_ajuste("almacenamiento"), Some("ms-settings:storagesense"));
         assert_eq!(direccion_de_ajuste("recuperacion"), Some("ms-settings:recovery"));
         assert_eq!(direccion_de_ajuste("actualizaciones"), Some("ms-settings:windowsupdate"));
-        for malo in ["", "cmd.exe", "ms-settings:privacy", "http://malo.com", "almacenamiento && calc", "../x"] {
+        for nuevo in ["pantalla","sonido","notificaciones","bateria","acerca","wifi","bluetooth","impresoras","apps_predeterminadas","fecha_hora","seguridad_windows","solucionador","barra_tareas","discos","historial_actualizaciones","mouse"] {
+            assert!(direccion_de_ajuste(nuevo).is_some_and(|d| d.starts_with("ms-settings:")), "{nuevo}");
+        }
+        assert_eq!(direccion_de_ajuste("impresoras"), Some("ms-settings:printers"));
+        assert_eq!(direccion_de_ajuste("seguridad_windows"), Some("ms-settings:windowsdefender"));
+        for malo in ["", "cmd.exe", "ms-settings:privacy", "privacidad", "cuentas", "http://malo.com", "almacenamiento && calc", "../x"] {
             assert_eq!(direccion_de_ajuste(malo), None, "{malo}");
         }
         assert!(abrir_ajuste("calc.exe".to_string()).is_err());

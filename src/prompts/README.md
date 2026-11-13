@@ -68,3 +68,9 @@ Cada sesión con IA que cambia el repo deja aquí un archivo `AAAA-MM-DD-tema.md
 | 2026-11-09 | PR #21: bring main into the welcome screen and installer branch | [2026-11-09-pr21-merge-main.md](2026-11-09-pr21-merge-main.md) |
 | 2026-11-09 | Installer release: bundle the backend, fix the notes and the landing | [2026-11-09-installer-release-fix.md](2026-11-09-installer-release-fix.md) |
 | 2026-11-09 | Fix: the AI status chip retries /health while the backend starts | [2026-11-09-health-chip-retry.md](2026-11-09-health-chip-retry.md) |
+| 2026-11-09 | Landing update after the v0.1.0 release | [2026-11-09-landing-v0-1-0.md](2026-11-09-landing-v0-1-0.md) |
+| 2026-11-09 | More screens and tools Kerni can open (23 settings pages, abrir_herramienta) | [2026-11-09-open-settings-and-tools.md](2026-11-09-open-settings-and-tools.md) |
+| 2026-11-09 | Questions guide: what to ask Kerni, expected answers and the tests behind each | [2026-11-09-questions-guide.md](2026-11-09-questions-guide.md) |
+| 2026-11-09 | Measure the knowledge search (evaluar-rag) and add Wi-Fi, Bluetooth, sound and display guides | [2026-11-09-rag-evaluation-and-guides.md](2026-11-09-rag-evaluation-and-guides.md) |
+| 2026-11-10 | Transparent app icon (no background) | [2026-11-10-transparent-app-icon.md](2026-11-10-transparent-app-icon.md) |
+| 2026-11-12 | PDF with the business idea and the features of Kerni | [2026-11-12-business-and-features-pdf.md](2026-11-12-business-and-features-pdf.md) |

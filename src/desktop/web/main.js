@@ -82,7 +82,7 @@ function demo(comando, args) {
   if (comando === 'actualizaciones_windows') return [{ titulo: 'Actualización acumulativa 2026-10 para Windows 11', mb: 512, critica: true, reinicio: true }, { titulo: 'Actualización de definiciones de seguridad', mb: 28, critica: false, reinicio: false }];
   if (comando === 'papelera') return { elementos: 7, mb: 120 };
   if (comando === 'vaciar_papelera') return { elementos: 7, mb: 120 };
-  if (comando === 'abrir_ajuste' || comando === 'mostrar_en_carpeta') return undefined;
+  if (comando === 'abrir_ajuste' || comando === 'abrir_herramienta' || comando === 'mostrar_en_carpeta') return undefined;
   if (comando === 'terminar_proceso') return `Cerré ${args.nombre} (demo)`;
   if (comando === 'congelar_proceso') return `Congelé ${args.nombre} (demo). Lo pausé, no lo cerré.`;
   if (comando === 'medir_cache_navegador') return { archivos: 1280, mb: 412.5, carpetas: 4, completa: true };
@@ -754,6 +754,9 @@ async function ejecutar(a) {
   } else if (a.accion === 'abrir_ajuste') {
     await llamar('abrir_ajuste', { destino: a.destino });
     decir('Listo, te lo abrí en los ajustes de Windows.', 6000);
+  } else if (a.accion === 'abrir_herramienta') {
+    await llamar('abrir_herramienta', { herramienta: a.herramienta });
+    decir('Listo, te la abrí. Lo que hagas ahí lo decidís vos.', 6000);
   } else if (a.accion === 'vaciar_papelera') {
     const r = await llamar('vaciar_papelera', { elementos: a.elementos, mb: a.mb });
     decir(r.elementos ? `Listo, vacié la papelera y liberé ${tamanoLegible(r.mb)}.` : 'La papelera ya estaba vacía.');
