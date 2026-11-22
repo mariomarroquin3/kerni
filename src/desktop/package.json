@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@rive-app/canvas-single": "^2.49.3",
-    "@tauri-apps/api": "^2.12.1"
+    "@tauri-apps/api": "^2.12.5"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",
